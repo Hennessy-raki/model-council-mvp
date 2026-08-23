@@ -1,0 +1,109 @@
+# Architecture
+
+## 控制平面与认知平面
+
+Model Council 把系统分为两部分：
+
+1. 认知平面：管理员模型和专业模型负责推理、提出计划与生成成果。
+2. 控制平面：确定性 Python 程序负责身份、权限、依赖、消息、超时和持久化。
+
+这意味着管理员模型可以请求任务分派，但只有编排器能够真正调用某个 agent。
+
+## 一次运行的生命周期
+
+```text
+run.created
+  -> manager.plan.requested
+  -> tasks.created
+  -> task.assigned
+  -> task.completed / task.failed
+  -> reviewer.assigned
+  -> review.completed
+  -> manager.synthesis.requested
+  -> run.completed / run.failed
+```
+
+每一步都会记录到 SQLite。文本成果同时写入内容寻址 Artifact 仓库。
+
+## 模型通信
+
+模型通信不是模型之间建立 socket，而是：
+
+1. 发送者把结果提交给编排器；
+2. 编排器保存结果并生成 Artifact；
+3. 编排器写入结构化消息；
+4. 接收者获得经过筛选的上下文和 Artifact 引用。
+
+因此可以替换任意模型，而不改变上层工作流。
+
+## Adapter
+
+每个模型承载工具都实现同一个接口：
+
+```python
+class AgentAdapter:
+    def invoke(self, request: AgentRequest) -> AgentResponse:
+        ...
+```
+
+当前实现：
+
+- `MockAdapter`：离线演示与测试；
+- `CliAdapter`：Codex、Claude、Gemini、OpenCode 等 CLI；
+- `OpenAICompatibleAdapter`：Responses 或 Chat Completions 风格 HTTP API。
+
+下一阶段可增加：
+
+- `CodexAppServerAdapter`；
+- `A2AAdapter`；
+- `MCPToolBroker`；
+- 各厂商原生 SDK Adapter。
+
+## 任务图
+
+管理员返回任务键和依赖：
+
+```json
+{
+  "tasks": [
+    {
+      "key": "architecture",
+      "title": "设计架构",
+      "instruction": "定义模块与数据流",
+      "agent": "architect",
+      "depends_on": []
+    },
+    {
+      "key": "implementation",
+      "title": "制定实现方案",
+      "instruction": "根据架构给出实现步骤",
+      "agent": "implementer",
+      "depends_on": ["architecture"]
+    }
+  ]
+}
+```
+
+编排器校验 agent 名称和依赖，按依赖分波执行。同一波任务可以并行。
+
+## Artifact
+
+Artifact 路径由内容哈希决定：
+
+```text
+runtime/artifacts/ab/abcdef...md
+```
+
+SQLite 保存逻辑名称、媒体类型、任务、哈希和相对路径。相同内容可以复用同一个物理文件。
+
+## 下一阶段边界
+
+优先级顺序：
+
+1. Codex `exec` 单模型试点；
+2. Codex App Server 持久会话；
+3. 第二个真实厂商 Adapter；
+4. Git worktree 隔离；
+5. 人工审批与预算；
+6. A2A 远程互操作；
+7. Web 控制台。

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Model Council Task Message",
+  "type": "object",
+  "required": [
+    "message_id",
+    "run_id",
+    "sender",
+    "recipient",
+    "type",
+    "body"
+  ],
+  "properties": {
+    "message_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "task_id": {"type": ["string", "null"]},
+    "sender": {"type": "string"},
+    "recipient": {"type": "string"},
+    "type": {
+      "enum": [
+        "task_assignment",
+        "task_result",
+        "question",
+        "answer",
+        "review",
+        "decision",
+        "error"
+      ]
+    },
+    "body": {"type": "object"},
+    "artifact_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

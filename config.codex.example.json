@@ -1,0 +1,47 @@
+{
+  "project_name": "model-council-codex-pilot",
+  "state_dir": "runtime-codex-pilot",
+  "max_parallel": 2,
+  "manager": "manager",
+  "reviewer": "reviewer",
+  "agents": {
+    "manager": {
+      "type": "mock",
+      "role": "管理员",
+      "description": "第一轮仍使用模拟管理员，避免一次引入过多变量。",
+      "capabilities": ["plan", "synthesize"],
+      "boundaries": ["不得直接修改用户项目"]
+    },
+    "codex_architect": {
+      "type": "cli",
+      "role": "Codex架构师",
+      "description": "通过 Codex 非交互模式完成一个只读分析任务。",
+      "capabilities": ["architecture", "code_analysis"],
+      "boundaries": ["只读", "不得部署", "不得删除文件"],
+      "command": [
+        "codex",
+        "exec",
+        "--ephemeral",
+        "--skip-git-repo-check",
+        "--sandbox",
+        "read-only",
+        "-"
+      ],
+      "timeout_seconds": 600
+    },
+    "implementer": {
+      "type": "mock",
+      "role": "实现工程师",
+      "description": "负责工程落地建议。",
+      "capabilities": ["implementation", "testing"],
+      "boundaries": ["只提交建议"]
+    },
+    "reviewer": {
+      "type": "mock",
+      "role": "独立审查员",
+      "description": "审查各模型输出。",
+      "capabilities": ["review", "verification"],
+      "boundaries": ["不执行外部写操作"]
+    }
+  }
+}

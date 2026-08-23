@@ -1,0 +1,44 @@
+{
+  "project_name": "model-council-demo",
+  "state_dir": "runtime",
+  "max_parallel": 3,
+  "manager": "manager",
+  "reviewer": "reviewer",
+  "agents": {
+    "manager": {
+      "type": "mock",
+      "role": "管理员",
+      "description": "拆解目标、划分边界、协调冲突并整合最终答案。",
+      "capabilities": ["plan", "route", "synthesize"],
+      "boundaries": ["不得直接修改用户项目", "不得绕过编排器扩大权限"]
+    },
+    "architect": {
+      "type": "mock",
+      "role": "架构师",
+      "description": "负责系统边界、模块关系、数据流和技术风险。",
+      "capabilities": ["architecture", "risk_analysis"],
+      "boundaries": ["只提交设计建议，不直接部署"]
+    },
+    "implementer": {
+      "type": "mock",
+      "role": "实现工程师",
+      "description": "负责落地步骤、代码结构和工程实现建议。",
+      "capabilities": ["implementation", "testing"],
+      "boundaries": ["MVP中只提交方案和补丁建议，不修改外部目录"]
+    },
+    "researcher": {
+      "type": "mock",
+      "role": "研究员",
+      "description": "负责备选方案、兼容性和现有生态调查。",
+      "capabilities": ["research", "comparison"],
+      "boundaries": ["必须标记不确定信息"]
+    },
+    "reviewer": {
+      "type": "mock",
+      "role": "独立审查员",
+      "description": "检查不同模型结论之间的冲突、遗漏和不可执行假设。",
+      "capabilities": ["review", "verification"],
+      "boundaries": ["不替代管理员做最终业务决策"]
+    }
+  }
+}

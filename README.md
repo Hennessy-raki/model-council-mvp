@@ -1,0 +1,168 @@
+# Model Council MVP
+
+Model Council 是一个本地优先的多模型协作雏形。它不要求模型彼此建立网络连接，而是由一个管理员模型通过统一消息、共享任务库和 Artifact 文件，把不同模型的成果传递给彼此。
+
+跨会话继续开发时，请先阅读：
+
+- [`AGENTS.md`](AGENTS.md)
+- [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/START_HERE_NEXT_SESSION.md`](docs/START_HERE_NEXT_SESSION.md)
+
+当前版本已经具备：
+
+- 管理员模型生成结构化任务计划；
+- 多个工作模型并行执行；
+- 任务依赖和分波调度；
+- 独立审查模型复核所有成果；
+- 管理员模型综合最终答案；
+- SQLite 持久化运行、任务和消息；
+- SHA-256 内容寻址的 Artifact 文件库；
+- `mock`、任意 `cli` 和 OpenAI-compatible HTTP 三类适配器；
+- 模型能力和边界声明；
+- 超时、失败记录和确定性调度；
+- 不依赖第三方 Python 包的可运行演示。
+
+## 架构
+
+```text
+用户目标
+   |
+管理员模型 -- 生成 JSON 任务计划
+   |
+确定性编排器 -- 校验身份、依赖、并发和边界
+   |
+   +-- 架构模型 ----+
+   +-- 实现模型 ----+--> Artifact 仓库 + SQLite 消息黑板
+   +-- 研究模型 ----+
+   |
+审查模型
+   |
+管理员模型 -- 最终综合
+```
+
+管理员模型负责提出计划，Python 编排器负责执行规则。模型无法绕过编排器直接扩大权限。
+
+## 立即运行
+
+项目只要求 Python 3.11 或更新版本。
+
+```powershell
+cd C:\path\to\model-council-mvp
+python -m model_council demo "设计一个支持多模型协作的本地项目管理工具"
+```
+
+输出会写入：
+
+```text
+runtime/
+├─ council.db
+└─ artifacts/
+```
+
+查看 agent 清单：
+
+```powershell
+python -m model_council agents --config config.example.json
+```
+
+运行自定义目标：
+
+```powershell
+python -m model_council run "分析并设计一个个人知识库应用" --config config.example.json
+```
+
+查看最近运行：
+
+```powershell
+python -m model_council runs --config config.example.json
+```
+
+查看指定运行：
+
+```powershell
+python -m model_council status <RUN_ID> --config config.example.json
+```
+
+运行测试：
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+## 接入 Codex
+
+复制 `config.codex.example.json` 后修改。该示例通过 stdin 把完整任务交给 `codex exec -`：
+
+```json
+{
+  "type": "cli",
+  "command": [
+    "codex",
+    "exec",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--sandbox",
+    "read-only",
+    "-"
+  ]
+}
+```
+
+第一轮建议只让一个角色使用真实 Codex，其他角色继续使用 mock。确认运行、权限和输出都稳定后，再逐个替换。
+
+Codex 默认应保持只读。需要让执行 agent 修改项目时，应给它独立 Git worktree，并在人工确认后才启用工作区写权限。
+
+如果在 Codex Desktop 自身的受限任务环境中调用打包的 `codex.exe` 出现
+Windows“拒绝访问”，请在普通用户 PowerShell 中运行本项目，或改用后续的
+App Server/API Adapter。这是宿主进程权限边界，不代表 CLI Adapter 的参数协议失败。
+
+## 接入 OpenAI-compatible API
+
+不要把密钥写进 JSON。配置环境变量：
+
+```powershell
+$env:MODEL_COUNCIL_API_KEY = "..."
+```
+
+然后使用：
+
+```json
+{
+  "type": "openai_compatible",
+  "base_url": "https://example.com/v1",
+  "api_key_env": "MODEL_COUNCIL_API_KEY",
+  "model": "your-model-id",
+  "api_style": "responses"
+}
+```
+
+可选的 `api_style`：
+
+- `responses`
+- `chat_completions`
+
+并非所有声称兼容 OpenAI API 的服务都完整支持这两种接口，需要按提供商实际行为验证。
+
+## 安全边界
+
+- CLI 调用始终使用参数数组和 `shell=False`；
+- 不从配置执行拼接后的 shell 字符串；
+- API 密钥只读取环境变量；
+- 每个任务都有明确的目标 agent；
+- Artifact 通过哈希定位，消息只传引用；
+- 当前版本不自动修改用户项目、不自动合并 Git、不部署；
+- 真实 agent 的系统权限仍由对应 CLI、沙箱和操作系统控制。
+
+## 目前刻意未做
+
+- A2A 网络服务器；
+- MCP 工具代理；
+- Codex App Server 持久会话；
+- Git worktree 自动创建与合并；
+- Web/Electron 图形界面；
+- token 和费用预算；
+- 人工审批页面；
+- 多轮争论和动态重新规划。
+
+这些属于下一阶段。当前目标是先验证最关键闭环：管理员分工、多个模型交换成果、独立复核、最终整合。
