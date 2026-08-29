@@ -71,6 +71,18 @@ class OpenAICompatibleAdapter(AgentAdapter):
             raise RuntimeError(f"model {self.model!r} returned no text")
         return AgentResponse(content=content, metadata={"model": self.model})
 
+    def diagnose(self) -> dict[str, Any]:
+        return {
+            "ok": bool(os.environ.get(self.api_key_env)),
+            "adapter": type(self).__name__,
+            "agent": self.card.name,
+            "base_url": self.base_url,
+            "model": self.model,
+            "api_style": self.api_style,
+            "api_key_env": self.api_key_env,
+            "api_key_present": bool(os.environ.get(self.api_key_env)),
+        }
+
     def _extract_text(self, data: dict[str, Any]) -> str:
         if self.api_style == "chat_completions":
             choices = data.get("choices") or []

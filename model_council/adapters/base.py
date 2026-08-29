@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from ..types import AgentCard, AgentRequest, AgentResponse
 
@@ -12,6 +13,13 @@ class AgentAdapter(ABC):
     @abstractmethod
     def invoke(self, request: AgentRequest) -> AgentResponse:
         raise NotImplementedError
+
+    def diagnose(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "adapter": type(self).__name__,
+            "agent": self.card.name,
+        }
 
     def system_prompt(self) -> str:
         capabilities = ", ".join(self.card.capabilities) or "未声明"

@@ -16,13 +16,18 @@ Status: complete
 
 ## Milestone 1: One real Codex worker
 
-Status: next
+Status: in progress
 
-- run one read-only Codex architect through `codex exec`;
-- keep all other roles on mocks;
-- capture process diagnostics without leaking credentials;
-- add a regression fixture for representative Codex stdout;
-- document Windows launch behavior.
+- [x] resolve and launch the npm-installed Codex CLI from Python;
+- [x] add a no-invocation Adapter doctor check;
+- [x] parse `codex exec --json` JSONL output;
+- [x] capture thread, usage, event, timing and process metadata;
+- [x] add local regression fixtures and tests;
+- [x] document Windows launch behavior;
+- [ ] obtain explicit authorization to send private repository context;
+- [ ] run one read-only Codex architect through `codex exec`;
+- [ ] verify Artifact, review, synthesis and database evidence;
+- [ ] keep all other roles on mocks during the pilot.
 
 ## Milestone 2: Persistent sessions and a second model family
 

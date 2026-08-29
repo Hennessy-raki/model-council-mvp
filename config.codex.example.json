@@ -19,14 +19,18 @@
       "capabilities": ["architecture", "code_analysis"],
       "boundaries": ["只读", "不得部署", "不得删除文件"],
       "command": [
-        "codex",
+        "codex.cmd",
         "exec",
         "--ephemeral",
         "--skip-git-repo-check",
         "--sandbox",
         "read-only",
+        "--color",
+        "never",
+        "--json",
         "-"
       ],
+      "output_format": "codex_jsonl",
       "timeout_seconds": 600
     },
     "implementer": {

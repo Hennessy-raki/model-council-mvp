@@ -67,7 +67,11 @@ The next milestone is a narrow Codex pilot:
 2. Replace only the architect with the existing read-only `cli` Adapter.
 3. Run from an ordinary user PowerShell if the managed Codex Desktop process
    cannot launch the packaged `codex.exe`.
-4. Capture stdout, stderr, exit status and the final Artifact.
-5. Only after this passes, design a persistent Codex App Server Adapter.
+4. Obtain explicit authorization before sending private repository content or
+   derived details to an external model service.
+5. Use `--json` and `output_format: codex_jsonl`.
+6. Capture thread ID, usage, events, duration, stderr, exit status and the final
+   Artifact.
+7. Only after this passes, design a persistent Codex App Server Adapter.
 
 Do not connect every configured model in one change.

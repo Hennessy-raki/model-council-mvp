@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from .adapters import build_adapters
 from .config import load_config
 from .orchestrator import Orchestrator
 
@@ -34,6 +35,12 @@ def build_parser() -> argparse.ArgumentParser:
     agents = subparsers.add_parser("agents", help="list configured agents")
     agents.add_argument("--config", default=str(default_config_path()))
 
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="validate configured adapters without invoking any model",
+    )
+    doctor.add_argument("--config", default=str(default_config_path()))
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -62,6 +69,15 @@ def main(argv: list[str] | None = None) -> None:
                     f"{name:16} {adapter_type:20} {card.role:12} "
                     f"{', '.join(card.capabilities)}"
                 )
+        elif args.command == "doctor":
+            config = load_config(args.config)
+            diagnostics = {
+                name: adapter.diagnose()
+                for name, adapter in build_adapters(config).items()
+            }
+            print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
+            if not all(item.get("ok", False) for item in diagnostics.values()):
+                raise SystemExit(2)
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)
@@ -79,6 +95,7 @@ def main(argv: list[str] | None = None) -> None:
             payload = {
                 "run": run,
                 "tasks": orchestrator.store.tasks_for_run(args.run_id),
+                "messages": orchestrator.store.messages_for_run(args.run_id),
                 "artifacts": orchestrator.store.artifacts_for_run(args.run_id),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2))

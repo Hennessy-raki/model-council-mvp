@@ -45,8 +45,17 @@ class OrchestratorTests(unittest.TestCase):
             result = orchestrator.run("test goal")
             run = orchestrator.store.get_run(result.run_id)
             tasks = orchestrator.store.tasks_for_run(result.run_id)
+            messages = orchestrator.store.messages_for_run(result.run_id)
             self.assertEqual(run["status"], "completed")
             self.assertEqual(len(tasks), 3)
+            self.assertEqual(len(messages), 8)
+            self.assertIn(
+                "task_result",
+                {message["type"] for message in messages},
+            )
+            self.assertTrue(
+                all(isinstance(message["body"], dict) for message in messages)
+            )
             self.assertTrue(Path(result.final_artifact.path).exists())
             self.assertIn("Model Council", result.final_text)
 

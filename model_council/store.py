@@ -250,6 +250,20 @@ class CouncilStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def messages_for_run(self, run_id: str) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM messages WHERE run_id = ? ORDER BY created_at",
+                (run_id,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["body"] = json.loads(item.pop("body_json"))
+            item["artifact_ids"] = json.loads(item.pop("artifact_ids_json"))
+            result.append(item)
+        return result
+
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()

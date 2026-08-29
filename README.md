@@ -19,6 +19,9 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
 - SQLite 持久化运行、任务和消息；
 - SHA-256 内容寻址的 Artifact 文件库；
 - `mock`、任意 `cli` 和 OpenAI-compatible HTTP 三类适配器；
+- Codex `--json` JSONL 事件解析和最终消息提取；
+- CLI 线程、usage、事件、耗时、退出码和 stderr 诊断；
+- 不调用模型的 Adapter `doctor` 检查；
 - 模型能力和边界声明；
 - 超时、失败记录和确定性调度；
 - 不依赖第三方 Python 包的可运行演示。
@@ -66,6 +69,12 @@ runtime/
 python -m model_council agents --config config.example.json
 ```
 
+在不调用任何模型的情况下检查 Adapter：
+
+```powershell
+python -m model_council doctor --config config.codex.example.json
+```
+
 运行自定义目标：
 
 ```powershell
@@ -84,6 +93,8 @@ python -m model_council runs --config config.example.json
 python -m model_council status <RUN_ID> --config config.example.json
 ```
 
+`status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
+
 运行测试：
 
 ```powershell
@@ -92,24 +103,32 @@ python -m unittest discover -s tests -v
 
 ## 接入 Codex
 
-复制 `config.codex.example.json` 后修改。该示例通过 stdin 把完整任务交给 `codex exec -`：
+复制 `config.codex.example.json` 后修改。Windows 示例通过 stdin 把完整任务交给
+`codex exec -`，并使用 JSONL 事件流：
 
 ```json
 {
   "type": "cli",
   "command": [
-    "codex",
+    "codex.cmd",
     "exec",
     "--ephemeral",
     "--skip-git-repo-check",
     "--sandbox",
     "read-only",
+    "--color",
+    "never",
+    "--json",
     "-"
-  ]
+  ],
+  "output_format": "codex_jsonl"
 }
 ```
 
 第一轮建议只让一个角色使用真实 Codex，其他角色继续使用 mock。确认运行、权限和输出都稳定后，再逐个替换。
+
+`codex_jsonl` 模式不会把推理事件当作最终答案，只读取最后一个完成的
+`agent_message`。线程 ID、事件类型统计和 usage 会作为任务消息元数据保存。
 
 Codex 默认应保持只读。需要让执行 agent 修改项目时，应给它独立 Git worktree，并在人工确认后才启用工作区写权限。
 

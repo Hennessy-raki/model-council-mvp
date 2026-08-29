@@ -1,6 +1,6 @@
 # Project Handoff
 
-Last updated: 2026-08-23
+Last updated: 2026-08-29
 
 ## Why this project exists
 
@@ -51,16 +51,19 @@ The repository currently contains:
 - Responses-style and Chat Completions-style HTTP payloads;
 - JSON Schema drafts for agent cards and task messages;
 - a CLI for demos, custom runs, agent listing and run inspection;
-- four automated tests.
+- a no-invocation Adapter doctor command;
+- Codex JSONL parsing with final-message extraction and diagnostic metadata;
+- seven automated tests.
 
 ## Verified state
 
-On 2026-08-23:
+On 2026-08-29:
 
 - Python version: 3.14.4
 - Node.js version: 24.16.0
 - Git version: 2.55.0
-- all four unit/integration tests passed;
+- Codex CLI version: 0.150.1
+- all seven unit/integration tests passed;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -73,22 +76,34 @@ corruption.
 
 ## Current real-agent situation
 
-The `codex` command is discoverable on the original Windows machine. Launching
-the packaged executable from inside the managed Codex Desktop task environment
-returned Windows "Access denied". This same class of restriction had appeared
-in earlier local Codex configuration work.
+Two Codex installations were observed on the original Windows machine. The
+WindowsApps-packaged executable previously returned "Access denied" from a
+managed task environment. A separate npm installation is now available as
+`D:\Node.js\node_global\codex.cmd`; version and Python `subprocess` launch checks
+both succeeded.
 
 The repository therefore includes `config.codex.example.json`, but no paid or
 remote model invocation has been claimed as verified.
 
-The Codex pilot uses:
+The Codex pilot now uses:
 
 ```text
-codex exec --ephemeral --skip-git-repo-check --sandbox read-only -
+codex.cmd exec --ephemeral --skip-git-repo-check --sandbox read-only
+  --color never --json -
 ```
 
-The prompt is passed on stdin. The manager, implementer and reviewer remain
-mocks so that only one integration variable changes.
+The prompt is passed on stdin. JSONL events are parsed deterministically, and
+only the final completed `agent_message` becomes the task Artifact. Thread ID,
+event counts, usage, duration, exit code and stderr tail are stored as message
+metadata. The manager, implementer and reviewer remain mocks so that only one
+integration variable changes.
+
+`python -m model_council doctor --config config.codex.example.json` currently
+passes and resolves `codex.cmd` without invoking a model.
+
+The real repository-analysis run has not been executed yet. The managed safety
+review correctly required explicit user authorization before sending private
+repository contents or derived details to an external model service.
 
 ## Provider caution
 
@@ -115,7 +130,8 @@ This information may become stale and should be reverified before provider work.
 - Worker-to-worker questions currently route only through stored results and the
   final manager context; there is no interactive question loop yet.
 - There is no token, time or monetary budget ledger.
-- CLI stdout is treated as the model result; streaming is not implemented.
+- Codex JSONL is collected after process completion; live event streaming is not
+  implemented.
 - There is no App Server, A2A or MCP transport.
 - There is no Git worktree creation, diff review or merge workflow.
 - There is no web UI or human approval screen.
@@ -133,11 +149,13 @@ Acceptance criteria:
 2. Only the architect role uses Codex.
 3. Codex runs in read-only mode.
 4. The process exits successfully and produces non-empty stdout.
-5. The stdout becomes an Artifact and a `task_result` message.
-6. The mock reviewer receives the Codex Artifact.
-7. The mock manager creates the final synthesis.
-8. The database contains no failed or blocked tasks.
-9. No credential, user path or runtime database is committed.
+5. JSONL contains a completed `agent_message`.
+6. The final message becomes an Artifact and a `task_result` message containing
+   diagnostic metadata.
+7. The mock reviewer receives the Codex Artifact.
+8. The mock manager creates the final synthesis.
+9. The database contains no failed or blocked tasks.
+10. No credential, user path or runtime database is committed.
 
 After that, add a persistent `CodexAppServerAdapter` with JSONL request IDs,
 thread identity, streaming events and cancellation.
