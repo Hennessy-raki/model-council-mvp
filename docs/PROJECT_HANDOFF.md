@@ -245,6 +245,13 @@ separation evidence. Every outcome stores an immutable explanation.
 docs/reports/2026-08-29-board-5-routing-policy.md
 ```
 
+The privacy-cleaned Board 5 implementation commit is
+`f386ecea1dda471921e331dd0cb0f354f926ba3a`. Public `main` was force-updated
+after replacing an older README home-directory example throughout reachable
+history. The current tree and reachable history pass the privacy scanner.
+GitHub may retain unreferenced objects until garbage collection; a private
+Support purge remains the strongest follow-up for immediate physical removal.
+
 Board 6, the local settings interface, is next. It must expose the stable local
 registry and routing contracts without moving state to a remote service or
 starting Board 7 interoperability. The real Codex pilot remains paused until

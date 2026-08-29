@@ -4,7 +4,8 @@ Date: 2026-08-29
 
 Status: accepted
 
-Commit: `feat: add deterministic routing policy`
+Commit: `f386ecea1dda471921e331dd0cb0f354f926ba3a`
+(`feat: add deterministic routing policy`)
 
 ## Objective
 
@@ -137,6 +138,17 @@ only file, line and finding type and never echoes a possible secret value.
 No runtime database, generated Artifact, `.env`, credential, personal home
 path, private repository content or real local username is intended to enter
 the public commit.
+
+The complete reachable Git history was rewritten to replace an older README
+home-directory example with a generic placeholder. The cleaned public `main`
+was independently verified at the Board 5 commit above, and the full local
+history scan passed afterward.
+
+GitHub's low-level object API continued to return the now-unreferenced old blobs
+immediately after the force-push. They are no longer referenced by public
+branches or normal repository history, but complete physical removal depends on
+GitHub garbage collection or a private GitHub Support purge request. The old
+object IDs are deliberately not recorded in public project documentation.
 
 ## Scope boundaries
 
