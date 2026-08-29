@@ -56,6 +56,30 @@ class ConnectivityStatus(StrEnum):
     NOT_SUPPORTED = "not_supported"
 
 
+class MeasurementSource(StrEnum):
+    ACTUAL = "actual"
+    PROVIDER_REPORTED = "provider_reported"
+    ESTIMATED = "estimated"
+    UNAVAILABLE = "unavailable"
+
+
+class BudgetScope(StrEnum):
+    PROJECT = "project"
+    RUN = "run"
+    ROLE = "role"
+
+
+class BudgetMetric(StrEnum):
+    TOKENS = "tokens"
+    COST = "cost"
+
+
+class BudgetLevel(StrEnum):
+    WARNING = "warning"
+    HARD = "hard"
+    UNAVAILABLE = "unavailable"
+
+
 @dataclass(frozen=True)
 class AgentCard:
     name: str

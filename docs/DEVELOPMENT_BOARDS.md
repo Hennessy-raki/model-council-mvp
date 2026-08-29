@@ -53,13 +53,15 @@ Report: `docs/reports/2026-08-29-board-3-startup-discovery.md`
 
 ### Board 4: Usage, cost and balance ledger
 
-Status: planned
+Status: complete
 
 - normalize per-call usage;
 - distinguish actual, provider-reported, estimated and unavailable values;
 - calculate project and role totals;
 - add budget warnings and hard limits;
 - expose provider balance only when a supported API exists.
+
+Report: `docs/reports/2026-08-29-board-4-usage-cost-ledger.md`
 
 ### Board 5: Routing policy
 

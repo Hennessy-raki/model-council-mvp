@@ -42,6 +42,19 @@ Status: complete
 
 Report: `docs/reports/2026-08-29-board-3-startup-discovery.md`
 
+## Productization Board 4: Usage, cost and balance ledger
+
+Status: complete
+
+- immutable normalized records for every Adapter call;
+- actual, provider-reported, estimated and unavailable source labels;
+- project, run and role totals;
+- user-protected warning and hard budget policies;
+- conservative hard-limit enforcement when values are unavailable;
+- explicit balance snapshots only for supported Provider APIs.
+
+Report: `docs/reports/2026-08-29-board-4-usage-cost-ledger.md`
+
 ## Milestone 0: Offline collaboration loop
 
 Status: complete

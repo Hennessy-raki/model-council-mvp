@@ -8,6 +8,7 @@ from pathlib import Path
 from .adapters import build_adapters
 from .config import load_config
 from .discovery import DiscoveryService
+from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
 from .store import CouncilStore
@@ -95,6 +96,79 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
     )
     discovery_register.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
+    ledger = subparsers.add_parser(
+        "ledger",
+        help="inspect usage, cost, budgets and supported provider balances",
+    )
+    ledger_commands = ledger.add_subparsers(
+        dest="ledger_command",
+        required=True,
+    )
+    ledger_summary = ledger_commands.add_parser(
+        "summary",
+        help="show project, run and role usage totals",
+    )
+    ledger_summary.add_argument("--project")
+    ledger_summary.add_argument("--run")
+    ledger_summary.add_argument("--role")
+    ledger_summary.add_argument("--config", default=str(default_config_path()))
+    ledger_events = ledger_commands.add_parser(
+        "events",
+        help="show normalized per-call usage records",
+    )
+    ledger_events.add_argument("--run")
+    ledger_events.add_argument("--limit", type=int, default=100)
+    ledger_events.add_argument("--config", default=str(default_config_path()))
+    ledger_budgets = ledger_commands.add_parser(
+        "budgets",
+        help="show persisted budget policies",
+    )
+    ledger_budgets.add_argument("--config", default=str(default_config_path()))
+    ledger_set_budget = ledger_commands.add_parser(
+        "set-budget",
+        help="persist a user-owned warning or hard budget",
+    )
+    ledger_set_budget.add_argument("policy_id")
+    ledger_set_budget.add_argument(
+        "--scope",
+        required=True,
+        choices=("project", "run", "role"),
+    )
+    ledger_set_budget.add_argument("--scope-key")
+    ledger_set_budget.add_argument(
+        "--metric",
+        required=True,
+        choices=("tokens", "cost"),
+    )
+    ledger_set_budget.add_argument("--warning")
+    ledger_set_budget.add_argument("--hard")
+    ledger_set_budget.add_argument("--currency")
+    ledger_set_budget.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    ledger_alerts = ledger_commands.add_parser(
+        "alerts",
+        help="show budget warnings and hard-limit observations",
+    )
+    ledger_alerts.add_argument("--run")
+    ledger_alerts.add_argument("--config", default=str(default_config_path()))
+    ledger_balance = ledger_commands.add_parser(
+        "balance",
+        help="explicitly query a Provider balance when an Adapter supports it",
+    )
+    ledger_balance.add_argument("provider")
+    ledger_balance.add_argument("--config", default=str(default_config_path()))
+    ledger_balances = ledger_commands.add_parser(
+        "balance-history",
+        help="show persisted Provider balance snapshots",
+    )
+    ledger_balances.add_argument("--provider")
+    ledger_balances.add_argument(
         "--config",
         default=str(default_config_path()),
     )
@@ -205,6 +279,53 @@ def main(argv: list[str] | None = None) -> None:
                 and payload["status"] != "passed"
             ):
                 raise SystemExit(2)
+        elif args.command == "ledger":
+            config = load_config(args.config)
+            ledger = _load_ledger(config)
+            if args.ledger_command == "summary":
+                project_name = args.project
+                if project_name is None and args.run is None:
+                    project_name = config.project_name
+                payload = ledger.summary(
+                    project_name=project_name,
+                    run_id=args.run,
+                    role=args.role,
+                )
+            elif args.ledger_command == "events":
+                payload = ledger.events(
+                    run_id=args.run,
+                    limit=args.limit,
+                )
+            elif args.ledger_command == "budgets":
+                payload = ledger.budget_policies()
+            elif args.ledger_command == "set-budget":
+                scope_key = args.scope_key
+                if scope_key is None and args.scope == "project":
+                    scope_key = config.project_name
+                if scope_key is None:
+                    raise ValueError(
+                        "--scope-key is required for run and role budgets"
+                    )
+                ledger.set_budget_policy(
+                    policy_id=args.policy_id,
+                    scope=args.scope,
+                    scope_key=scope_key,
+                    metric=args.metric,
+                    warning=args.warning,
+                    hard=args.hard,
+                    currency=args.currency,
+                )
+                payload = ledger.budget_policies()
+            elif args.ledger_command == "alerts":
+                payload = ledger.alerts(args.run)
+            elif args.ledger_command == "balance":
+                payload = ledger.provider_balance(
+                    args.provider,
+                    build_adapters(config),
+                )
+            elif args.ledger_command == "balance-history":
+                payload = ledger.balance_snapshots(args.provider)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "settings":
             config = load_config(args.config)
             registry = _load_registry(config)
@@ -265,6 +386,8 @@ def main(argv: list[str] | None = None) -> None:
                     args.run_id,
                     display_mode=orchestrator.registry.provenance_display_mode(),
                 ),
+                "ledger": orchestrator.ledger.summary(run_id=args.run_id),
+                "budget_alerts": orchestrator.ledger.alerts(args.run_id),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2))
     except KeyboardInterrupt:
@@ -296,6 +419,15 @@ def _load_discovery(config) -> DiscoveryService:
         config=config,
         registry=registry,
         adapters=build_adapters(config),
+    )
+
+
+def _load_ledger(config) -> UsageLedger:
+    registry = _load_registry(config)
+    return UsageLedger(
+        config=config,
+        store=registry.store,
+        registry=registry,
     )
 
 

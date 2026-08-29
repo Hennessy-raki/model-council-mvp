@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ class CouncilConfig:
     agents: dict[str, dict[str, Any]]
     role_assignments: dict[str, dict[str, Any]]
     settings: dict[str, Any]
+    budgets: dict[str, dict[str, Any]]
 
     def card(self, name: str) -> AgentCard:
         item = self.agents[name]
@@ -43,6 +45,8 @@ def load_config(path: str | Path) -> CouncilConfig:
     models = _optional_object(data, "models")
     role_assignments = _optional_object(data, "role_assignments")
     settings = _optional_object(data, "settings")
+    budgets = _optional_object(data, "budgets")
+    project_name = str(data.get("project_name", "model-council"))
     if "artifact_provenance_display" in settings:
         try:
             ProvenanceDisplayMode(settings["artifact_provenance_display"])
@@ -119,9 +123,44 @@ def load_config(path: str | Path) -> CouncilConfig:
                 f"role assignment {role_key!r} references unknown model {model!r}"
             )
 
+    for budget_id, item in budgets.items():
+        if not isinstance(item, dict):
+            raise ValueError(f"budget {budget_id!r} must be an object")
+        scope = str(item.get("scope", "project"))
+        metric = str(item.get("metric", "tokens"))
+        if scope not in {"project", "run", "role"}:
+            raise ValueError(f"budget {budget_id!r} has unsupported scope {scope!r}")
+        if metric not in {"tokens", "cost"}:
+            raise ValueError(
+                f"budget {budget_id!r} has unsupported metric {metric!r}"
+            )
+        scope_key = item.get("scope_key")
+        if scope in {"run", "role"} and not scope_key:
+            raise ValueError(
+                f"budget {budget_id!r} requires scope_key for {scope!r}"
+            )
+        warning = _optional_non_negative_decimal(
+            item.get("warning"),
+            f"budget {budget_id!r} warning",
+        )
+        hard = _optional_non_negative_decimal(
+            item.get("hard"),
+            f"budget {budget_id!r} hard",
+        )
+        if warning is None and hard is None:
+            raise ValueError(
+                f"budget {budget_id!r} requires warning or hard limit"
+            )
+        if warning is not None and hard is not None and warning > hard:
+            raise ValueError(
+                f"budget {budget_id!r} warning cannot exceed hard limit"
+            )
+        if metric == "cost" and not str(item.get("currency", "")).strip():
+            raise ValueError(f"cost budget {budget_id!r} requires currency")
+
     return CouncilConfig(
         path=config_path,
-        project_name=str(data.get("project_name", "model-council")),
+        project_name=project_name,
         state_dir=state_dir.resolve(),
         max_parallel=max_parallel,
         manager=manager,
@@ -131,6 +170,7 @@ def load_config(path: str | Path) -> CouncilConfig:
         agents=agents,
         role_assignments=role_assignments,
         settings=settings,
+        budgets=budgets,
     )
 
 
@@ -139,3 +179,18 @@ def _optional_object(data: dict[str, Any], key: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"config.{key} must be an object")
     return value
+
+
+def _optional_non_negative_decimal(
+    value: Any,
+    label: str,
+) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        result = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise ValueError(f"{label} must be numeric") from exc
+    if not result.is_finite() or result < 0:
+        raise ValueError(f"{label} must be a finite non-negative number")
+    return result

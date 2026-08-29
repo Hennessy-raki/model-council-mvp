@@ -58,6 +58,14 @@ class AgentAdapter(ABC):
             "details": {},
         }
 
+    def billing_capabilities(self) -> dict[str, bool]:
+        return {"provider_balance": False}
+
+    def provider_balance(self) -> dict[str, Any]:
+        raise RuntimeError(
+            f"adapter {type(self).__name__} does not support provider balance"
+        )
+
     def system_prompt(self) -> str:
         capabilities = ", ".join(self.card.capabilities) or "未声明"
         boundaries = "\n".join(f"- {x}" for x in self.card.boundaries) or "- 无额外边界"

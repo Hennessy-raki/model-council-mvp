@@ -52,6 +52,23 @@ GUI-only Agents can be registered manually. Their registry and discovery
 records are user-owned and cannot be overwritten by later config sync or local
 command scanning.
 
+## Usage, cost and balance ledger
+
+Every Adapter invocation creates one immutable `usage_events` record. Locally
+observed request counts and duration are `actual`; values returned by a model
+host are `provider_reported`; heuristic tokens and configured-price
+calculations are `estimated`; missing values remain `unavailable`.
+
+Project, run and role totals are computed from these records. Budget policies
+are deterministic control-plane rules. Warning thresholds create audit alerts.
+Hard limits block later calls once reached. If a hard limit depends on values
+that are unavailable, the control plane blocks conservatively instead of
+treating unknown consumption as zero.
+
+Provider balance is never inferred from model prices or usage. It is queried
+only through an Adapter that explicitly declares a supported balance API, and
+the resulting snapshot records its source and currency.
+
 ## Adapter
 
 每个模型承载工具都实现同一个接口：

@@ -111,6 +111,31 @@ python -m model_council discovery register-gui desktop-reviewer `
 发现记录会把 executable、authentication、permission、connectivity 和 models
 分别保存。可执行文件存在不等于认证成功，配置了凭据也不等于远端验证通过。
 
+查看项目、运行和角色用量：
+
+```powershell
+python -m model_council ledger summary --config config.example.json
+python -m model_council ledger events --run <RUN_ID> --config config.example.json
+python -m model_council ledger alerts --run <RUN_ID> --config config.example.json
+```
+
+设置用户拥有的预算：
+
+```powershell
+python -m model_council ledger set-budget project-cost `
+  --scope project --metric cost --warning 5 --hard 10 --currency USD `
+  --config config.example.json
+```
+
+Provider 余额只能显式查询，而且只有 Adapter 声明支持余额 API 时才会访问：
+
+```powershell
+python -m model_council ledger balance <PROVIDER_ID> --config config.example.json
+```
+
+账本分别标记 `actual`、`provider_reported`、`estimated` 和 `unavailable`。
+未知值不会被当成零；存在 hard budget 而历史消费不可度量时，下一次调用会被保守阻断。
+
 初始化并查看设置注册中心：
 
 ```powershell

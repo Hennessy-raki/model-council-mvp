@@ -62,13 +62,13 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 3 are complete. The next implementation board
-is Board 4: usage, cost and balance ledger. Read all completed board reports
-under `docs/reports/` before changing usage or billing behavior.
+Productization Boards 1 through 4 are complete. The next implementation board
+is Board 5: routing policy. Read all completed board reports under
+`docs/reports/` before changing role selection behavior.
 
-Board 4 must distinguish actual, provider-reported, estimated and unavailable
-values. Do not implement routing policy or a Web UI within the ledger board, and
-only expose provider balance when a supported API exists.
+Board 5 must use persisted discovery, capability, availability, usage and cost
+evidence. Preserve user locks and required model separation, and persist routing
+explanations. Do not build a Web UI within the routing board.
 
 The real Codex pilot is separately paused pending explicit user authorization
 for sending private repository context to an external service.

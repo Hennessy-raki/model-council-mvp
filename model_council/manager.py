@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 from .adapters.base import AgentAdapter
-from .types import AgentRequest, PlannedTask
+from .types import AgentRequest, AgentResponse, PlannedTask
 
 
 PLAN_INSTRUCTION = """
@@ -28,9 +29,15 @@ PLAN_INSTRUCTION = """
 
 
 class Manager:
-    def __init__(self, name: str, adapter: AgentAdapter):
+    def __init__(
+        self,
+        name: str,
+        adapter: AgentAdapter,
+        invoke: Callable[[AgentRequest], AgentResponse] | None = None,
+    ):
         self.name = name
         self.adapter = adapter
+        self._invoke = invoke or adapter.invoke
 
     def plan(
         self,
@@ -38,7 +45,7 @@ class Manager:
         goal: str,
         workers: list[dict[str, Any]],
     ) -> list[PlannedTask]:
-        response = self.adapter.invoke(
+        response = self._invoke(
             AgentRequest(
                 run_id=run_id,
                 task_id="planning",
@@ -95,7 +102,7 @@ class Manager:
         goal: str,
         context: str,
     ) -> str:
-        response = self.adapter.invoke(
+        response = self._invoke(
             AgentRequest(
                 run_id=run_id,
                 task_id="synthesis",

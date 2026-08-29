@@ -9,6 +9,7 @@ from .adapters import build_adapters
 from .artifacts import ArtifactStore
 from .config import CouncilConfig
 from .discovery import DiscoveryService
+from .ledger import UsageLedger
 from .manager import Manager
 from .registry import RegistryService
 from .store import CouncilStore
@@ -30,6 +31,7 @@ class Orchestrator:
         self.registry.sync_from_config(config)
         self.artifacts = ArtifactStore(config.state_dir / "artifacts", self.store)
         self.adapters = build_adapters(config)
+        self.ledger = UsageLedger(config, self.store, self.registry)
         if bool(
             self.registry.setting_value(
                 "auto_discovery_on_start",
@@ -41,7 +43,14 @@ class Orchestrator:
                 registry=self.registry,
                 adapters=self.adapters,
             ).scan()
-        self.manager = Manager(config.manager, self.adapters[config.manager])
+        self.manager = Manager(
+            config.manager,
+            self.adapters[config.manager],
+            invoke=lambda request: self._invoke_agent(
+                config.manager,
+                request,
+            ),
+        )
 
     def run(self, goal: str) -> RunResult:
         run_id = self.store.create_run(goal)
@@ -231,7 +240,8 @@ class Orchestrator:
             },
             artifact_ids=[ref.id for ref in dependencies],
         )
-        response = self.adapters[item.agent].invoke(
+        response = self._invoke_agent(
+            item.agent,
             AgentRequest(
                 run_id=run_id,
                 task_id=task_id,
@@ -299,7 +309,8 @@ class Orchestrator:
             artifact_ids=[ref.id for ref in outputs.values()],
         )
         try:
-            response = self.adapters[reviewer].invoke(
+            response = self._invoke_agent(
+                reviewer,
                 AgentRequest(
                     run_id=run_id,
                     task_id=task_id,
@@ -343,6 +354,17 @@ class Orchestrator:
         except Exception as exc:
             self.store.set_task_status(task_id, TaskStatus.FAILED, error=str(exc))
             return None
+
+    def _invoke_agent(
+        self,
+        agent_id: str,
+        request: AgentRequest,
+    ):
+        return self.ledger.invoke(
+            agent_id,
+            self.adapters[agent_id],
+            request,
+        )
 
     def _render_outputs(self, outputs: dict[str, ArtifactRef]) -> str:
         parts = []

@@ -180,6 +180,64 @@ class CouncilStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS usage_events (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    task_id TEXT,
+                    project_name TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    provider_id TEXT,
+                    model_id TEXT,
+                    phase TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    request_count INTEGER NOT NULL,
+                    request_source TEXT NOT NULL,
+                    input_tokens INTEGER,
+                    output_tokens INTEGER,
+                    total_tokens INTEGER,
+                    token_source TEXT NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    duration_source TEXT NOT NULL,
+                    cost_amount TEXT,
+                    cost_currency TEXT,
+                    cost_source TEXT NOT NULL,
+                    raw_usage_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS budget_policies (
+                    id TEXT PRIMARY KEY,
+                    scope_type TEXT NOT NULL,
+                    scope_key TEXT NOT NULL,
+                    metric TEXT NOT NULL,
+                    warning_limit TEXT,
+                    hard_limit TEXT,
+                    currency TEXT,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS budget_alerts (
+                    id TEXT PRIMARY KEY,
+                    policy_id TEXT NOT NULL REFERENCES budget_policies(id),
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    level TEXT NOT NULL,
+                    metric TEXT NOT NULL,
+                    observed_value TEXT,
+                    limit_value TEXT,
+                    details_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(policy_id, run_id, level)
+                );
+                CREATE TABLE IF NOT EXISTS provider_balance_snapshots (
+                    id TEXT PRIMARY KEY,
+                    provider_id TEXT NOT NULL,
+                    amount TEXT NOT NULL,
+                    currency TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    checked_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -190,6 +248,16 @@ class CouncilStore:
                 CREATE INDEX IF NOT EXISTS idx_agents_model ON agent_profiles(model_id);
                 CREATE INDEX IF NOT EXISTS idx_discovery_agent
                     ON agent_discovery(agent_id);
+                CREATE INDEX IF NOT EXISTS idx_usage_run
+                    ON usage_events(run_id);
+                CREATE INDEX IF NOT EXISTS idx_usage_project
+                    ON usage_events(project_name);
+                CREATE INDEX IF NOT EXISTS idx_usage_role
+                    ON usage_events(role);
+                CREATE INDEX IF NOT EXISTS idx_budget_scope
+                    ON budget_policies(scope_type, scope_key);
+                CREATE INDEX IF NOT EXISTS idx_balance_provider
+                    ON provider_balance_snapshots(provider_id, checked_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

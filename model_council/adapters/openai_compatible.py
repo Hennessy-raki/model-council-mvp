@@ -12,6 +12,7 @@ from ..types import (
     AgentResponse,
     AuthenticationStatus,
     ConnectivityStatus,
+    MeasurementSource,
     PermissionStatus,
 )
 
@@ -24,6 +25,16 @@ class OpenAICompatibleAdapter(AgentAdapter):
         self.api_key_env = str(settings.get("api_key_env", "OPENAI_API_KEY"))
         self.api_style = str(settings.get("api_style", "responses"))
         self.timeout_seconds = int(settings.get("timeout_seconds", 180))
+        self.balance_endpoint = str(settings.get("balance_endpoint", "")).strip()
+        self.balance_amount_field = str(
+            settings.get("balance_amount_field", "balance")
+        )
+        self.balance_currency_field = str(
+            settings.get("balance_currency_field", "")
+        )
+        self.balance_currency = str(
+            settings.get("balance_currency", "USD")
+        ).upper()
         if not self.base_url or not self.model:
             raise ValueError(
                 f"OpenAI-compatible agent {card.name!r} requires base_url and model"
@@ -63,19 +74,20 @@ class OpenAICompatibleAdapter(AgentAdapter):
                 "Content-Type": "application/json",
             },
         )
-        try:
-            with urlopen(http_request, timeout=self.timeout_seconds) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {exc.code} from {url}: {detail[-2000:]}") from exc
-        except URLError as exc:
-            raise RuntimeError(f"cannot reach {url}: {exc.reason}") from exc
+        data = self._read_json(http_request)
 
         content = self._extract_text(data)
         if not content:
             raise RuntimeError(f"model {self.model!r} returned no text")
-        return AgentResponse(content=content, metadata={"model": self.model})
+        metadata: dict[str, Any] = {"model": self.model}
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            metadata["usage"] = usage
+            metadata["usage_source"] = MeasurementSource.PROVIDER_REPORTED.value
+        cost = data.get("cost")
+        if isinstance(cost, dict):
+            metadata["cost"] = cost
+        return AgentResponse(content=content, metadata=metadata)
 
     def diagnose(self) -> dict[str, Any]:
         return {
@@ -161,6 +173,45 @@ class OpenAICompatibleAdapter(AgentAdapter):
             },
         }
 
+    def billing_capabilities(self) -> dict[str, bool]:
+        return {"provider_balance": bool(self.balance_endpoint)}
+
+    def provider_balance(self) -> dict[str, Any]:
+        if not self.balance_endpoint:
+            return super().provider_balance()
+        api_key = os.environ.get(self.api_key_env)
+        if not api_key:
+            raise RuntimeError(
+                f"environment variable {self.api_key_env!r} is not configured"
+            )
+        url = (
+            self.balance_endpoint
+            if self.balance_endpoint.startswith(("http://", "https://"))
+            else f"{self.base_url}/{self.balance_endpoint.lstrip('/')}"
+        )
+        request = Request(
+            url,
+            method="GET",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        data = self._read_json(request)
+        amount = self._field_value(data, self.balance_amount_field)
+        currency = (
+            self._field_value(data, self.balance_currency_field)
+            if self.balance_currency_field
+            else self.balance_currency
+        )
+        if amount is None:
+            raise RuntimeError(
+                f"balance response lacks field {self.balance_amount_field!r}"
+            )
+        return {
+            "amount": str(amount),
+            "currency": str(currency or self.balance_currency).upper(),
+            "source": MeasurementSource.PROVIDER_REPORTED.value,
+            "details": {"endpoint_supported": True},
+        }
+
     def _read_json(self, request: Request) -> dict[str, Any]:
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
@@ -177,6 +228,15 @@ class OpenAICompatibleAdapter(AgentAdapter):
         if not isinstance(data, dict):
             raise RuntimeError("provider response was not a JSON object")
         return data
+
+    @staticmethod
+    def _field_value(data: dict[str, Any], path: str) -> Any:
+        value: Any = data
+        for part in path.split("."):
+            if not isinstance(value, dict) or part not in value:
+                return None
+            value = value[part]
+        return value
 
     def _extract_text(self, data: dict[str, Any]) -> str:
         if self.api_style == "chat_completions":

@@ -61,7 +61,10 @@ The repository currently contains:
   connectivity status;
 - Adapter capability-based model discovery and opt-in isolated probes;
 - manual GUI-only Agent registration;
-- twenty automated tests.
+- normalized per-call usage and cost records with explicit measurement sources;
+- project, run and role totals;
+- warning and hard budget policies plus supported Provider balance snapshots;
+- twenty-nine automated tests.
 
 ## Verified state
 
@@ -74,6 +77,7 @@ On 2026-08-29:
 - all ten unit/integration tests passed before productization Board 2;
 - all thirteen unit/integration tests passed after the Artifact provenance board;
 - all twenty unit/integration tests passed after the startup discovery board;
+- all twenty-nine unit/integration tests passed after the usage and cost ledger;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -138,7 +142,7 @@ This information may become stale and should be reverified before provider work.
 - There is no dynamic re-planning after a worker failure.
 - Worker-to-worker questions currently route only through stored results and the
   final manager context; there is no interactive question loop yet.
-- There is no token, time or monetary budget ledger.
+- There is no automatic price catalog refresh or time-based budget policy.
 - Codex JSONL is collected after process completion; live event streaming is not
   implemented.
 - There is no App Server, A2A or MCP transport.
@@ -200,10 +204,22 @@ hosts can be registered as user-owned Agent profiles.
 docs/reports/2026-08-29-board-3-startup-discovery.md
 ```
 
-Board 4, usage, cost and balance ledger, is next. Routing, the local Web
-interface and persistent remote interoperability remain later boards. The real
-Codex pilot remains paused until the user explicitly authorizes sending private
-repository context to the external service.
+Board 4, usage, cost and balance ledger, is complete. Every Adapter invocation
+creates a normalized record with separate token, duration and cost sources.
+Summaries aggregate by project, run and role. Warning policies create audit
+alerts; hard limits block later calls and conservatively block when prior values
+are unavailable. Provider balance is queried only by an Adapter that explicitly
+declares a supported balance API.
+
+```text
+docs/reports/2026-08-29-board-4-usage-cost-ledger.md
+```
+
+Board 5, routing policy, is next. The router must consume persisted discovery,
+capability, availability and ledger evidence while preserving user locks and
+model-separation constraints. The real Codex pilot remains paused until the
+user explicitly authorizes sending private repository context to the external
+service.
 
 ## How to resume safely
 

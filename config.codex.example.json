@@ -21,7 +21,12 @@
       "provider": "mock-local",
       "display_name": "Mock general model",
       "capabilities": ["planning", "implementation", "review"],
-      "enabled": true
+      "enabled": true,
+      "pricing": {
+        "input_per_million": 0,
+        "output_per_million": 0,
+        "currency": "USD"
+      }
     },
     "codex-configured-default": {
       "provider": "codex-local",
@@ -113,6 +118,14 @@
   },
   "settings": {
     "locale": "zh-CN",
-    "auto_discovery_on_start": false
+    "auto_discovery_on_start": false,
+    "usage_estimation_enabled": true
+  },
+  "budgets": {
+    "codex-pilot-project-tokens": {
+      "scope": "project",
+      "metric": "tokens",
+      "warning": 500000
+    }
   }
 }
