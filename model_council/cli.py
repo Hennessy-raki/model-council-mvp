@@ -11,6 +11,7 @@ from .discovery import DiscoveryService
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
+from .routing import RoutingService
 from .store import CouncilStore
 
 
@@ -173,6 +174,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_config_path()),
     )
 
+    routing = subparsers.add_parser(
+        "routing",
+        help="inspect persisted deterministic routing decisions",
+    )
+    routing_commands = routing.add_subparsers(
+        dest="routing_command",
+        required=True,
+    )
+    routing_decisions = routing_commands.add_parser(
+        "decisions",
+        help="show selected identities and rejected routing candidates",
+    )
+    routing_decisions.add_argument("--run")
+    routing_decisions.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
     settings = subparsers.add_parser(
         "settings",
         help="inspect or update the persistent settings registry",
@@ -204,6 +223,11 @@ def build_parser() -> argparse.ArgumentParser:
     settings_assign.add_argument("--agent")
     settings_assign.add_argument("--model")
     settings_assign.add_argument("--locked", action="store_true")
+    settings_assign.add_argument(
+        "--constraints",
+        default="{}",
+        help="routing constraints as a JSON object",
+    )
     settings_assign.add_argument("--config", default=str(default_config_path()))
     settings_set = settings_commands.add_parser(
         "set",
@@ -326,6 +350,12 @@ def main(argv: list[str] | None = None) -> None:
             elif args.ledger_command == "balance-history":
                 payload = ledger.balance_snapshots(args.provider)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "routing":
+            config = load_config(args.config)
+            routing = _load_routing(config)
+            if args.routing_command == "decisions":
+                payload = routing.decisions(args.run)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "settings":
             config = load_config(args.config)
             registry = _load_registry(config)
@@ -347,6 +377,7 @@ def main(argv: list[str] | None = None) -> None:
                     agent_id=args.agent,
                     model_id=args.model,
                     locked=args.locked,
+                    constraints=_parse_constraints(args.constraints),
                 )
                 print(
                     json.dumps(
@@ -388,6 +419,7 @@ def main(argv: list[str] | None = None) -> None:
                 ),
                 "ledger": orchestrator.ledger.summary(run_id=args.run_id),
                 "budget_alerts": orchestrator.ledger.alerts(args.run_id),
+                "routing": orchestrator.router.decisions(args.run_id),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2))
     except KeyboardInterrupt:
@@ -431,8 +463,28 @@ def _load_ledger(config) -> UsageLedger:
     )
 
 
+def _load_routing(config) -> RoutingService:
+    registry = _load_registry(config)
+    return RoutingService(
+        config=config,
+        store=registry.store,
+        registry=registry,
+        adapters=build_adapters(config),
+    )
+
+
 def _parse_setting_value(value: str):
     try:
         return json.loads(value)
     except json.JSONDecodeError:
         return value
+
+
+def _parse_constraints(value: str) -> dict:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError("--constraints must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("--constraints must be a JSON object")
+    return parsed

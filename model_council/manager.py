@@ -26,6 +26,11 @@ PLAN_INSTRUCTION = """
 }
 任务数应为 1 到工作模型数量之间。只有确实需要上游成果时才添加依赖。
 """
+PLAN_INSTRUCTION += (
+    "\nEach task should include the supplied role_key in a role field. "
+    "The agent field is only a preference; deterministic routing makes "
+    "the final selection."
+)
 
 
 class Manager:
@@ -62,7 +67,11 @@ class Manager:
         tasks_raw = data.get("tasks")
         if not isinstance(tasks_raw, list) or not tasks_raw:
             raise ValueError("manager plan must contain a non-empty tasks array")
-        allowed = {worker["name"] for worker in workers}
+        workers_by_name = {worker["name"]: worker for worker in workers}
+        workers_by_role = {
+            str(worker.get("role_key", f"agent:{worker['name']}")): worker
+            for worker in workers
+        }
         planned: list[PlannedTask] = []
         keys: set[str] = set()
         for item in tasks_raw:
@@ -70,10 +79,29 @@ class Manager:
                 raise ValueError("each planned task must be an object")
             key = str(item.get("key", "")).strip()
             agent = str(item.get("agent", "")).strip()
+            role_key = str(item.get("role", "")).strip()
             if not key or key in keys:
                 raise ValueError(f"invalid or duplicate task key {key!r}")
-            if agent not in allowed:
-                raise ValueError(f"manager selected unknown worker {agent!r}")
+            if role_key:
+                worker = workers_by_role.get(role_key)
+                if worker is None:
+                    raise ValueError(
+                        f"manager selected unknown worker role {role_key!r}"
+                    )
+                if agent and agent not in workers_by_name:
+                    raise ValueError(
+                        f"manager suggested unknown worker {agent!r}"
+                    )
+                agent = agent or str(worker.get("preferred_agent") or "")
+            else:
+                worker = workers_by_name.get(agent)
+                if worker is None:
+                    raise ValueError(
+                        f"manager selected unknown worker {agent!r}"
+                    )
+                role_key = str(
+                    worker.get("role_key", f"agent:{worker['name']}")
+                )
             depends = tuple(str(x) for x in item.get("depends_on", []))
             planned.append(
                 PlannedTask(
@@ -82,6 +110,7 @@ class Manager:
                     instruction=str(item.get("instruction", "")).strip(),
                     agent=agent,
                     depends_on=depends,
+                    role_key=role_key,
                 )
             )
             keys.add(key)

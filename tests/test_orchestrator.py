@@ -106,6 +106,19 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(review["provenance"]["producer"]["agent_id"], "reviewer")
             self.assertEqual(review["provenance"]["reviewers"][0]["agent_id"], "reviewer")
             self.assertGreaterEqual(len(final["provenance"]["contributors"]), 3)
+            routing = orchestrator.router.decisions(result.run_id)
+            self.assertEqual(
+                {item["role_key"] for item in routing},
+                {
+                    "decision_manager",
+                    "agent:worker_a",
+                    "agent:worker_b",
+                    "independent_reviewer",
+                },
+            )
+            self.assertTrue(
+                all(item["status"] == "resolved" for item in routing)
+            )
 
             compact = orchestrator.store.artifacts_for_run(
                 result.run_id,
@@ -144,6 +157,10 @@ class OrchestratorTests(unittest.TestCase):
                     "provenance" not in item
                     for item in status_payload["artifacts"]
                 )
+            )
+            self.assertEqual(
+                len(status_payload["routing"]),
+                len(routing),
             )
 
 

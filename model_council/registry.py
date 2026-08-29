@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .config import CouncilConfig
+from .config import CouncilConfig, validate_routing_constraints
 from .store import CouncilStore, utc_now
 from .types import (
     AuthenticationStatus,
@@ -226,6 +226,12 @@ class RegistryService:
             raise ValueError(f"unsupported role mode {mode!r}")
         if mode == "manual" and not agent_id:
             raise ValueError("manual role assignment requires an agent")
+        if locked and not agent_id:
+            raise ValueError("locked role assignment requires an agent")
+        validate_routing_constraints(
+            constraints or {},
+            f"role assignment {role_key!r}",
+        )
         now = utc_now()
         with self.store.connect() as conn:
             if agent_id and not self._exists(conn, "agent_profiles", agent_id):
@@ -661,6 +667,8 @@ class RegistryService:
             raise ValueError(f"unsupported role mode {mode!r}")
         if mode == "manual" and not agent_id:
             raise ValueError("manual role assignment requires an agent")
+        if locked and not agent_id:
+            raise ValueError("locked role assignment requires an agent")
         conn.execute(
             """
             INSERT INTO role_assignments(
@@ -699,10 +707,7 @@ def sanitize_for_storage(value: Any) -> Any:
             is_environment_reference = normalized.endswith(
                 ("_env", "_env_var", "_environment_variable")
             )
-            if (
-                not is_environment_reference
-                and any(part in normalized for part in SENSITIVE_KEY_PARTS)
-            ):
+            if not is_environment_reference and _is_sensitive_key(normalized):
                 result[key] = "[REDACTED]"
             else:
                 result[key] = sanitize_for_storage(item)
@@ -712,6 +717,25 @@ def sanitize_for_storage(value: Any) -> Any:
     if isinstance(value, tuple):
         return [sanitize_for_storage(item) for item in value]
     return value
+
+
+def _is_sensitive_key(normalized: str) -> bool:
+    if any(
+        part in normalized
+        for part in SENSITIVE_KEY_PARTS - {"token"}
+    ):
+        return True
+    token_metrics = (
+        normalized == "tokens"
+        or normalized == "token_source"
+        or normalized == "token_sources"
+        or normalized.endswith("_tokens")
+        or normalized.endswith("_token_count")
+        or normalized.endswith("_token_counts")
+        or normalized.endswith("_token_source")
+        or normalized.endswith("_token_sources")
+    )
+    return "token" in normalized and not token_metrics
 
 
 def _dump(value: Any) -> str:

@@ -238,6 +238,24 @@ class CouncilStore:
                     details_json TEXT NOT NULL,
                     checked_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS routing_decisions (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    task_key TEXT,
+                    role_key TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    requested_agent_id TEXT,
+                    requested_model_id TEXT,
+                    selected_agent_id TEXT,
+                    selected_provider_id TEXT,
+                    selected_model_id TEXT,
+                    status TEXT NOT NULL,
+                    reason_code TEXT NOT NULL,
+                    constraints_json TEXT NOT NULL,
+                    selected_evidence_json TEXT NOT NULL,
+                    rejected_candidates_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -258,6 +276,10 @@ class CouncilStore:
                     ON budget_policies(scope_type, scope_key);
                 CREATE INDEX IF NOT EXISTS idx_balance_provider
                     ON provider_balance_snapshots(provider_id, checked_at);
+                CREATE INDEX IF NOT EXISTS idx_routing_run
+                    ON routing_decisions(run_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_routing_role
+                    ON routing_decisions(role_key, created_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

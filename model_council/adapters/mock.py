@@ -64,7 +64,15 @@ class MockAdapter(AgentAdapter):
                             f"围绕总目标，从{role}视角形成可执行建议。"
                             "列出关键决策、风险、待确认问题，并给下一位模型留下清晰交接。"
                         ),
-                        "agent": worker["name"],
+                        "role": worker.get(
+                            "role_key",
+                            f"agent:{worker['name']}",
+                        ),
+                        "agent": (
+                            worker.get("preferred_agent") or ""
+                            if "role_key" in worker
+                            else worker["name"]
+                        ),
                         "depends_on": depends_on,
                     }
                 )

@@ -8,6 +8,7 @@ board must include:
 3. an acceptance report under `docs/reports/`;
 4. roadmap and handoff updates;
 5. one identifiable Git commit.
+6. a full repository privacy scan before public push.
 
 Ideas discovered during a board should be recorded for later prioritization
 unless they are required to satisfy the current board's acceptance criteria.
@@ -65,16 +66,18 @@ Report: `docs/reports/2026-08-29-board-4-usage-cost-ledger.md`
 
 ### Board 5: Routing policy
 
-Status: planned
+Status: complete
 
 - implement manual, automatic and hybrid role selection;
 - add capability, availability, cost and latency constraints;
 - allow user locks and required model separation;
 - persist routing explanations for audit.
 
+Report: `docs/reports/2026-08-29-board-5-routing-policy.md`
+
 ### Board 6: Local settings interface
 
-Status: planned
+Status: next
 
 - build a local web control plane on top of the stable registry;
 - edit Providers, Models, Agents, roles and settings;

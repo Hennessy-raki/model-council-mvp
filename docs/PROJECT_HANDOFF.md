@@ -2,14 +2,14 @@
 
 Last updated: 2026-08-29
 
-The authoritative pre-Board-5 context checkpoint is:
+The authoritative pre-Board-6 context checkpoint is:
 
 ```text
-docs/reports/2026-08-29-pre-board-5-session-handoff.md
+docs/reports/2026-08-29-pre-board-6-session-handoff.md
 ```
 
-It records the refreshed test, demo, discovery, ledger, GitHub and security
-baseline. Read it before changing routing behavior.
+It records the refreshed test, demo, routing, discovery, ledger, GitHub,
+privacy and security baseline. Read it before building the local interface.
 
 ## Why this project exists
 
@@ -73,7 +73,13 @@ The repository currently contains:
 - normalized per-call usage and cost records with explicit measurement sources;
 - project, run and role totals;
 - warning and hard budget policies plus supported Provider balance snapshots;
-- twenty-nine automated tests.
+- deterministic manual, automatic and hybrid role routing;
+- capability, availability, cost, latency, hard-budget and identity-separation
+  constraints;
+- immutable routing decisions with selected evidence, rejected candidates and
+  reason codes;
+- a local repository privacy scanner and required public-push safety gate;
+- forty-one automated tests.
 
 ## Verified state
 
@@ -87,6 +93,8 @@ On 2026-08-29:
 - all thirteen unit/integration tests passed after the Artifact provenance board;
 - all twenty unit/integration tests passed after the startup discovery board;
 - all twenty-nine unit/integration tests passed after the usage and cost ledger;
+- all forty-one unit/integration tests passed after the routing policy and
+  privacy gate;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -162,7 +170,7 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-The next productization milestone is Board 5. The real-agent milestone below is
+The next productization milestone is Board 6. The real-agent milestone below is
 separate and remains paused pending explicit user authorization.
 
 Milestone 1 is complete when one real Codex role successfully participates in a
@@ -227,17 +235,27 @@ declares a supported balance API.
 docs/reports/2026-08-29-board-4-usage-cost-ledger.md
 ```
 
-Board 5, routing policy, is next. The router must consume persisted discovery,
-capability, availability and ledger evidence while preserving user locks and
-model-separation constraints. The real Codex pilot remains paused until the
-user explicitly authorizes sending private repository context to the external
-service.
+Board 5, routing policy, is complete. Every manager, worker and reviewer role is
+resolved through deterministic control-plane policy before Adapter invocation.
+Manual assignments fail without silent replacement. Automatic and hybrid
+selection consume persisted capability, availability, cost, latency, budget and
+separation evidence. Every outcome stores an immutable explanation.
 
-The frozen Board 5 starting scope, refreshed verification evidence and exact
+```text
+docs/reports/2026-08-29-board-5-routing-policy.md
+```
+
+Board 6, the local settings interface, is next. It must expose the stable local
+registry and routing contracts without moving state to a remote service or
+starting Board 7 interoperability. The real Codex pilot remains paused until
+the user explicitly authorizes sending private repository context to the
+external service.
+
+The frozen Board 6 starting scope, refreshed verification evidence and exact
 next-session prompt are recorded in:
 
 ```text
-docs/reports/2026-08-29-pre-board-5-session-handoff.md
+docs/reports/2026-08-29-pre-board-6-session-handoff.md
 ```
 
 ## How to resume safely
@@ -245,6 +263,7 @@ docs/reports/2026-08-29-pre-board-5-session-handoff.md
 ```powershell
 python -m unittest discover -s tests -v
 python -m model_council demo "验证当前基线"
+python scripts/privacy_scan.py
 python -m model_council agents --config config.example.json
 ```
 

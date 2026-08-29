@@ -147,7 +147,8 @@ python -m model_council settings show --config config.example.json
 
 ```powershell
 python -m model_council settings assign detail_executor `
-  --mode hybrid --agent implementer --model mock-general --locked `
+  --mode hybrid --agent implementer --model mock-general `
+  --constraints '{"required_capabilities":["implementation"]}' `
   --config config.example.json
 ```
 
@@ -172,12 +173,27 @@ python -m model_council runs --config config.example.json
 python -m model_council status <RUN_ID> --config config.example.json
 ```
 
+## Deterministic routing
+
+Board 5 resolves persisted roles before any Adapter invocation. Inspect the
+selected identity, evidence and rejected candidates with:
+
+```powershell
+python -m model_council routing decisions --run <RUN_ID> `
+  --config config.example.json
+```
+
+`manual` never silently falls back. `auto` selects only eligible candidates.
+`hybrid` preserves the preferred Agent and falls back only when the assignment
+is unlocked. Unknown cost and latency remain unknown rather than becoming zero.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：
 
 ```powershell
 python -m unittest discover -s tests -v
+python scripts/privacy_scan.py --history
 ```
 
 ## 接入 Codex
@@ -244,6 +260,8 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 
 ## 安全边界
 
+- 公开发布前必须执行 [`docs/PRIVACY.md`](docs/PRIVACY.md) 的全仓检查；
+- 不得提交真实本机路径、用户名、个人邮箱、凭据或私有项目内容；
 - CLI 调用始终使用参数数组和 `shell=False`；
 - 不从配置执行拼接后的 shell 字符串；
 - API 密钥只读取环境变量；
@@ -259,7 +277,6 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - Codex App Server 持久会话；
 - Git worktree 自动创建与合并；
 - Web/Electron 图形界面；
-- 自动路由策略；
 - 自动价格目录刷新、货币换算和按时间窗口预算；
 - 人工审批页面；
 - 多轮争论和动态重新规划。

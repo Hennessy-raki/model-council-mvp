@@ -152,16 +152,33 @@ JSON配置是种子数据，不是设置界面的唯一事实来源。配置同�
 自动选择逻辑将在发现、能力和费用数据可用后实现。当前版本只持久化选择模式、
 用户锁定和结构化约束。
 
+## Deterministic routing policy
+
+The `RoutingService` resolves every persisted project role before its Adapter is
+invoked. It consumes the existing role registry, Agent and Model capabilities,
+discovery observations, usage and cost history, hard-budget state and prior
+routing decisions.
+
+Manual assignments fail rather than silently replacing an unusable identity.
+Automatic assignments consider only eligible configured Adapters. Hybrid
+assignments preserve the preferred Agent and use deterministic fallback only
+when unlocked. Missing cost or latency remains unknown and cannot satisfy a
+hard maximum unless the assignment explicitly permits unknown evidence.
+
+Every success or failure creates an immutable `routing_decisions` row containing
+the requested and selected identities, constraints, bounded evidence, rejected
+candidates and reason codes. Manager suggestions are preferences only; they
+cannot override locks, budgets, separation constraints or permission evidence.
+
 ## 下一阶段边界
 
 优先级顺序：
 
-1. Board 5 确定性路由策略；
-2. Board 6 本地设置与控制界面；
-3. 经单独授权后的 Codex `exec` 单模型只读试点；
-4. Codex App Server 持久会话与第二个真实厂商 Adapter；
-5. Git worktree 隔离与人工审批；
-6. A2A、MCP 和远程互操作。
+1. Board 6 本地设置与控制界面；
+2. 经单独授权后的 Codex `exec` 单模型只读试点；
+3. Board 7 Codex App Server、A2A、MCP 和远程互操作；
+4. Git worktree 隔离与人工审批。
 
-路由板块只能消费现有注册中心、发现状态、账本和约束记录，不得把模型
-建议当成权限决定，也不得提前启动真实模型或实现 Web UI。
+Board 6 must consume the stable registry, discovery, provenance, ledger and
+routing contracts. It must not replace deterministic control-plane decisions
+with browser-side or model-generated authorization.

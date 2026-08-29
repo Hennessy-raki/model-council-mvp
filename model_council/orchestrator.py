@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,8 +12,9 @@ from .discovery import DiscoveryService
 from .ledger import UsageLedger
 from .manager import Manager
 from .registry import RegistryService
+from .routing import RoutingService
 from .store import CouncilStore
-from .types import AgentRequest, ArtifactRef, RunStatus, TaskStatus
+from .types import AgentRequest, ArtifactRef, PlannedTask, RunStatus, TaskStatus
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,12 @@ class Orchestrator:
         self.artifacts = ArtifactStore(config.state_dir / "artifacts", self.store)
         self.adapters = build_adapters(config)
         self.ledger = UsageLedger(config, self.store, self.registry)
+        self.router = RoutingService(
+            config=config,
+            store=self.store,
+            registry=self.registry,
+            adapters=self.adapters,
+        )
         if bool(
             self.registry.setting_value(
                 "auto_discovery_on_start",
@@ -55,8 +62,24 @@ class Orchestrator:
     def run(self, goal: str) -> RunResult:
         run_id = self.store.create_run(goal)
         try:
+            manager_route = self.router.resolve(
+                run_id=run_id,
+                role_key="decision_manager",
+                task_key="planning",
+                preferred_agent=self.config.manager,
+            )
+            manager_id = manager_route.agent_id
+            manager = Manager(
+                manager_id,
+                self.adapters[manager_id],
+                invoke=lambda request: self._invoke_agent(
+                    manager_id,
+                    request,
+                ),
+            )
             workers = self._worker_cards()
-            plan = self.manager.plan(run_id, goal, workers)
+            plan = manager.plan(run_id, goal, workers)
+            plan = self._resolve_plan(run_id, plan)
             task_ids: dict[str, str] = {}
             for item in plan:
                 task_ids[item.key] = self.store.add_task(
@@ -70,7 +93,7 @@ class Orchestrator:
             self.store.add_message(
                 run_id=run_id,
                 task_id=None,
-                sender=self.config.manager,
+                sender=manager_id,
                 recipient="orchestrator",
                 message_type="decision",
                 body={
@@ -78,6 +101,7 @@ class Orchestrator:
                     "tasks": [
                         {
                             "key": item.key,
+                            "role": item.role_key,
                             "agent": item.agent,
                             "depends_on": list(item.depends_on),
                         }
@@ -85,16 +109,27 @@ class Orchestrator:
                     ],
                 },
             )
-            outputs = self._execute_plan(run_id, goal, plan, task_ids)
-            review_ref = self._review(run_id, goal, outputs)
+            outputs = self._execute_plan(
+                run_id,
+                goal,
+                plan,
+                task_ids,
+                manager_id,
+            )
+            review_ref, reviewer_id = self._review(
+                run_id,
+                goal,
+                outputs,
+                manager_id,
+            )
             context = self._render_context(outputs, review_ref)
-            final_text = self.manager.synthesize(run_id, goal, context)
+            final_text = manager.synthesize(run_id, goal, context)
             final_ref = self.artifacts.put_text(
                 run_id=run_id,
                 task_id=None,
                 name="final-report.md",
                 content=final_text,
-                producer=self.store.identity_for_agent(self.config.manager),
+                producer=self.store.identity_for_agent(manager_id),
                 contributors=self.store.contributor_identities(
                     [
                         *(ref.id for ref in outputs.values()),
@@ -102,18 +137,18 @@ class Orchestrator:
                     ]
                 ),
                 final_integrator=self.store.identity_for_agent(
-                    self.config.manager
+                    manager_id
                 ),
                 reviewer=(
-                    self.store.identity_for_agent(self.config.reviewer)
-                    if review_ref and self.config.reviewer
+                    self.store.identity_for_agent(reviewer_id)
+                    if review_ref and reviewer_id
                     else None
                 ),
             )
             self.store.add_message(
                 run_id=run_id,
                 task_id=None,
-                sender=self.config.manager,
+                sender=manager_id,
                 recipient="user",
                 message_type="decision",
                 body={"event": "final_synthesis"},
@@ -130,28 +165,39 @@ class Orchestrator:
             raise
 
     def _worker_cards(self) -> list[dict[str, Any]]:
-        excluded = {self.config.manager}
-        if self.config.reviewer:
-            excluded.add(self.config.reviewer)
-        result = []
-        for name in self.config.agents:
-            if name in excluded:
-                continue
-            card = self.config.card(name)
-            result.append(
-                {
-                    "name": card.name,
-                    "role": card.role,
-                    "description": card.description,
-                    "capabilities": list(card.capabilities),
-                    "boundaries": list(card.boundaries),
-                }
-            )
-        if not result:
-            raise ValueError("at least one worker agent is required")
-        return result
+        return self.router.worker_cards()
 
-    def _execute_plan(self, run_id, goal, plan, task_ids) -> dict[str, ArtifactRef]:
+    def _resolve_plan(
+        self,
+        run_id: str,
+        plan: list[PlannedTask],
+    ) -> list[PlannedTask]:
+        resolved = []
+        for item in plan:
+            role_key = item.role_key or f"agent:{item.agent}"
+            route = self.router.resolve(
+                run_id=run_id,
+                role_key=role_key,
+                task_key=item.key,
+                preferred_agent=item.agent or None,
+            )
+            resolved.append(
+                replace(
+                    item,
+                    agent=route.agent_id,
+                    role_key=role_key,
+                )
+            )
+        return resolved
+
+    def _execute_plan(
+        self,
+        run_id,
+        goal,
+        plan,
+        task_ids,
+        manager_id,
+    ) -> dict[str, ArtifactRef]:
         outputs: dict[str, ArtifactRef] = {}
         pending = {item.key: item for item in plan}
         failed: set[str] = set()
@@ -184,6 +230,7 @@ class Orchestrator:
                         item,
                         task_ids[item.key],
                         outputs,
+                        manager_id,
                     ): item
                     for item in ready
                 }
@@ -202,7 +249,7 @@ class Orchestrator:
                             run_id=run_id,
                             task_id=task_ids[item.key],
                             sender=item.agent,
-                            recipient=self.config.manager,
+                            recipient=manager_id,
                             message_type="error",
                             body={"error": str(exc)},
                         )
@@ -219,6 +266,7 @@ class Orchestrator:
         item,
         task_id,
         prior_outputs: dict[str, ArtifactRef],
+        manager_id: str,
     ) -> ArtifactRef:
         self.store.set_task_status(task_id, TaskStatus.RUNNING)
         dependencies = [prior_outputs[key] for key in item.depends_on]
@@ -230,13 +278,14 @@ class Orchestrator:
         self.store.add_message(
             run_id=run_id,
             task_id=task_id,
-            sender=self.config.manager,
+            sender=manager_id,
             recipient=item.agent,
             message_type="task_assignment",
             body={
                 "title": item.title,
                 "instruction": item.instruction,
                 "depends_on": list(item.depends_on),
+                "role": item.role_key,
             },
             artifact_ids=[ref.id for ref in dependencies],
         )
@@ -248,7 +297,7 @@ class Orchestrator:
                 mode="work",
                 goal=goal,
                 instruction=item.instruction,
-                sender=self.config.manager,
+                sender=manager_id,
                 recipient=item.agent,
                 context="\n\n".join(context_parts),
                 artifacts=dependencies,
@@ -273,7 +322,7 @@ class Orchestrator:
             run_id=run_id,
             task_id=task_id,
             sender=item.agent,
-            recipient=self.config.manager,
+            recipient=manager_id,
             message_type="task_result",
             body={"title": item.title, "metadata": response.metadata},
             artifact_ids=[ref.id],
@@ -285,10 +334,23 @@ class Orchestrator:
         run_id: str,
         goal: str,
         outputs: dict[str, ArtifactRef],
-    ) -> ArtifactRef | None:
-        if not self.config.reviewer:
-            return None
-        reviewer = self.config.reviewer
+        manager_id: str,
+    ) -> tuple[ArtifactRef | None, str | None]:
+        role_keys = {
+            item["role_key"] for item in self.registry.snapshot()["roles"]
+        }
+        if (
+            not self.config.reviewer
+            and "independent_reviewer" not in role_keys
+        ):
+            return None, None
+        reviewer_route = self.router.resolve(
+            run_id=run_id,
+            role_key="independent_reviewer",
+            task_key="independent_review",
+            preferred_agent=self.config.reviewer,
+        )
+        reviewer = reviewer_route.agent_id
         task_id = self.store.add_task(
             run_id=run_id,
             task_key="independent_review",
@@ -302,7 +364,7 @@ class Orchestrator:
         self.store.add_message(
             run_id=run_id,
             task_id=task_id,
-            sender=self.config.manager,
+            sender=manager_id,
             recipient=reviewer,
             message_type="task_assignment",
             body={"event": "independent_review"},
@@ -319,7 +381,7 @@ class Orchestrator:
                     instruction=(
                         "检查所有专业成果的冲突、遗漏、不可验证假设和执行风险。"
                     ),
-                    sender=self.config.manager,
+                    sender=manager_id,
                     recipient=reviewer,
                     context=context,
                     artifacts=list(outputs.values()),
@@ -345,15 +407,15 @@ class Orchestrator:
                 run_id=run_id,
                 task_id=task_id,
                 sender=reviewer,
-                recipient=self.config.manager,
+                recipient=manager_id,
                 message_type="review",
                 body={"event": "review_completed"},
                 artifact_ids=[ref.id],
             )
-            return ref
+            return ref, reviewer
         except Exception as exc:
             self.store.set_task_status(task_id, TaskStatus.FAILED, error=str(exc))
-            return None
+            return None, reviewer
 
     def _invoke_agent(
         self,

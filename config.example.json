@@ -84,19 +84,48 @@
       "model": "mock-general",
       "locked": true
     },
+    "architecture_lead": {
+      "mode": "manual",
+      "agent": "architect",
+      "model": "mock-general",
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["architecture"]
+      }
+    },
     "detail_executor": {
       "mode": "hybrid",
       "agent": "implementer",
       "model": "mock-general",
       "constraints": {
-        "required_capabilities": ["implementation"]
+        "required_capabilities": ["implementation"],
+        "separation": {
+          "roles": ["decision_manager"],
+          "dimensions": ["agent"]
+        }
+      }
+    },
+    "research_lead": {
+      "mode": "manual",
+      "agent": "researcher",
+      "model": "mock-general",
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["research"]
       }
     },
     "independent_reviewer": {
       "mode": "manual",
       "agent": "reviewer",
       "model": "mock-general",
-      "locked": true
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["review"],
+        "separation": {
+          "roles": ["decision_manager"],
+          "dimensions": ["agent"]
+        }
+      }
     }
   },
   "settings": {

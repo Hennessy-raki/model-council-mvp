@@ -60,13 +60,25 @@ Report: `docs/reports/2026-08-29-board-4-usage-cost-ledger.md`
 
 ## Productization Board 5: Routing policy
 
-Status: next
+Status: complete
 
 - manual, automatic and hybrid selection;
 - capability, availability, cost and latency constraints;
 - user locks and required model separation;
 - persisted routing explanations;
 - no Web UI or real-model expansion within this board.
+
+Report: `docs/reports/2026-08-29-board-5-routing-policy.md`
+
+## Productization Board 6: Local settings interface
+
+Status: next
+
+- local web control plane over the stable registry and router;
+- Provider, Model, Agent, role and application-setting editing;
+- discovery, provenance, ledger, budget and routing explanation views;
+- local-only state and explicit approval boundaries;
+- no Board 7 remote interoperability within this board.
 
 ## Milestone 0: Offline collaboration loop
 

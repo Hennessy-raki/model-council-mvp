@@ -61,7 +61,11 @@ class RegistryTests(unittest.TestCase):
                     },
                     "settings": {
                         "locale": "zh-CN",
-                        "nested": {"access_token": "must-not-be-persisted"},
+                        "nested": {
+                            "access_token": "must-not-be-persisted",
+                            "input_tokens": 123,
+                            "token_sources": ["estimated"],
+                        },
                         "artifact_provenance_display": "compact",
                     },
                 },
@@ -95,6 +99,14 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["access_token"],
                 "[REDACTED]",
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["input_tokens"],
+                123,
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["token_sources"],
+                ["estimated"],
             )
             self.assertEqual(
                 {item["role_key"] for item in snapshot["roles"]},
@@ -150,6 +162,23 @@ class RegistryTests(unittest.TestCase):
                     "detail_executor",
                     mode="manual",
                     agent_id="missing-agent",
+                )
+
+    def test_invalid_routing_constraints_are_rejected(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            registry = RegistryService(
+                CouncilStore(config.state_dir / "council.db")
+            )
+            registry.sync_from_config(config)
+            with self.assertRaisesRegex(ValueError, "separation dimensions"):
+                registry.assign_role(
+                    "detail_executor",
+                    mode="auto",
+                    constraints={
+                        "separation_dimensions": ["host"],
+                    },
                 )
 
     def test_user_provenance_display_override_survives_seed_sync(self):

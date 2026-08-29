@@ -21,6 +21,7 @@ Before changing code, read:
 3. `docs/PROJECT_HANDOFF.md`
 4. `docs/ROADMAP.md`
 5. `docs/DEVELOPMENT_BOARDS.md`
+6. `docs/PRIVACY.md`
 
 ## Architectural invariants
 
@@ -36,6 +37,9 @@ Before changing code, read:
   an explicit approval design.
 - Add one real provider at a time and keep remaining roles on mocks until the
   pilot is verified.
+- Treat public-repository privacy as a release gate. Never commit real local
+  usernames, home paths, personal email addresses, credentials, runtime state
+  or private downstream project content.
 
 ## Development workflow
 
@@ -43,6 +47,7 @@ Run before and after changes:
 
 ```powershell
 python -m unittest discover -s tests -v
+python scripts/privacy_scan.py --history
 ```
 
 Offline smoke test:
@@ -62,13 +67,14 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 4 are complete. The next implementation board
-is Board 5: routing policy. Read all completed board reports under
-`docs/reports/` before changing role selection behavior.
+Productization Boards 1 through 5 are complete. The next implementation board
+is Board 6: the local settings interface. Read the completed Board 5 report and
+the pre-Board-6 handoff before changing the control surface.
 
-Board 5 must use persisted discovery, capability, availability, usage and cost
-evidence. Preserve user locks and required model separation, and persist routing
-explanations. Do not build a Web UI within the routing board.
+Board 6 must build on the persisted registry, discovery, provenance, ledger and
+routing contracts. It must not move local state into a remote service or bypass
+the deterministic router. Do not begin Board 7 interoperability within the
+local-interface board.
 
 The real Codex pilot is separately paused pending explicit user authorization
 for sending private repository context to an external service.

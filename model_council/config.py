@@ -114,6 +114,10 @@ def load_config(path: str | Path) -> CouncilConfig:
             raise ValueError(
                 f"manual role assignment {role_key!r} requires an agent"
             )
+        if bool(item.get("locked", False)) and not agent:
+            raise ValueError(
+                f"locked role assignment {role_key!r} requires an agent"
+            )
         if agent is not None and str(agent) not in agents:
             raise ValueError(
                 f"role assignment {role_key!r} references unknown agent {agent!r}"
@@ -122,6 +126,10 @@ def load_config(path: str | Path) -> CouncilConfig:
             raise ValueError(
                 f"role assignment {role_key!r} references unknown model {model!r}"
             )
+        validate_routing_constraints(
+            item.get("constraints", {}),
+            f"role assignment {role_key!r}",
+        )
 
     for budget_id, item in budgets.items():
         if not isinstance(item, dict):
@@ -194,3 +202,62 @@ def _optional_non_negative_decimal(
     if not result.is_finite() or result < 0:
         raise ValueError(f"{label} must be a finite non-negative number")
     return result
+
+
+def validate_routing_constraints(value: Any, label: str) -> None:
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} constraints must be an object")
+    list_fields = (
+        "required_capabilities",
+        "excluded_agents",
+        "excluded_models",
+        "excluded_providers",
+        "separate_from_roles",
+        "separation_dimensions",
+        "distinct_agent_from_roles",
+        "distinct_model_from_roles",
+        "distinct_provider_from_roles",
+    )
+    for field in list_fields:
+        if field in value and not isinstance(value[field], list):
+            raise ValueError(f"{label} constraints.{field} must be an array")
+    for field in (
+        "max_cost",
+        "max_average_cost",
+        "max_latency_ms",
+        "max_average_latency_ms",
+    ):
+        if field in value:
+            _optional_non_negative_decimal(
+                value[field],
+                f"{label} constraints.{field}",
+            )
+    dimensions = {
+        str(item) for item in value.get("separation_dimensions", [])
+    }
+    unsupported = dimensions - {"agent", "model", "provider"}
+    if unsupported:
+        raise ValueError(
+            f"{label} has unsupported separation dimensions "
+            f"{sorted(unsupported)}"
+        )
+    separation = value.get("separation")
+    if separation is not None:
+        if not isinstance(separation, dict):
+            raise ValueError(f"{label} constraints.separation must be an object")
+        if not isinstance(separation.get("roles", []), list):
+            raise ValueError(
+                f"{label} constraints.separation.roles must be an array"
+            )
+        if not isinstance(separation.get("dimensions", []), list):
+            raise ValueError(
+                f"{label} constraints.separation.dimensions must be an array"
+            )
+        unsupported = {
+            str(item) for item in separation.get("dimensions", [])
+        } - {"agent", "model", "provider"}
+        if unsupported:
+            raise ValueError(
+                f"{label} has unsupported separation dimensions "
+                f"{sorted(unsupported)}"
+            )

@@ -107,6 +107,12 @@ class ArtifactStoreTests(unittest.TestCase):
                         """
                     ).fetchall()
                 }
+                routing_table = conn.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type = 'table' AND name = 'routing_decisions'
+                    """
+                ).fetchone()
             self.assertTrue(
                 {
                     "producer_agent_id",
@@ -126,6 +132,7 @@ class ArtifactStoreTests(unittest.TestCase):
                     "provider_balance_snapshots",
                 },
             )
+            self.assertIsNotNone(routing_table)
             migrated = store.artifacts_for_run("legacy-run")
             self.assertEqual(migrated[0]["id"], "legacy-artifact")
             self.assertIsNone(migrated[0]["provenance"]["producer"])

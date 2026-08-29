@@ -102,18 +102,35 @@
       "mode": "manual",
       "agent": "codex_architect",
       "model": "codex-configured-default",
-      "locked": true
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["architecture"]
+      }
     },
     "detail_executor": {
       "mode": "hybrid",
       "agent": "implementer",
-      "model": "mock-general"
+      "model": "mock-general",
+      "constraints": {
+        "required_capabilities": ["implementation"],
+        "separation": {
+          "roles": ["decision_manager"],
+          "dimensions": ["agent"]
+        }
+      }
     },
     "independent_reviewer": {
       "mode": "manual",
       "agent": "reviewer",
       "model": "mock-general",
-      "locked": true
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["review"],
+        "separation": {
+          "roles": ["decision_manager"],
+          "dimensions": ["agent"]
+        }
+      }
     }
   },
   "settings": {

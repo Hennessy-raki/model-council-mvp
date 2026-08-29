@@ -134,3 +134,4 @@ class PlannedTask:
     instruction: str
     agent: str
     depends_on: tuple[str, ...] = ()
+    role_key: str | None = None
