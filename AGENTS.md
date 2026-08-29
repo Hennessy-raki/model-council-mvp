@@ -62,9 +62,14 @@ Do not commit:
 
 ## Current priority
 
-Productization Board 1 is complete. The next implementation board is Artifact
-provenance. Read the latest report under `docs/reports/` before changing the
-Artifact schema.
+Productization Boards 1 and 2 are complete. The next implementation board is
+Board 3: startup discovery and setup. Read both completed board reports under
+`docs/reports/` before changing registry, Adapter discovery or setup behavior.
+
+Board 3 must keep executable availability, authentication and permission checks
+separate. Connectivity tests are opt-in and must not include user project
+content. Do not implement automatic routing, cost accounting or a Web UI within
+the discovery board.
 
 The real Codex pilot is separately paused pending explicit user authorization
 for sending private repository context to an external service.
