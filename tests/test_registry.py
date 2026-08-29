@@ -62,6 +62,7 @@ class RegistryTests(unittest.TestCase):
                     "settings": {
                         "locale": "zh-CN",
                         "nested": {"access_token": "must-not-be-persisted"},
+                        "artifact_provenance_display": "compact",
                     },
                 },
                 ensure_ascii=False,
@@ -150,6 +151,35 @@ class RegistryTests(unittest.TestCase):
                     mode="manual",
                     agent_id="missing-agent",
                 )
+
+    def test_user_provenance_display_override_survives_seed_sync(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            registry = RegistryService(
+                CouncilStore(config.state_dir / "council.db")
+            )
+            registry.sync_from_config(config)
+            self.assertEqual(registry.provenance_display_mode(), "compact")
+            registry.set_setting("artifact_provenance_display", "hidden")
+            registry.sync_from_config(config)
+            self.assertEqual(registry.provenance_display_mode(), "hidden")
+            snapshot = registry.snapshot()
+            self.assertEqual(
+                snapshot["settings"]["artifact_provenance_display"]["source"],
+                "user",
+            )
+
+    def test_provenance_display_rejects_unknown_mode(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            registry = RegistryService(
+                CouncilStore(config.state_dir / "council.db")
+            )
+            registry.sync_from_config(config)
+            with self.assertRaisesRegex(ValueError, "artifact_provenance_display"):
+                registry.set_setting("artifact_provenance_display", "expanded")
 
 
 if __name__ == "__main__":

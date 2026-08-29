@@ -19,6 +19,12 @@ class RunStatus(StrEnum):
     FAILED = "failed"
 
 
+class ProvenanceDisplayMode(StrEnum):
+    COMPACT = "compact"
+    DETAILED = "detailed"
+    HIDDEN = "hidden"
+
+
 @dataclass(frozen=True)
 class AgentCard:
     name: str
@@ -26,6 +32,15 @@ class AgentCard:
     description: str
     capabilities: tuple[str, ...] = ()
     boundaries: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ArtifactIdentity:
+    """Immutable Agent/Provider/Model identity captured at production time."""
+
+    agent_id: str
+    provider_id: str | None = None
+    model_id: str | None = None
 
 
 @dataclass(frozen=True)

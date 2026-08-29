@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .types import AgentCard
+from .types import AgentCard, ProvenanceDisplayMode
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,15 @@ def load_config(path: str | Path) -> CouncilConfig:
     models = _optional_object(data, "models")
     role_assignments = _optional_object(data, "role_assignments")
     settings = _optional_object(data, "settings")
+    if "artifact_provenance_display" in settings:
+        try:
+            ProvenanceDisplayMode(settings["artifact_provenance_display"])
+        except ValueError as exc:
+            choices = ", ".join(mode.value for mode in ProvenanceDisplayMode)
+            raise ValueError(
+                "settings.artifact_provenance_display must be one of: "
+                f"{choices}"
+            ) from exc
 
     manager = str(data.get("manager", "manager"))
     reviewer_raw = data.get("reviewer")

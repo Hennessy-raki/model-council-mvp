@@ -20,12 +20,14 @@ Report: `docs/reports/2026-08-29-board-1-settings-registry.md`
 
 ## Productization Board 2: Artifact provenance
 
-Status: next
+Status: complete
 
 - producing Provider, Model and Agent;
 - contributors, reviewer and final integrator;
 - internal audit metadata;
 - compact, detailed and hidden display modes.
+
+Report: `docs/reports/2026-08-29-board-2-artifact-provenance.md`
 
 ## Milestone 0: Offline collaboration loop
 

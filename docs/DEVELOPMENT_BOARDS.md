@@ -29,13 +29,15 @@ Report: `docs/reports/2026-08-29-board-1-settings-registry.md`
 
 ### Board 2: Artifact provenance
 
-Status: next
+Status: complete
 
 - record producing Provider, Model and Agent;
 - record contributors, reviewer and final integrator;
 - keep provenance internally even when display is disabled;
 - add configurable compact, detailed and hidden presentation modes;
 - migrate existing Artifact records safely.
+
+Report: `docs/reports/2026-08-29-board-2-artifact-provenance.md`
 
 ### Board 3: Startup discovery and setup
 
@@ -85,4 +87,3 @@ Status: planned
 - A2A transport;
 - MCP tool broker;
 - remote Agent identity and authentication.
-

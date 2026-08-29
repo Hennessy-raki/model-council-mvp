@@ -8,7 +8,20 @@ from pathlib import Path
 from typing import Any, Iterator
 from uuid import uuid4
 
-from .types import RunStatus, TaskStatus
+from .types import (
+    ArtifactIdentity,
+    ProvenanceDisplayMode,
+    RunStatus,
+    TaskStatus,
+)
+
+
+ARTIFACT_RELATIONSHIPS = {
+    "producer",
+    "contributor",
+    "reviewer",
+    "final_integrator",
+}
 
 
 def utc_now() -> str:
@@ -81,6 +94,18 @@ class CouncilStore:
                     media_type TEXT NOT NULL,
                     sha256 TEXT NOT NULL,
                     path TEXT NOT NULL,
+                    producer_agent_id TEXT,
+                    producer_provider_id TEXT,
+                    producer_model_id TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS artifact_attributions (
+                    id TEXT PRIMARY KEY,
+                    artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+                    relationship TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    provider_id TEXT,
+                    model_id TEXT,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS providers (
@@ -139,11 +164,30 @@ class CouncilStore:
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
+                CREATE INDEX IF NOT EXISTS idx_artifact_attributions_artifact
+                    ON artifact_attributions(artifact_id);
                 CREATE INDEX IF NOT EXISTS idx_models_provider ON models(provider_id);
                 CREATE INDEX IF NOT EXISTS idx_agents_provider ON agent_profiles(provider_id);
                 CREATE INDEX IF NOT EXISTS idx_agents_model ON agent_profiles(model_id);
                 """
             )
+            self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")
+            self._ensure_column(conn, "artifacts", "producer_provider_id", "TEXT")
+            self._ensure_column(conn, "artifacts", "producer_model_id", "TEXT")
+
+    @staticmethod
+    def _ensure_column(
+        conn: sqlite3.Connection,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        columns = {
+            row["name"]
+            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def create_run(self, goal: str) -> str:
         run_id = str(uuid4())
@@ -272,18 +316,75 @@ class CouncilStore:
         media_type: str,
         sha256: str,
         path: str,
+        producer: ArtifactIdentity | None = None,
+        attributions: list[tuple[str, ArtifactIdentity]] | None = None,
     ) -> str:
         artifact_id = str(uuid4())
         with self.connect() as conn:
             conn.execute(
                 """
                 INSERT INTO artifacts(
-                    id, run_id, task_id, name, media_type, sha256, path, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    id, run_id, task_id, name, media_type, sha256, path,
+                    producer_agent_id, producer_provider_id, producer_model_id,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (artifact_id, run_id, task_id, name, media_type, sha256, path, utc_now()),
+                (
+                    artifact_id,
+                    run_id,
+                    task_id,
+                    name,
+                    media_type,
+                    sha256,
+                    path,
+                    producer.agent_id if producer else None,
+                    producer.provider_id if producer else None,
+                    producer.model_id if producer else None,
+                    utc_now(),
+                ),
             )
+            all_attributions = list(attributions or [])
+            if producer:
+                all_attributions.insert(0, ("producer", producer))
+            self._add_artifact_attributions(conn, artifact_id, all_attributions)
         return artifact_id
+
+    def _add_artifact_attributions(
+        self,
+        conn: sqlite3.Connection,
+        artifact_id: str,
+        attributions: list[tuple[str, ArtifactIdentity]],
+    ) -> None:
+        seen: set[tuple[str, str, str | None, str | None]] = set()
+        for relationship, identity in attributions:
+            if relationship not in ARTIFACT_RELATIONSHIPS:
+                raise ValueError(f"unsupported artifact relationship {relationship!r}")
+            key = (
+                relationship,
+                identity.agent_id,
+                identity.provider_id,
+                identity.model_id,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            conn.execute(
+                """
+                INSERT INTO artifact_attributions(
+                    id, artifact_id, relationship, agent_id, provider_id,
+                    model_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    artifact_id,
+                    relationship,
+                    identity.agent_id,
+                    identity.provider_id,
+                    identity.model_id,
+                    utc_now(),
+                ),
+            )
 
     def tasks_for_run(self, run_id: str) -> list[dict[str, Any]]:
         with self.connect() as conn:
@@ -298,13 +399,134 @@ class CouncilStore:
             result.append(item)
         return result
 
-    def artifacts_for_run(self, run_id: str) -> list[dict[str, Any]]:
+    def artifacts_for_run(
+        self,
+        run_id: str,
+        display_mode: str | ProvenanceDisplayMode = ProvenanceDisplayMode.DETAILED,
+    ) -> list[dict[str, Any]]:
+        mode = ProvenanceDisplayMode(display_mode)
         with self.connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at",
                 (run_id,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        result = []
+        for row in rows:
+            item = dict(row)
+            if mode != ProvenanceDisplayMode.HIDDEN:
+                provenance = self.provenance_for_artifact(item["id"])
+                item["provenance"] = (
+                    provenance
+                    if mode == ProvenanceDisplayMode.DETAILED
+                    else self._compact_provenance(provenance)
+                )
+            result.append(item)
+        return result
+
+    def provenance_for_artifact(self, artifact_id: str) -> dict[str, Any]:
+        with self.connect() as conn:
+            artifact = conn.execute(
+                """
+                SELECT producer_agent_id, producer_provider_id, producer_model_id
+                FROM artifacts WHERE id = ?
+                """,
+                (artifact_id,),
+            ).fetchone()
+            if artifact is None:
+                raise ValueError(f"artifact {artifact_id!r} not found")
+            rows = conn.execute(
+                """
+                SELECT relationship, agent_id, provider_id, model_id
+                FROM artifact_attributions
+                WHERE artifact_id = ?
+                ORDER BY created_at, id
+                """,
+                (artifact_id,),
+            ).fetchall()
+        groups: dict[str, list[dict[str, str | None]]] = {
+            "contributors": [],
+            "reviewers": [],
+            "final_integrators": [],
+        }
+        for row in rows:
+            identity = self._identity_payload(row)
+            if row["relationship"] == "contributor":
+                groups["contributors"].append(identity)
+            elif row["relationship"] == "reviewer":
+                groups["reviewers"].append(identity)
+            elif row["relationship"] == "final_integrator":
+                groups["final_integrators"].append(identity)
+        producer = self._identity_payload(
+            {
+                "agent_id": artifact["producer_agent_id"],
+                "provider_id": artifact["producer_provider_id"],
+                "model_id": artifact["producer_model_id"],
+            }
+        )
+        return {
+            "producer": producer if producer["agent_id"] else None,
+            **groups,
+        }
+
+    def contributor_identities(
+        self,
+        artifact_ids: list[str],
+    ) -> list[ArtifactIdentity]:
+        if not artifact_ids:
+            return []
+        placeholders = ", ".join("?" for _ in artifact_ids)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT agent_id, provider_id, model_id
+                FROM artifact_attributions
+                WHERE artifact_id IN ({placeholders})
+                ORDER BY created_at, id
+                """,
+                artifact_ids,
+            ).fetchall()
+        result: list[ArtifactIdentity] = []
+        seen: set[tuple[str, str | None, str | None]] = set()
+        for row in rows:
+            key = (row["agent_id"], row["provider_id"], row["model_id"])
+            if key not in seen:
+                seen.add(key)
+                result.append(ArtifactIdentity(*key))
+        return result
+
+    def identity_for_agent(self, agent_id: str) -> ArtifactIdentity:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, provider_id, model_id
+                FROM agent_profiles WHERE id = ?
+                """,
+                (agent_id,),
+            ).fetchone()
+        if row is None:
+            return ArtifactIdentity(agent_id=agent_id)
+        return ArtifactIdentity(
+            agent_id=row["id"],
+            provider_id=row["provider_id"],
+            model_id=row["model_id"],
+        )
+
+    @staticmethod
+    def _identity_payload(row: Any) -> dict[str, str | None]:
+        return {
+            "agent_id": row["agent_id"],
+            "provider_id": row["provider_id"],
+            "model_id": row["model_id"],
+        }
+
+    @staticmethod
+    def _compact_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "producer": provenance["producer"],
+            "contributor_count": len(provenance["contributors"]),
+            "reviewed": bool(provenance["reviewers"]),
+            "final_integrated": bool(provenance["final_integrators"]),
+        }
 
     def messages_for_run(self, run_id: str) -> list[dict[str, Any]]:
         with self.connect() as conn:

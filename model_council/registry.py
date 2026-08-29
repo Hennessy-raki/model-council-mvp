@@ -5,6 +5,7 @@ from typing import Any
 
 from .config import CouncilConfig
 from .store import CouncilStore, utc_now
+from .types import ProvenanceDisplayMode
 
 
 ROLE_MODES = {"manual", "auto", "hybrid"}
@@ -17,6 +18,7 @@ SENSITIVE_KEY_PARTS = {
     "secret",
     "token",
 }
+PROVENANCE_DISPLAY_SETTING = "artifact_provenance_display"
 
 
 class RegistryService:
@@ -239,6 +241,14 @@ class RegistryService:
     def set_setting(self, key: str, value: Any) -> None:
         if not key.strip():
             raise ValueError("setting key cannot be empty")
+        if key == PROVENANCE_DISPLAY_SETTING:
+            try:
+                value = ProvenanceDisplayMode(value).value
+            except ValueError as exc:
+                choices = ", ".join(mode.value for mode in ProvenanceDisplayMode)
+                raise ValueError(
+                    f"{PROVENANCE_DISPLAY_SETTING} must be one of: {choices}"
+                ) from exc
         with self.store.connect() as conn:
             conn.execute(
                 """
@@ -251,6 +261,22 @@ class RegistryService:
                 """,
                 (key, _dump(sanitize_for_storage(value)), utc_now()),
             )
+
+    def provenance_display_mode(self) -> ProvenanceDisplayMode:
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT value_json FROM app_settings WHERE key = ?",
+                (PROVENANCE_DISPLAY_SETTING,),
+            ).fetchone()
+        if row is None:
+            return ProvenanceDisplayMode.COMPACT
+        try:
+            return ProvenanceDisplayMode(json.loads(row["value_json"]))
+        except ValueError as exc:
+            choices = ", ".join(mode.value for mode in ProvenanceDisplayMode)
+            raise ValueError(
+                f"stored {PROVENANCE_DISPLAY_SETTING} must be one of: {choices}"
+            ) from exc
 
     def snapshot(self) -> dict[str, Any]:
         return {

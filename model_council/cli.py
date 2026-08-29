@@ -176,7 +176,10 @@ def main(argv: list[str] | None = None) -> None:
                 "run": run,
                 "tasks": orchestrator.store.tasks_for_run(args.run_id),
                 "messages": orchestrator.store.messages_for_run(args.run_id),
-                "artifacts": orchestrator.store.artifacts_for_run(args.run_id),
+                "artifacts": orchestrator.store.artifacts_for_run(
+                    args.run_id,
+                    display_mode=orchestrator.registry.provenance_display_mode(),
+                ),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2))
     except KeyboardInterrupt:

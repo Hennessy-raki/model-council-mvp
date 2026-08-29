@@ -73,6 +73,21 @@ class Orchestrator:
                 task_id=None,
                 name="final-report.md",
                 content=final_text,
+                producer=self.store.identity_for_agent(self.config.manager),
+                contributors=self.store.contributor_identities(
+                    [
+                        *(ref.id for ref in outputs.values()),
+                        *([review_ref.id] if review_ref else []),
+                    ]
+                ),
+                final_integrator=self.store.identity_for_agent(
+                    self.config.manager
+                ),
+                reviewer=(
+                    self.store.identity_for_agent(self.config.reviewer)
+                    if review_ref and self.config.reviewer
+                    else None
+                ),
             )
             self.store.add_message(
                 run_id=run_id,
@@ -222,6 +237,10 @@ class Orchestrator:
             task_id=task_id,
             name=f"{item.key}-{item.agent}.md",
             content=response.content,
+            producer=self.store.identity_for_agent(item.agent),
+            contributors=self.store.contributor_identities(
+                [ref.id for ref in dependencies]
+            ),
         )
         self.store.set_task_status(
             task_id,
@@ -288,6 +307,11 @@ class Orchestrator:
                 task_id=task_id,
                 name="independent-review.md",
                 content=response.content,
+                producer=self.store.identity_for_agent(reviewer),
+                contributors=self.store.contributor_identities(
+                    [item.id for item in outputs.values()]
+                ),
+                reviewer=self.store.identity_for_agent(reviewer),
             )
             self.store.set_task_status(
                 task_id,

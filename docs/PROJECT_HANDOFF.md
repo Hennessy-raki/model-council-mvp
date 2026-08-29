@@ -55,7 +55,9 @@ The repository currently contains:
 - Codex JSONL parsing with final-message extraction and diagnostic metadata;
 - a persistent Provider, Model, Agent, role and application-settings registry;
 - protected user overrides and nested sensitive-value redaction;
-- ten automated tests.
+- Artifact producer identity and contributor/reviewer/final-integrator audit
+  attribution;
+- thirteen automated tests.
 
 ## Verified state
 
@@ -65,7 +67,8 @@ On 2026-08-29:
 - Node.js version: 24.16.0
 - Git version: 2.55.0
 - Codex CLI version: 0.150.1
-- all ten unit/integration tests passed;
+- all ten unit/integration tests passed before productization Board 2;
+- all thirteen unit/integration tests passed after the Artifact provenance board;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -170,7 +173,19 @@ Board 1, the settings and registry foundation, is complete. Its report is:
 docs/reports/2026-08-29-board-1-settings-registry.md
 ```
 
-Board 2, Artifact provenance, is next. The real Codex pilot remains paused until
+Board 2, Artifact provenance, is complete. Each new Artifact now records an
+immutable producing Agent/Provider/Model snapshot, plus contributor, reviewer
+and final-integrator attribution. The `artifact_provenance_display` setting
+supports `compact`, `detailed` and `hidden`; hidden suppresses only the CLI
+projection and retains the internal audit trail. Existing SQLite databases are
+upgraded safely through additive migration. The board report is:
+
+```text
+docs/reports/2026-08-29-board-2-artifact-provenance.md
+```
+
+Board 3, startup discovery and setup, is the next productization board. Do not
+begin it within the provenance change. The real Codex pilot remains paused until
 the user explicitly authorizes sending private repository context to the
 external service.
 

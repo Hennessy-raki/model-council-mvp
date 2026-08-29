@@ -96,6 +96,7 @@
   },
   "settings": {
     "locale": "zh-CN",
-    "auto_discovery_on_start": false
+    "auto_discovery_on_start": false,
+    "artifact_provenance_display": "compact"
   }
 }

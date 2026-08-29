@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from pathlib import Path
 
 from .store import CouncilStore
-from .types import ArtifactRef
+from .types import ArtifactIdentity, ArtifactRef
 
 
 class ArtifactStore:
@@ -20,6 +21,10 @@ class ArtifactStore:
         name: str,
         content: str,
         media_type: str = "text/markdown",
+        producer: ArtifactIdentity | None = None,
+        contributors: Iterable[ArtifactIdentity] = (),
+        reviewer: ArtifactIdentity | None = None,
+        final_integrator: ArtifactIdentity | None = None,
     ) -> ArtifactRef:
         raw = content.encode("utf-8")
         digest = hashlib.sha256(raw).hexdigest()
@@ -36,6 +41,16 @@ class ArtifactStore:
             media_type=media_type,
             sha256=digest,
             path=str(target.resolve()),
+            producer=producer,
+            attributions=[
+                *[("contributor", item) for item in contributors],
+                *([("reviewer", reviewer)] if reviewer else []),
+                *(
+                    [("final_integrator", final_integrator)]
+                    if final_integrator
+                    else []
+                ),
+            ],
         )
         return ArtifactRef(
             id=artifact_id,
