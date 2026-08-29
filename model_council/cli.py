@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .adapters import build_adapters
 from .config import load_config
+from .discovery import DiscoveryService
 from .orchestrator import Orchestrator
 from .registry import RegistryService
 from .store import CouncilStore
@@ -42,6 +43,61 @@ def build_parser() -> argparse.ArgumentParser:
         help="validate configured adapters without invoking any model",
     )
     doctor.add_argument("--config", default=str(default_config_path()))
+
+    discovery = subparsers.add_parser(
+        "discovery",
+        help="scan, inspect or configure local Agent hosts",
+    )
+    discovery_commands = discovery.add_subparsers(
+        dest="discovery_command",
+        required=True,
+    )
+    discovery_scan = discovery_commands.add_parser(
+        "scan",
+        help="scan configured Agents and known local commands without a model call",
+    )
+    discovery_scan.add_argument("--config", default=str(default_config_path()))
+    discovery_show = discovery_commands.add_parser(
+        "show",
+        help="show persisted discovery and setup status",
+    )
+    discovery_show.add_argument("--config", default=str(default_config_path()))
+    discovery_models = discovery_commands.add_parser(
+        "models",
+        help="explicitly ask one configured Adapter to discover available models",
+    )
+    discovery_models.add_argument("agent")
+    discovery_models.add_argument("--config", default=str(default_config_path()))
+    discovery_probe = discovery_commands.add_parser(
+        "probe",
+        help=(
+            "opt in to a non-project connectivity test for one configured Agent"
+        ),
+    )
+    discovery_probe.add_argument("agent")
+    discovery_probe.add_argument("--config", default=str(default_config_path()))
+    discovery_register = discovery_commands.add_parser(
+        "register-gui",
+        help="manually register a GUI-only Agent host",
+    )
+    discovery_register.add_argument("agent_id")
+    discovery_register.add_argument("--name", required=True)
+    discovery_register.add_argument("--provider")
+    discovery_register.add_argument("--model")
+    discovery_register.add_argument(
+        "--capability",
+        action="append",
+        default=[],
+    )
+    discovery_register.add_argument(
+        "--boundary",
+        action="append",
+        default=[],
+    )
+    discovery_register.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
 
     settings = subparsers.add_parser(
         "settings",
@@ -119,6 +175,35 @@ def main(argv: list[str] | None = None) -> None:
             }
             print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
             if not all(item.get("ok", False) for item in diagnostics.values()):
+                raise SystemExit(2)
+        elif args.command == "discovery":
+            config = load_config(args.config)
+            discovery = _load_discovery(config)
+            if args.discovery_command == "scan":
+                payload = discovery.scan()
+            elif args.discovery_command == "show":
+                payload = discovery.registry.discovery_records()
+            elif args.discovery_command == "models":
+                payload = {
+                    "agent_id": args.agent,
+                    "models": discovery.discover_models(args.agent),
+                }
+            elif args.discovery_command == "probe":
+                payload = discovery.probe(args.agent)
+            elif args.discovery_command == "register-gui":
+                payload = discovery.register_gui(
+                    agent_id=args.agent_id,
+                    display_name=args.name,
+                    provider_id=args.provider,
+                    model_id=args.model,
+                    capabilities=args.capability,
+                    boundaries=args.boundary,
+                )
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            if (
+                args.discovery_command == "probe"
+                and payload["status"] != "passed"
+            ):
                 raise SystemExit(2)
         elif args.command == "settings":
             config = load_config(args.config)
@@ -203,6 +288,15 @@ def _load_registry(config) -> RegistryService:
     registry = RegistryService(store)
     registry.sync_from_config(config)
     return registry
+
+
+def _load_discovery(config) -> DiscoveryService:
+    registry = _load_registry(config)
+    return DiscoveryService(
+        config=config,
+        registry=registry,
+        adapters=build_adapters(config),
+    )
 
 
 def _parse_setting_value(value: str):

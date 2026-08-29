@@ -1,19 +1,29 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import time
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from .base import AgentAdapter
-from ..types import AgentRequest, AgentResponse
+from ..types import (
+    AgentRequest,
+    AgentResponse,
+    AuthenticationStatus,
+    ConnectivityStatus,
+    ExecutableStatus,
+    PermissionStatus,
+)
 
 
 class CliAdapter(AgentAdapter):
     def __init__(self, card, settings: dict[str, Any], config_dir: Path):
         super().__init__(card)
+        self.settings = settings
         command = settings.get("command")
         if not isinstance(command, list) or not command or not all(
             isinstance(item, str) and item for item in command
@@ -33,9 +43,34 @@ class CliAdapter(AgentAdapter):
             self.cwd = (cwd if cwd.is_absolute() else config_dir / cwd).resolve()
         else:
             self.cwd = config_dir
+        self.discovery_timeout_seconds = int(
+            settings.get("discovery_timeout_seconds", 30)
+        )
+        self.auth_check_command = self._optional_command(
+            settings,
+            "auth_check_command",
+        )
+        self.model_discovery_command = self._optional_command(
+            settings,
+            "model_discovery_command",
+        )
 
     def invoke(self, request: AgentRequest) -> AgentResponse:
+        return self._invoke_in_cwd(request, self.cwd)
+
+    def _invoke_in_cwd(
+        self,
+        request: AgentRequest,
+        cwd: Path,
+    ) -> AgentResponse:
         prompt = self.render_prompt(request)
+        return self._run_prompt(prompt, cwd)
+
+    def _run_prompt(
+        self,
+        prompt: str,
+        cwd: Path,
+    ) -> AgentResponse:
         started = time.perf_counter()
         completed = subprocess.run(
             self.command,
@@ -44,7 +79,7 @@ class CliAdapter(AgentAdapter):
             encoding="utf-8",
             errors="replace",
             capture_output=True,
-            cwd=self.cwd,
+            cwd=cwd,
             timeout=self.timeout_seconds,
             shell=False,
             check=False,
@@ -73,6 +108,181 @@ class CliAdapter(AgentAdapter):
             raise RuntimeError(f"CLI agent {self.card.name!r} returned empty stdout")
         return AgentResponse(content=content, metadata=metadata)
 
+    def discovery_capabilities(self) -> dict[str, bool]:
+        return {
+            "executable_check": True,
+            "authentication_check": True,
+            "permission_check": True,
+            "model_discovery": self.model_discovery_command is not None,
+            "connectivity_test": True,
+        }
+
+    def check_executable(self) -> dict[str, Any]:
+        executable = self.command[0]
+        resolved = shutil.which(executable)
+        if not resolved and Path(executable).is_file():
+            resolved = str(Path(executable).resolve())
+        return {
+            "status": (
+                ExecutableStatus.AVAILABLE.value
+                if resolved
+                else ExecutableStatus.MISSING.value
+            ),
+            "resolved_executable": resolved,
+            "details": {
+                "configured_executable": executable,
+                "cwd_exists": self.cwd.is_dir(),
+            },
+        }
+
+    def check_authentication(self) -> dict[str, Any]:
+        if self.auth_check_command:
+            try:
+                with TemporaryDirectory(
+                    prefix="model-council-auth-"
+                ) as temp:
+                    completed = subprocess.run(
+                        self.auth_check_command,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        capture_output=True,
+                        cwd=temp,
+                        timeout=self.discovery_timeout_seconds,
+                        shell=False,
+                        check=False,
+                    )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return {
+                    "status": AuthenticationStatus.FAILED.value,
+                    "details": {"error": type(exc).__name__},
+                }
+            return {
+                "status": (
+                    AuthenticationStatus.VERIFIED.value
+                    if completed.returncode == 0
+                    else AuthenticationStatus.FAILED.value
+                ),
+                "details": {
+                    "check": "command",
+                    "exit_code": completed.returncode,
+                },
+            }
+
+        auth_env = self.settings.get("auth_env")
+        if auth_env:
+            names = [auth_env] if isinstance(auth_env, str) else list(auth_env)
+            present = all(bool(os.environ.get(str(name))) for name in names)
+            return {
+                "status": (
+                    AuthenticationStatus.CONFIGURED.value
+                    if present
+                    else AuthenticationStatus.MISSING.value
+                ),
+                "details": {
+                    "check": "environment",
+                    "variables": [str(name) for name in names],
+                },
+            }
+        return {
+            "status": AuthenticationStatus.UNKNOWN.value,
+            "details": {"reason": "no non-interactive auth check configured"},
+        }
+
+    def check_permissions(self) -> dict[str, Any]:
+        sandbox_mode: str | None = None
+        if "--sandbox" in self.command:
+            index = self.command.index("--sandbox")
+            if index + 1 < len(self.command):
+                sandbox_mode = self.command[index + 1]
+        status = {
+            "read-only": PermissionStatus.READ_ONLY.value,
+            "workspace-write": PermissionStatus.WORKSPACE_WRITE.value,
+            "danger-full-access": PermissionStatus.UNRESTRICTED.value,
+        }.get(sandbox_mode, PermissionStatus.UNKNOWN.value)
+        return {
+            "status": status,
+            "details": {
+                "sandbox_mode": sandbox_mode,
+                "cwd_exists": self.cwd.is_dir(),
+                "cwd_readable": self.cwd.is_dir() and os.access(self.cwd, os.R_OK),
+                "cwd_writable": self.cwd.is_dir() and os.access(self.cwd, os.W_OK),
+            },
+        }
+
+    def discover_models(self) -> list[dict[str, Any]]:
+        if not self.model_discovery_command:
+            return super().discover_models()
+        try:
+            with TemporaryDirectory(prefix="model-council-models-") as temp:
+                completed = subprocess.run(
+                    self.model_discovery_command,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    capture_output=True,
+                    cwd=temp,
+                    timeout=self.discovery_timeout_seconds,
+                    shell=False,
+                    check=False,
+                )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(
+                f"model discovery command failed: {type(exc).__name__}"
+            ) from exc
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"model discovery command exited with {completed.returncode}"
+            )
+        return self._parse_models(completed.stdout)
+
+    def connectivity_probe(self) -> dict[str, Any]:
+        if self.check_executable()["status"] != ExecutableStatus.AVAILABLE:
+            return {
+                "status": ConnectivityStatus.FAILED.value,
+                "details": {"reason": "executable_missing"},
+            }
+        prompt = (
+            "Reply with MODEL_COUNCIL_OK. This is a connectivity test. "
+            "Do not inspect files, repositories, environment variables, "
+            "conversation history, or any external project context."
+        )
+        try:
+            with TemporaryDirectory(
+                prefix="model-council-connectivity-"
+            ) as temp:
+                response = self._run_prompt(prompt, Path(temp))
+        except Exception as exc:
+            return {
+                "status": ConnectivityStatus.FAILED.value,
+                "details": {
+                    "error": type(exc).__name__,
+                    "isolated_workspace": True,
+                },
+            }
+        safe_metadata = {
+            key: response.metadata[key]
+            for key in (
+                "adapter",
+                "command",
+                "exit_code",
+                "duration_ms",
+                "output_format",
+                "event_count",
+                "thread_id",
+                "usage",
+            )
+            if key in response.metadata
+        }
+        return {
+            "status": ConnectivityStatus.PASSED.value,
+            "details": {
+                "isolated_workspace": True,
+                "response_received": bool(response.content.strip()),
+                "metadata": safe_metadata,
+            },
+        }
+
     def diagnose(self) -> dict[str, Any]:
         executable = self.command[0]
         resolved = shutil.which(executable)
@@ -89,6 +299,48 @@ class CliAdapter(AgentAdapter):
             "output_format": self.output_format,
             "timeout_seconds": self.timeout_seconds,
         }
+
+    @staticmethod
+    def _optional_command(
+        settings: dict[str, Any],
+        key: str,
+    ) -> list[str] | None:
+        value = settings.get(key)
+        if value is None:
+            return None
+        if not isinstance(value, list) or not value or not all(
+            isinstance(item, str) and item for item in value
+        ):
+            raise ValueError(f"{key} must be a non-empty command array")
+        return value
+
+    @staticmethod
+    def _parse_models(stdout: str) -> list[dict[str, Any]]:
+        text = stdout.strip()
+        if not text:
+            return []
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            values = [line.strip() for line in text.splitlines() if line.strip()]
+        else:
+            if isinstance(payload, dict):
+                values = payload.get("models", payload.get("data", []))
+            else:
+                values = payload
+            if not isinstance(values, list):
+                raise RuntimeError("model discovery output must contain a list")
+        result = []
+        seen: set[str] = set()
+        for item in values:
+            model_id = item.get("id") if isinstance(item, dict) else item
+            if model_id is None:
+                continue
+            model_id = str(model_id).strip()
+            if model_id and model_id not in seen:
+                seen.add(model_id)
+                result.append({"id": model_id, "source": "adapter"})
+        return result
 
     @staticmethod
     def _parse_codex_jsonl(stdout: str) -> tuple[str, dict[str, Any]]:

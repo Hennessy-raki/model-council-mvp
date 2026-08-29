@@ -3,7 +3,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ..types import AgentCard, AgentRequest, AgentResponse
+from ..types import (
+    AgentCard,
+    AgentRequest,
+    AgentResponse,
+    AuthenticationStatus,
+    ConnectivityStatus,
+    ExecutableStatus,
+    PermissionStatus,
+)
 
 
 class AgentAdapter(ABC):
@@ -19,6 +27,35 @@ class AgentAdapter(ABC):
             "ok": True,
             "adapter": type(self).__name__,
             "agent": self.card.name,
+        }
+
+    def discovery_capabilities(self) -> dict[str, bool]:
+        return {
+            "executable_check": False,
+            "authentication_check": False,
+            "permission_check": False,
+            "model_discovery": False,
+            "connectivity_test": False,
+        }
+
+    def check_executable(self) -> dict[str, Any]:
+        return {"status": ExecutableStatus.NOT_APPLICABLE.value}
+
+    def check_authentication(self) -> dict[str, Any]:
+        return {"status": AuthenticationStatus.UNKNOWN.value}
+
+    def check_permissions(self) -> dict[str, Any]:
+        return {"status": PermissionStatus.UNKNOWN.value}
+
+    def discover_models(self) -> list[dict[str, Any]]:
+        raise RuntimeError(
+            f"adapter {type(self).__name__} does not support model discovery"
+        )
+
+    def connectivity_probe(self) -> dict[str, Any]:
+        return {
+            "status": ConnectivityStatus.NOT_SUPPORTED.value,
+            "details": {},
         }
 
     def system_prompt(self) -> str:

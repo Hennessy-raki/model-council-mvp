@@ -62,14 +62,13 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 and 2 are complete. The next implementation board is
-Board 3: startup discovery and setup. Read both completed board reports under
-`docs/reports/` before changing registry, Adapter discovery or setup behavior.
+Productization Boards 1 through 3 are complete. The next implementation board
+is Board 4: usage, cost and balance ledger. Read all completed board reports
+under `docs/reports/` before changing usage or billing behavior.
 
-Board 3 must keep executable availability, authentication and permission checks
-separate. Connectivity tests are opt-in and must not include user project
-content. Do not implement automatic routing, cost accounting or a Web UI within
-the discovery board.
+Board 4 must distinguish actual, provider-reported, estimated and unavailable
+values. Do not implement routing policy or a Web UI within the ledger board, and
+only expose provider balance when a supported API exists.
 
 The real Codex pilot is separately paused pending explicit user authorization
 for sending private repository context to an external service.

@@ -1,12 +1,50 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from .base import AgentAdapter
-from ..types import AgentRequest, AgentResponse
+from ..types import (
+    AgentRequest,
+    AgentResponse,
+    AuthenticationStatus,
+    ConnectivityStatus,
+    PermissionStatus,
+)
 
 
 class MockAdapter(AgentAdapter):
+    def __init__(self, card, settings: dict[str, Any] | None = None):
+        super().__init__(card)
+        self.settings = settings or {}
+
+    def discovery_capabilities(self) -> dict[str, bool]:
+        return {
+            "executable_check": False,
+            "authentication_check": True,
+            "permission_check": True,
+            "model_discovery": True,
+            "connectivity_test": True,
+        }
+
+    def check_authentication(self) -> dict[str, Any]:
+        return {"status": AuthenticationStatus.NOT_APPLICABLE.value}
+
+    def check_permissions(self) -> dict[str, Any]:
+        return {"status": PermissionStatus.NOT_APPLICABLE.value}
+
+    def discover_models(self) -> list[dict[str, Any]]:
+        model = self.settings.get("model")
+        if not model:
+            return []
+        return [{"id": str(model), "source": "configured"}]
+
+    def connectivity_probe(self) -> dict[str, Any]:
+        return {
+            "status": ConnectivityStatus.PASSED.value,
+            "details": {"transport": "offline_mock"},
+        }
+
     def invoke(self, request: AgentRequest) -> AgentResponse:
         if request.mode == "plan":
             workers = request.metadata.get("workers", [])

@@ -87,6 +87,12 @@ class ArtifactStoreTests(unittest.TestCase):
                     WHERE type = 'table' AND name = 'artifact_attributions'
                     """
                 ).fetchone()
+                discovery_table = conn.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type = 'table' AND name = 'agent_discovery'
+                    """
+                ).fetchone()
             self.assertTrue(
                 {
                     "producer_agent_id",
@@ -96,6 +102,7 @@ class ArtifactStoreTests(unittest.TestCase):
                 <= columns
             )
             self.assertIsNotNone(attribution_table)
+            self.assertIsNotNone(discovery_table)
             migrated = store.artifacts_for_run("legacy-run")
             self.assertEqual(migrated[0]["id"], "legacy-artifact")
             self.assertIsNone(migrated[0]["provenance"]["producer"])

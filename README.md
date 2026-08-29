@@ -79,6 +79,38 @@ python -m model_council agents --config config.example.json
 python -m model_council doctor --config config.codex.example.json
 ```
 
+启动发现不会调用模型：
+
+```powershell
+python -m model_council discovery scan --config config.codex.example.json
+python -m model_council discovery show --config config.codex.example.json
+```
+
+显式发现某个 Adapter 可见的模型：
+
+```powershell
+python -m model_council discovery models manager --config config.example.json
+```
+
+连接测试必须由用户显式选择。CLI Adapter 会在空临时目录中使用固定探针，
+不传递项目目标、上下文、Agent 描述或 Artifact：
+
+```powershell
+python -m model_council discovery probe manager --config config.example.json
+```
+
+手动注册无法通过命令行发现的 GUI Agent：
+
+```powershell
+python -m model_council discovery register-gui desktop-reviewer `
+  --name "Desktop Reviewer" --provider mock-local --model mock-general `
+  --capability review --boundary "manual handoff" `
+  --config config.example.json
+```
+
+发现记录会把 executable、authentication、permission、connectivity 和 models
+分别保存。可执行文件存在不等于认证成功，配置了凭据也不等于远端验证通过。
+
 初始化并查看设置注册中心：
 
 ```powershell

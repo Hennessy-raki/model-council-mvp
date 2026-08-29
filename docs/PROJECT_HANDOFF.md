@@ -57,7 +57,11 @@ The repository currently contains:
 - protected user overrides and nested sensitive-value redaction;
 - Artifact producer identity and contributor/reviewer/final-integrator audit
   attribution;
-- thirteen automated tests.
+- startup discovery with separated executable, authentication, permission and
+  connectivity status;
+- Adapter capability-based model discovery and opt-in isolated probes;
+- manual GUI-only Agent registration;
+- twenty automated tests.
 
 ## Verified state
 
@@ -69,6 +73,7 @@ On 2026-08-29:
 - Codex CLI version: 0.150.1
 - all ten unit/integration tests passed before productization Board 2;
 - all thirteen unit/integration tests passed after the Artifact provenance board;
+- all twenty unit/integration tests passed after the startup discovery board;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -83,9 +88,8 @@ corruption.
 
 Two Codex installations were observed on the original Windows machine. The
 WindowsApps-packaged executable previously returned "Access denied" from a
-managed task environment. A separate npm installation is now available as
-`D:\Node.js\node_global\codex.cmd`; version and Python `subprocess` launch checks
-both succeeded.
+managed task environment. A separate npm-installed `codex.cmd` is available on
+the local `PATH`; version and Python `subprocess` launch checks both succeeded.
 
 The repository therefore includes `config.codex.example.json`, but no paid or
 remote model invocation has been claimed as verified.
@@ -184,10 +188,22 @@ upgraded safely through additive migration. The board report is:
 docs/reports/2026-08-29-board-2-artifact-provenance.md
 ```
 
-Board 3, startup discovery and setup, is the next productization board. Do not
-begin it within the provenance change. The real Codex pilot remains paused until
-the user explicitly authorizes sending private repository context to the
-external service.
+Board 3, startup discovery and setup, is complete. Discovery scans configured
+Agents and known local Codex, Claude, Gemini and OpenCode commands without
+invoking a model. It stores executable, authentication, permission,
+connectivity and model observations separately. Model discovery is delegated
+only to Adapters that declare the capability. Connectivity probes are explicit
+and CLI probes use a fixed prompt from an empty temporary directory. GUI-only
+hosts can be registered as user-owned Agent profiles.
+
+```text
+docs/reports/2026-08-29-board-3-startup-discovery.md
+```
+
+Board 4, usage, cost and balance ledger, is next. Routing, the local Web
+interface and persistent remote interoperability remain later boards. The real
+Codex pilot remains paused until the user explicitly authorizes sending private
+repository context to the external service.
 
 ## How to resume safely
 

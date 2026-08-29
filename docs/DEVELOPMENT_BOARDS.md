@@ -41,13 +41,15 @@ Report: `docs/reports/2026-08-29-board-2-artifact-provenance.md`
 
 ### Board 3: Startup discovery and setup
 
-Status: planned
+Status: complete
 
 - scan known local Agent commands;
 - check executable, authentication and permissions separately;
 - discover available models through Adapter capabilities;
 - run an opt-in, non-project connectivity test;
 - support manual registration for GUI-only hosts.
+
+Report: `docs/reports/2026-08-29-board-3-startup-discovery.md`
 
 ### Board 4: Usage, cost and balance ledger
 

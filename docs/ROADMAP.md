@@ -29,6 +29,19 @@ Status: complete
 
 Report: `docs/reports/2026-08-29-board-2-artifact-provenance.md`
 
+## Productization Board 3: Startup discovery and setup
+
+Status: complete
+
+- known local Agent command scanning;
+- separate executable, authentication, permission and connectivity status;
+- Adapter capability-based model discovery;
+- opt-in project-neutral connectivity probes;
+- manual GUI-only Agent registration;
+- persistent discovery observations and protected user records.
+
+Report: `docs/reports/2026-08-29-board-3-startup-discovery.md`
+
 ## Milestone 0: Offline collaboration loop
 
 Status: complete

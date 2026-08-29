@@ -25,6 +25,37 @@ class ProvenanceDisplayMode(StrEnum):
     HIDDEN = "hidden"
 
 
+class ExecutableStatus(StrEnum):
+    AVAILABLE = "available"
+    MISSING = "missing"
+    NOT_APPLICABLE = "not_applicable"
+    UNKNOWN = "unknown"
+
+
+class AuthenticationStatus(StrEnum):
+    VERIFIED = "verified"
+    FAILED = "failed"
+    CONFIGURED = "configured"
+    MISSING = "missing"
+    NOT_APPLICABLE = "not_applicable"
+    UNKNOWN = "unknown"
+
+
+class PermissionStatus(StrEnum):
+    READ_ONLY = "read_only"
+    WORKSPACE_WRITE = "workspace_write"
+    UNRESTRICTED = "unrestricted"
+    NOT_APPLICABLE = "not_applicable"
+    UNKNOWN = "unknown"
+
+
+class ConnectivityStatus(StrEnum):
+    NOT_CHECKED = "not_checked"
+    PASSED = "passed"
+    FAILED = "failed"
+    NOT_SUPPORTED = "not_supported"
+
+
 @dataclass(frozen=True)
 class AgentCard:
     name: str

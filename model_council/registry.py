@@ -5,7 +5,13 @@ from typing import Any
 
 from .config import CouncilConfig
 from .store import CouncilStore, utc_now
-from .types import ProvenanceDisplayMode
+from .types import (
+    AuthenticationStatus,
+    ConnectivityStatus,
+    ExecutableStatus,
+    PermissionStatus,
+    ProvenanceDisplayMode,
+)
 
 
 ROLE_MODES = {"manual", "auto", "hybrid"}
@@ -278,6 +284,292 @@ class RegistryService:
                 f"stored {PROVENANCE_DISPLAY_SETTING} must be one of: {choices}"
             ) from exc
 
+    def setting_value(self, key: str, default: Any = None) -> Any:
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT value_json FROM app_settings WHERE key = ?",
+                (key,),
+            ).fetchone()
+        if row is None:
+            return default
+        return json.loads(row["value_json"])
+
+    def upsert_discovery_record(
+        self,
+        *,
+        record_id: str,
+        agent_id: str | None,
+        display_name: str,
+        target_kind: str,
+        adapter_type: str,
+        executable_status: str | ExecutableStatus,
+        authentication_status: str | AuthenticationStatus,
+        permission_status: str | PermissionStatus,
+        connectivity_status: str | ConnectivityStatus,
+        resolved_executable: str | None = None,
+        models: list[dict[str, Any]] | None = None,
+        capabilities: dict[str, Any] | None = None,
+        details: dict[str, Any] | None = None,
+        source: str = "discovery",
+    ) -> None:
+        if not record_id.strip():
+            raise ValueError("discovery record id cannot be empty")
+        executable_status = ExecutableStatus(executable_status).value
+        authentication_status = AuthenticationStatus(
+            authentication_status
+        ).value
+        permission_status = PermissionStatus(permission_status).value
+        connectivity_status = ConnectivityStatus(connectivity_status).value
+        now = utc_now()
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO agent_discovery(
+                    id, agent_id, display_name, target_kind, adapter_type,
+                    executable_status, authentication_status, permission_status,
+                    connectivity_status, resolved_executable, models_json,
+                    capabilities_json, details_json, source, checked_at,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    agent_id = excluded.agent_id,
+                    display_name = excluded.display_name,
+                    target_kind = excluded.target_kind,
+                    adapter_type = excluded.adapter_type,
+                    executable_status = excluded.executable_status,
+                    authentication_status = excluded.authentication_status,
+                    permission_status = excluded.permission_status,
+                    connectivity_status = excluded.connectivity_status,
+                    resolved_executable = excluded.resolved_executable,
+                    models_json = excluded.models_json,
+                    capabilities_json = excluded.capabilities_json,
+                    details_json = excluded.details_json,
+                    source = excluded.source,
+                    checked_at = excluded.checked_at,
+                    updated_at = excluded.updated_at
+                WHERE excluded.source = 'user' OR agent_discovery.source != 'user'
+                """,
+                (
+                    record_id,
+                    agent_id,
+                    display_name,
+                    target_kind,
+                    adapter_type,
+                    executable_status,
+                    authentication_status,
+                    permission_status,
+                    connectivity_status,
+                    resolved_executable,
+                    _dump(sanitize_for_storage(models or [])),
+                    _dump(sanitize_for_storage(capabilities or {})),
+                    _dump(sanitize_for_storage(details or {})),
+                    source,
+                    now,
+                    now,
+                    now,
+                ),
+            )
+
+    def update_discovered_models(
+        self,
+        record_id: str,
+        models: list[dict[str, Any]],
+    ) -> None:
+        with self.store.connect() as conn:
+            updated = conn.execute(
+                """
+                UPDATE agent_discovery
+                SET models_json = ?, checked_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    _dump(sanitize_for_storage(models)),
+                    utc_now(),
+                    utc_now(),
+                    record_id,
+                ),
+            ).rowcount
+        if not updated:
+            raise ValueError(f"discovery record {record_id!r} not found")
+
+    def update_connectivity(
+        self,
+        record_id: str,
+        status: str | ConnectivityStatus,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        status = ConnectivityStatus(status).value
+        now = utc_now()
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT details_json FROM agent_discovery WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"discovery record {record_id!r} not found")
+            current_details = json.loads(row["details_json"])
+            current_details["connectivity"] = sanitize_for_storage(details or {})
+            conn.execute(
+                """
+                UPDATE agent_discovery
+                SET connectivity_status = ?, details_json = ?,
+                    checked_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    _dump(current_details),
+                    now,
+                    now,
+                    record_id,
+                ),
+            )
+
+    def discovery_record(self, record_id: str) -> dict[str, Any] | None:
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM agent_discovery WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+        return self._decode_discovery(row) if row else None
+
+    def discovery_records(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM agent_discovery
+                ORDER BY target_kind, display_name, id
+                """
+            ).fetchall()
+        return [self._decode_discovery(row) for row in rows]
+
+    def register_discovered_cli(
+        self,
+        agent_id: str,
+        display_name: str,
+        resolved_executable: str,
+    ) -> None:
+        now = utc_now()
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO agent_profiles(
+                    id, adapter_type, provider_id, model_id, role,
+                    description, enabled, capabilities_json,
+                    boundaries_json, config_json, source,
+                    created_at, updated_at
+                ) VALUES (?, 'cli', NULL, NULL, 'unassigned', ?, 1, '[]',
+                    ?, ?, 'discovery', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    adapter_type = excluded.adapter_type,
+                    description = excluded.description,
+                    enabled = excluded.enabled,
+                    boundaries_json = excluded.boundaries_json,
+                    config_json = excluded.config_json,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                WHERE agent_profiles.source = 'discovery'
+                """,
+                (
+                    agent_id,
+                    f"Locally discovered {display_name}",
+                    _dump(["discovery-only", "not assigned to a project role"]),
+                    _dump(
+                        {
+                            "command": [resolved_executable],
+                            "discovered": True,
+                        }
+                    ),
+                    now,
+                    now,
+                ),
+            )
+
+    def register_manual_gui_agent(
+        self,
+        *,
+        agent_id: str,
+        display_name: str,
+        provider_id: str | None = None,
+        model_id: str | None = None,
+        capabilities: list[str] | None = None,
+        boundaries: list[str] | None = None,
+    ) -> None:
+        if not agent_id.strip():
+            raise ValueError("agent id cannot be empty")
+        if not display_name.strip():
+            raise ValueError("display name cannot be empty")
+        now = utc_now()
+        with self.store.connect() as conn:
+            if provider_id and not self._exists(conn, "providers", provider_id):
+                raise ValueError(f"unknown provider {provider_id!r}")
+            if model_id and not self._exists(conn, "models", model_id):
+                raise ValueError(f"unknown model {model_id!r}")
+            if model_id and provider_id:
+                model_provider = conn.execute(
+                    "SELECT provider_id FROM models WHERE id = ?",
+                    (model_id,),
+                ).fetchone()["provider_id"]
+                if model_provider != provider_id:
+                    raise ValueError(
+                        f"model {model_id!r} does not belong to provider "
+                        f"{provider_id!r}"
+                    )
+            conn.execute(
+                """
+                INSERT INTO agent_profiles(
+                    id, adapter_type, provider_id, model_id, role,
+                    description, enabled, capabilities_json,
+                    boundaries_json, config_json, source,
+                    created_at, updated_at
+                ) VALUES (?, 'gui', ?, ?, 'unassigned', ?, 1, ?, ?, '{}',
+                    'user', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    adapter_type = excluded.adapter_type,
+                    provider_id = excluded.provider_id,
+                    model_id = excluded.model_id,
+                    role = excluded.role,
+                    description = excluded.description,
+                    enabled = excluded.enabled,
+                    capabilities_json = excluded.capabilities_json,
+                    boundaries_json = excluded.boundaries_json,
+                    config_json = excluded.config_json,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    agent_id,
+                    provider_id,
+                    model_id,
+                    display_name,
+                    _dump(capabilities or []),
+                    _dump(boundaries or []),
+                    now,
+                    now,
+                ),
+            )
+        self.upsert_discovery_record(
+            record_id=f"manual:{agent_id}",
+            agent_id=agent_id,
+            display_name=display_name,
+            target_kind="manual_gui",
+            adapter_type="gui",
+            executable_status=ExecutableStatus.NOT_APPLICABLE,
+            authentication_status=AuthenticationStatus.UNKNOWN,
+            permission_status=PermissionStatus.UNKNOWN,
+            connectivity_status=ConnectivityStatus.NOT_CHECKED,
+            models=(
+                [{"id": model_id, "source": "manual"}] if model_id else []
+            ),
+            capabilities={
+                "model_discovery": False,
+                "connectivity_test": False,
+                "manual_setup": True,
+            },
+            details={"provider_id": provider_id},
+            source="user",
+        )
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "providers": self._rows(
@@ -301,6 +593,7 @@ class RegistryService:
                 json_fields=("constraints_json",),
             ),
             "settings": self._settings(),
+            "discovery": self.discovery_records(),
         }
 
     def _settings(self) -> dict[str, dict[str, Any]]:
@@ -337,13 +630,20 @@ class RegistryService:
 
     @staticmethod
     def _exists(conn, table: str, record_id: str) -> bool:
-        if table not in {"agent_profiles", "models"}:
+        if table not in {"agent_profiles", "models", "providers"}:
             raise ValueError("unsupported registry table")
         row = conn.execute(
             f"SELECT 1 FROM {table} WHERE id = ?",
             (record_id,),
         ).fetchone()
         return row is not None
+
+    @staticmethod
+    def _decode_discovery(row) -> dict[str, Any]:
+        item = dict(row)
+        for field in ("models_json", "capabilities_json", "details_json"):
+            item[field.removesuffix("_json")] = json.loads(item.pop(field))
+        return item
 
     @staticmethod
     def _upsert_role(

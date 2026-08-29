@@ -36,6 +36,22 @@ run.created
 
 因此可以替换任意模型，而不改变上层工作流。
 
+## Startup discovery and setup
+
+Discovery observes and records local model hosts; it does not select project
+roles. Every target keeps separate executable, authentication, permission,
+connectivity and model status.
+
+`discovery scan` inspects configuration and known local commands without a
+model call. Model enumeration is delegated only to Adapters that declare the
+capability. `discovery probe` is explicit and a CLI probe runs a fixed prompt
+from an empty temporary directory without project goals, Agent descriptions,
+conversation context or Artifact references.
+
+GUI-only Agents can be registered manually. Their registry and discovery
+records are user-owned and cannot be overwritten by later config sync or local
+command scanning.
+
 ## Adapter
 
 每个模型承载工具都实现同一个接口：

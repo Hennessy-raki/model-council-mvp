@@ -16,7 +16,7 @@ def build_adapters(config: CouncilConfig) -> dict[str, AgentAdapter]:
         card = config.card(name)
         adapter_type = settings.get("type", "mock")
         if adapter_type == "mock":
-            adapter = MockAdapter(card)
+            adapter = MockAdapter(card, settings)
         elif adapter_type == "cli":
             adapter = CliAdapter(card, settings, config_dir)
         elif adapter_type == "openai_compatible":

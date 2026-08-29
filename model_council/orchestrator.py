@@ -8,6 +8,7 @@ from typing import Any
 from .adapters import build_adapters
 from .artifacts import ArtifactStore
 from .config import CouncilConfig
+from .discovery import DiscoveryService
 from .manager import Manager
 from .registry import RegistryService
 from .store import CouncilStore
@@ -29,6 +30,17 @@ class Orchestrator:
         self.registry.sync_from_config(config)
         self.artifacts = ArtifactStore(config.state_dir / "artifacts", self.store)
         self.adapters = build_adapters(config)
+        if bool(
+            self.registry.setting_value(
+                "auto_discovery_on_start",
+                False,
+            )
+        ):
+            DiscoveryService(
+                config=config,
+                registry=self.registry,
+                adapters=self.adapters,
+            ).scan()
         self.manager = Manager(config.manager, self.adapters[config.manager])
 
     def run(self, goal: str) -> RunResult:

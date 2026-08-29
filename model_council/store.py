@@ -161,6 +161,25 @@ class CouncilStore:
                     source TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS agent_discovery (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT,
+                    display_name TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    adapter_type TEXT NOT NULL,
+                    executable_status TEXT NOT NULL,
+                    authentication_status TEXT NOT NULL,
+                    permission_status TEXT NOT NULL,
+                    connectivity_status TEXT NOT NULL,
+                    resolved_executable TEXT,
+                    models_json TEXT NOT NULL,
+                    capabilities_json TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    checked_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -169,6 +188,8 @@ class CouncilStore:
                 CREATE INDEX IF NOT EXISTS idx_models_provider ON models(provider_id);
                 CREATE INDEX IF NOT EXISTS idx_agents_provider ON agent_profiles(provider_id);
                 CREATE INDEX IF NOT EXISTS idx_agents_model ON agent_profiles(model_id);
+                CREATE INDEX IF NOT EXISTS idx_discovery_agent
+                    ON agent_discovery(agent_id);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

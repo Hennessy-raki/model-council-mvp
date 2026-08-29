@@ -7,7 +7,13 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .base import AgentAdapter
-from ..types import AgentRequest, AgentResponse
+from ..types import (
+    AgentRequest,
+    AgentResponse,
+    AuthenticationStatus,
+    ConnectivityStatus,
+    PermissionStatus,
+)
 
 
 class OpenAICompatibleAdapter(AgentAdapter):
@@ -82,6 +88,95 @@ class OpenAICompatibleAdapter(AgentAdapter):
             "api_key_env": self.api_key_env,
             "api_key_present": bool(os.environ.get(self.api_key_env)),
         }
+
+    def discovery_capabilities(self) -> dict[str, bool]:
+        return {
+            "executable_check": False,
+            "authentication_check": True,
+            "permission_check": True,
+            "model_discovery": True,
+            "connectivity_test": True,
+        }
+
+    def check_authentication(self) -> dict[str, Any]:
+        present = bool(os.environ.get(self.api_key_env))
+        return {
+            "status": (
+                AuthenticationStatus.CONFIGURED.value
+                if present
+                else AuthenticationStatus.MISSING.value
+            ),
+            "details": {
+                "check": "environment",
+                "api_key_env": self.api_key_env,
+            },
+        }
+
+    def check_permissions(self) -> dict[str, Any]:
+        return {
+            "status": PermissionStatus.NOT_APPLICABLE.value,
+            "details": {"reason": "remote API permissions are provider-managed"},
+        }
+
+    def discover_models(self) -> list[dict[str, Any]]:
+        api_key = os.environ.get(self.api_key_env)
+        if not api_key:
+            raise RuntimeError(
+                f"environment variable {self.api_key_env!r} is not configured"
+            )
+        request = Request(
+            f"{self.base_url}/models",
+            method="GET",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        data = self._read_json(request)
+        values = data.get("data", data.get("models", []))
+        if not isinstance(values, list):
+            raise RuntimeError("model discovery response did not contain a list")
+        result = []
+        seen: set[str] = set()
+        for item in values:
+            model_id = item.get("id") if isinstance(item, dict) else item
+            if model_id is None:
+                continue
+            model_id = str(model_id).strip()
+            if model_id and model_id not in seen:
+                seen.add(model_id)
+                result.append({"id": model_id, "source": "provider"})
+        return result
+
+    def connectivity_probe(self) -> dict[str, Any]:
+        try:
+            models = self.discover_models()
+        except Exception as exc:
+            return {
+                "status": ConnectivityStatus.FAILED.value,
+                "details": {"error": type(exc).__name__},
+            }
+        return {
+            "status": ConnectivityStatus.PASSED.value,
+            "details": {
+                "transport": "models_endpoint",
+                "model_count": len(models),
+            },
+        }
+
+    def _read_json(self, request: Request) -> dict[str, Any]:
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"HTTP {exc.code} from {request.full_url}: {detail[-2000:]}"
+            ) from exc
+        except URLError as exc:
+            raise RuntimeError(
+                f"cannot reach {request.full_url}: {exc.reason}"
+            ) from exc
+        if not isinstance(data, dict):
+            raise RuntimeError("provider response was not a JSON object")
+        return data
 
     def _extract_text(self, data: dict[str, Any]) -> str:
         if self.api_style == "chat_completions":
