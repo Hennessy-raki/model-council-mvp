@@ -7,6 +7,7 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
 - [`AGENTS.md`](AGENTS.md)
 - [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/DEVELOPMENT_BOARDS.md`](docs/DEVELOPMENT_BOARDS.md)
 - [`docs/START_HERE_NEXT_SESSION.md`](docs/START_HERE_NEXT_SESSION.md)
 
 当前版本已经具备：
@@ -22,6 +23,9 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
 - Codex `--json` JSONL 事件解析和最终消息提取；
 - CLI 线程、usage、事件、耗时、退出码和 stderr 诊断；
 - 不调用模型的 Adapter `doctor` 检查；
+- Provider、Model、Agent和角色设置注册中心；
+- `manual`、`auto`、`hybrid`三种角色分配模式；
+- 配置同步、用户覆盖保护和敏感字段脱敏；
 - 模型能力和边界声明；
 - 超时、失败记录和确定性调度；
 - 不依赖第三方 Python 包的可运行演示。
@@ -74,6 +78,24 @@ python -m model_council agents --config config.example.json
 ```powershell
 python -m model_council doctor --config config.codex.example.json
 ```
+
+初始化并查看设置注册中心：
+
+```powershell
+python -m model_council settings sync --config config.example.json
+python -m model_council settings show --config config.example.json
+```
+
+修改角色分配：
+
+```powershell
+python -m model_council settings assign detail_executor `
+  --mode hybrid --agent implementer --model mock-general --locked `
+  --config config.example.json
+```
+
+设置注册中心当前是未来本地设置界面的数据基础。JSON配置只负责提供初始值，
+用户通过CLI或未来UI保存的值不会被后续同步覆盖。
 
 运行自定义目标：
 

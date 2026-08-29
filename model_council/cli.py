@@ -8,6 +8,8 @@ from pathlib import Path
 from .adapters import build_adapters
 from .config import load_config
 from .orchestrator import Orchestrator
+from .registry import RegistryService
+from .store import CouncilStore
 
 
 def default_config_path() -> Path:
@@ -40,6 +42,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="validate configured adapters without invoking any model",
     )
     doctor.add_argument("--config", default=str(default_config_path()))
+
+    settings = subparsers.add_parser(
+        "settings",
+        help="inspect or update the persistent settings registry",
+    )
+    settings_commands = settings.add_subparsers(
+        dest="settings_command",
+        required=True,
+    )
+    settings_show = settings_commands.add_parser(
+        "show",
+        help="show providers, models, agents, roles and settings",
+    )
+    settings_show.add_argument("--config", default=str(default_config_path()))
+    settings_sync = settings_commands.add_parser(
+        "sync",
+        help="synchronize the JSON seed configuration into SQLite",
+    )
+    settings_sync.add_argument("--config", default=str(default_config_path()))
+    settings_assign = settings_commands.add_parser(
+        "assign",
+        help="persist a user role assignment",
+    )
+    settings_assign.add_argument("role_key")
+    settings_assign.add_argument(
+        "--mode",
+        required=True,
+        choices=("manual", "auto", "hybrid"),
+    )
+    settings_assign.add_argument("--agent")
+    settings_assign.add_argument("--model")
+    settings_assign.add_argument("--locked", action="store_true")
+    settings_assign.add_argument("--config", default=str(default_config_path()))
+    settings_set = settings_commands.add_parser(
+        "set",
+        help="persist one application setting as JSON or text",
+    )
+    settings_set.add_argument("key")
+    settings_set.add_argument("value")
+    settings_set.add_argument("--config", default=str(default_config_path()))
 
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
@@ -78,6 +120,44 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
             if not all(item.get("ok", False) for item in diagnostics.values()):
                 raise SystemExit(2)
+        elif args.command == "settings":
+            config = load_config(args.config)
+            registry = _load_registry(config)
+            if args.settings_command == "show":
+                print(
+                    json.dumps(
+                        registry.snapshot(),
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            elif args.settings_command == "sync":
+                counts = registry.sync_from_config(config)
+                print(json.dumps(counts, ensure_ascii=False, indent=2))
+            elif args.settings_command == "assign":
+                registry.assign_role(
+                    role_key=args.role_key,
+                    mode=args.mode,
+                    agent_id=args.agent,
+                    model_id=args.model,
+                    locked=args.locked,
+                )
+                print(
+                    json.dumps(
+                        registry.snapshot()["roles"],
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            elif args.settings_command == "set":
+                registry.set_setting(args.key, _parse_setting_value(args.value))
+                print(
+                    json.dumps(
+                        registry.snapshot()["settings"][args.key],
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)
@@ -113,3 +193,17 @@ def _run_goal(config, goal: str) -> None:
     print(f"FINAL_ARTIFACT={result.final_artifact.path}")
     print()
     print(result.final_text)
+
+
+def _load_registry(config) -> RegistryService:
+    store = CouncilStore(config.state_dir / "council.db")
+    registry = RegistryService(store)
+    registry.sync_from_config(config)
+    return registry
+
+
+def _parse_setting_value(value: str):
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value

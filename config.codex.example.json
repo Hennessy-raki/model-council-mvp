@@ -4,9 +4,40 @@
   "max_parallel": 2,
   "manager": "manager",
   "reviewer": "reviewer",
+  "providers": {
+    "mock-local": {
+      "kind": "mock",
+      "display_name": "Local offline mock provider",
+      "enabled": true
+    },
+    "codex-local": {
+      "kind": "cli",
+      "display_name": "Local Codex CLI",
+      "enabled": true
+    }
+  },
+  "models": {
+    "mock-general": {
+      "provider": "mock-local",
+      "display_name": "Mock general model",
+      "capabilities": ["planning", "implementation", "review"],
+      "enabled": true
+    },
+    "codex-configured-default": {
+      "provider": "codex-local",
+      "display_name": "Codex configured default model",
+      "capabilities": ["architecture", "code_analysis"],
+      "enabled": true,
+      "metadata": {
+        "selection": "Inherited from the local Codex configuration"
+      }
+    }
+  },
   "agents": {
     "manager": {
       "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
       "role": "管理员",
       "description": "第一轮仍使用模拟管理员，避免一次引入过多变量。",
       "capabilities": ["plan", "synthesize"],
@@ -14,6 +45,8 @@
     },
     "codex_architect": {
       "type": "cli",
+      "provider": "codex-local",
+      "model": "codex-configured-default",
       "role": "Codex架构师",
       "description": "通过 Codex 非交互模式完成一个只读分析任务。",
       "capabilities": ["architecture", "code_analysis"],
@@ -35,6 +68,8 @@
     },
     "implementer": {
       "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
       "role": "实现工程师",
       "description": "负责工程落地建议。",
       "capabilities": ["implementation", "testing"],
@@ -42,10 +77,41 @@
     },
     "reviewer": {
       "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
       "role": "独立审查员",
       "description": "审查各模型输出。",
       "capabilities": ["review", "verification"],
       "boundaries": ["不执行外部写操作"]
     }
+  },
+  "role_assignments": {
+    "decision_manager": {
+      "mode": "manual",
+      "agent": "manager",
+      "model": "mock-general",
+      "locked": true
+    },
+    "architecture_lead": {
+      "mode": "manual",
+      "agent": "codex_architect",
+      "model": "codex-configured-default",
+      "locked": true
+    },
+    "detail_executor": {
+      "mode": "hybrid",
+      "agent": "implementer",
+      "model": "mock-general"
+    },
+    "independent_reviewer": {
+      "mode": "manual",
+      "agent": "reviewer",
+      "model": "mock-general",
+      "locked": true
+    }
+  },
+  "settings": {
+    "locale": "zh-CN",
+    "auto_discovery_on_start": false
   }
 }

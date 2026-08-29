@@ -1,5 +1,32 @@
 # Roadmap
 
+Productization work is tracked in `docs/DEVELOPMENT_BOARDS.md`. Every board
+produces an implementation, tests, a report and a dedicated commit.
+
+## Productization Board 1: Settings and registry foundation
+
+Status: complete
+
+- Provider, Model and Agent persistence;
+- manual, automatic and hybrid role assignment records;
+- application settings persistence;
+- config seed synchronization;
+- user override protection;
+- nested sensitive-value redaction;
+- CLI settings operations;
+- acceptance report.
+
+Report: `docs/reports/2026-08-29-board-1-settings-registry.md`
+
+## Productization Board 2: Artifact provenance
+
+Status: next
+
+- producing Provider, Model and Agent;
+- contributors, reviewer and final integrator;
+- internal audit metadata;
+- compact, detailed and hidden display modes.
+
 ## Milestone 0: Offline collaboration loop
 
 Status: complete

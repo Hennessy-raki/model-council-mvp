@@ -83,9 +83,65 @@ class CouncilStore:
                     path TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS providers (
+                    id TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    config_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS models (
+                    id TEXT PRIMARY KEY,
+                    provider_id TEXT NOT NULL REFERENCES providers(id),
+                    display_name TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    capabilities_json TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS agent_profiles (
+                    id TEXT PRIMARY KEY,
+                    adapter_type TEXT NOT NULL,
+                    provider_id TEXT REFERENCES providers(id),
+                    model_id TEXT REFERENCES models(id),
+                    role TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    capabilities_json TEXT NOT NULL,
+                    boundaries_json TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS role_assignments (
+                    role_key TEXT PRIMARY KEY,
+                    mode TEXT NOT NULL,
+                    agent_id TEXT REFERENCES agent_profiles(id),
+                    model_id TEXT REFERENCES models(id),
+                    locked INTEGER NOT NULL,
+                    constraints_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
+                CREATE INDEX IF NOT EXISTS idx_models_provider ON models(provider_id);
+                CREATE INDEX IF NOT EXISTS idx_agents_provider ON agent_profiles(provider_id);
+                CREATE INDEX IF NOT EXISTS idx_agents_model ON agent_profiles(model_id);
                 """
             )
 

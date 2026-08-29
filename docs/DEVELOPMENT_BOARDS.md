@@ -1,0 +1,88 @@
+# Development Boards
+
+Model Council is developed in independently reviewable boards. Every completed
+board must include:
+
+1. implementation;
+2. automated tests;
+3. an acceptance report under `docs/reports/`;
+4. roadmap and handoff updates;
+5. one identifiable Git commit.
+
+Ideas discovered during a board should be recorded for later prioritization
+unless they are required to satisfy the current board's acceptance criteria.
+
+## Board sequence
+
+### Board 1: Settings and registry foundation
+
+Status: complete
+
+- persist Provider, Model and Agent records;
+- persist manual, automatic and hybrid role assignments;
+- persist application settings;
+- synchronize JSON seed configuration without overwriting user choices;
+- redact likely credentials before persistence;
+- expose settings through CLI commands.
+
+Report: `docs/reports/2026-08-29-board-1-settings-registry.md`
+
+### Board 2: Artifact provenance
+
+Status: next
+
+- record producing Provider, Model and Agent;
+- record contributors, reviewer and final integrator;
+- keep provenance internally even when display is disabled;
+- add configurable compact, detailed and hidden presentation modes;
+- migrate existing Artifact records safely.
+
+### Board 3: Startup discovery and setup
+
+Status: planned
+
+- scan known local Agent commands;
+- check executable, authentication and permissions separately;
+- discover available models through Adapter capabilities;
+- run an opt-in, non-project connectivity test;
+- support manual registration for GUI-only hosts.
+
+### Board 4: Usage, cost and balance ledger
+
+Status: planned
+
+- normalize per-call usage;
+- distinguish actual, provider-reported, estimated and unavailable values;
+- calculate project and role totals;
+- add budget warnings and hard limits;
+- expose provider balance only when a supported API exists.
+
+### Board 5: Routing policy
+
+Status: planned
+
+- implement manual, automatic and hybrid role selection;
+- add capability, availability, cost and latency constraints;
+- allow user locks and required model separation;
+- persist routing explanations for audit.
+
+### Board 6: Local settings interface
+
+Status: planned
+
+- build a local web control plane on top of the stable registry;
+- edit Providers, Models, Agents, roles and settings;
+- show discovery, health and billing capability states;
+- expose provenance and budget controls;
+- keep all state local by default.
+
+### Board 7: Persistent and remote interoperability
+
+Status: planned
+
+- Codex App Server sessions;
+- second real model family;
+- A2A transport;
+- MCP tool broker;
+- remote Agent identity and authentication.
+

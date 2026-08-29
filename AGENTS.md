@@ -20,6 +20,7 @@ Before changing code, read:
 2. `docs/ARCHITECTURE.md`
 3. `docs/PROJECT_HANDOFF.md`
 4. `docs/ROADMAP.md`
+5. `docs/DEVELOPMENT_BOARDS.md`
 
 ## Architectural invariants
 
@@ -60,6 +61,15 @@ Do not commit:
 - user project worktrees
 
 ## Current priority
+
+Productization Board 1 is complete. The next implementation board is Artifact
+provenance. Read the latest report under `docs/reports/` before changing the
+Artifact schema.
+
+The real Codex pilot is separately paused pending explicit user authorization
+for sending private repository context to an external service.
+
+## Codex pilot boundary
 
 The next milestone is a narrow Codex pilot:
 

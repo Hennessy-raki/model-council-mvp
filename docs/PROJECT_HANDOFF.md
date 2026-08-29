@@ -53,7 +53,9 @@ The repository currently contains:
 - a CLI for demos, custom runs, agent listing and run inspection;
 - a no-invocation Adapter doctor command;
 - Codex JSONL parsing with final-message extraction and diagnostic metadata;
-- seven automated tests.
+- a persistent Provider, Model, Agent, role and application-settings registry;
+- protected user overrides and nested sensitive-value redaction;
+- ten automated tests.
 
 ## Verified state
 
@@ -63,7 +65,7 @@ On 2026-08-29:
 - Node.js version: 24.16.0
 - Git version: 2.55.0
 - Codex CLI version: 0.150.1
-- all seven unit/integration tests passed;
+- all ten unit/integration tests passed;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -159,6 +161,18 @@ Acceptance criteria:
 
 After that, add a persistent `CodexAppServerAdapter` with JSONL request IDs,
 thread identity, streaming events and cancellation.
+
+## Productization board status
+
+Board 1, the settings and registry foundation, is complete. Its report is:
+
+```text
+docs/reports/2026-08-29-board-1-settings-registry.md
+```
+
+Board 2, Artifact provenance, is next. The real Codex pilot remains paused until
+the user explicitly authorizes sending private repository context to the
+external service.
 
 ## How to resume safely
 

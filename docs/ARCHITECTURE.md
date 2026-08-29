@@ -96,6 +96,29 @@ runtime/artifacts/ab/abcdef...md
 
 SQLite 保存逻辑名称、媒体类型、任务、哈希和相对路径。相同内容可以复用同一个物理文件。
 
+## 设置与注册中心
+
+SQLite同时保存Provider、Model、Agent、角色分配和应用设置。
+
+```text
+Provider
+  -> Model
+  -> Agent profile
+  -> Role assignment
+```
+
+JSON配置是种子数据，不是设置界面的唯一事实来源。配置同步不会覆盖来源为
+`user`的记录，也不会删除配置文件中缺失的手动或自动发现记录。
+
+角色分配支持：
+
+- `manual`
+- `auto`
+- `hybrid`
+
+自动选择逻辑将在发现、能力和费用数据可用后实现。当前版本只持久化选择模式、
+用户锁定和结构化约束。
+
 ## 下一阶段边界
 
 优先级顺序：

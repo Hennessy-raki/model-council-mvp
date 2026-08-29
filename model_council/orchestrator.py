@@ -9,6 +9,7 @@ from .adapters import build_adapters
 from .artifacts import ArtifactStore
 from .config import CouncilConfig
 from .manager import Manager
+from .registry import RegistryService
 from .store import CouncilStore
 from .types import AgentRequest, ArtifactRef, RunStatus, TaskStatus
 
@@ -24,6 +25,8 @@ class Orchestrator:
     def __init__(self, config: CouncilConfig):
         self.config = config
         self.store = CouncilStore(config.state_dir / "council.db")
+        self.registry = RegistryService(self.store)
+        self.registry.sync_from_config(config)
         self.artifacts = ArtifactStore(config.state_dir / "artifacts", self.store)
         self.adapters = build_adapters(config)
         self.manager = Manager(config.manager, self.adapters[config.manager])
