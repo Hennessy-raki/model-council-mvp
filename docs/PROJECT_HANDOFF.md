@@ -2,6 +2,15 @@
 
 Last updated: 2026-08-29
 
+The authoritative pre-Board-5 context checkpoint is:
+
+```text
+docs/reports/2026-08-29-pre-board-5-session-handoff.md
+```
+
+It records the refreshed test, demo, discovery, ledger, GitHub and security
+baseline. Read it before changing routing behavior.
+
 ## Why this project exists
 
 The original idea is to let models with different strengths collaborate on a
@@ -151,7 +160,10 @@ This information may become stale and should be reverified before provider work.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
 
-## Next recommended milestone
+## Separate real-agent milestone
+
+The next productization milestone is Board 5. The real-agent milestone below is
+separate and remains paused pending explicit user authorization.
 
 Milestone 1 is complete when one real Codex role successfully participates in a
 full run from an ordinary PowerShell session.
@@ -220,6 +232,13 @@ capability, availability and ledger evidence while preserving user locks and
 model-separation constraints. The real Codex pilot remains paused until the
 user explicitly authorizes sending private repository context to the external
 service.
+
+The frozen Board 5 starting scope, refreshed verification evidence and exact
+next-session prompt are recorded in:
+
+```text
+docs/reports/2026-08-29-pre-board-5-session-handoff.md
+```
 
 ## How to resume safely
 

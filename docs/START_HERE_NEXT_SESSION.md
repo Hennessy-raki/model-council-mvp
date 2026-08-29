@@ -5,22 +5,34 @@ Use this document when continuing in a new Codex conversation.
 ## Suggested opening prompt
 
 ```text
-Continue development of the Model Council repository. First read AGENTS.md,
-README.md, docs/ARCHITECTURE.md, docs/PROJECT_HANDOFF.md and docs/ROADMAP.md.
-Run the existing tests and offline demo before changing code.
+Continue development directly in the existing Model Council repository supplied
+for this task. Do not create a copy in the new task's default directory.
 
-Productization Boards 1 through 4 are complete. Read
-`docs/reports/2026-08-29-board-1-settings-registry.md` and
-`docs/reports/2026-08-29-board-2-artifact-provenance.md` and
-`docs/reports/2026-08-29-board-3-startup-discovery.md` and
-`docs/reports/2026-08-29-board-4-usage-cost-ledger.md`, then begin Board 5:
-routing policy. Keep the registry, Artifact provenance, discovery and ledger
-contracts intact. Preserve user locks and required model separation, and store
-routing explanations. Do not build a Web UI in Board 5.
+Before changing code, read AGENTS.md, README.md, docs/ARCHITECTURE.md,
+docs/PROJECT_HANDOFF.md, docs/ROADMAP.md, docs/DEVELOPMENT_BOARDS.md,
+docs/START_HERE_NEXT_SESSION.md, the four completed Board 1-4 reports, and
+docs/reports/2026-08-29-pre-board-5-session-handoff.md.
 
-The real-Codex pilot remains paused. Before that run, obtain explicit user
-authorization to send private repository content or derived details to the
-external Codex model service.
+Verify that git main contains implementation commit 7947ef1 and the later
+pre-Board-5 handoff checkpoint, that the worktree is clean, and that local main
+matches the public GitHub repository. Run the 29 existing tests, offline demo,
+doctor, discovery scan and ledger summary before implementation.
+
+Then implement Productization Board 5: routing policy. Support manual,
+automatic and hybrid selection; capability, availability, cost and latency
+constraints; user locks; required model separation; durable routing
+explanations; safe SQLite migration; and sufficient automated tests. Consume
+the existing registry, provenance, discovery and ledger contracts. Preserve
+JSON as seed configuration and protect user-owned settings.
+
+Do not build the Board 6 Web UI, Codex App Server, A2A, MCP, worktree
+automation, a new billing system or broad real-model startup. The real Codex
+pilot remains paused unless the user separately gives explicit authorization
+to send repository content or derived details to an external model service.
+
+Finish Board 5 with its own report, roadmap and handoff updates, sensitive-data
+scan, commit, push and remote-main verification. Report the board outcome to
+the user before beginning any later board.
 ```
 
 ## Repository orientation
@@ -39,6 +51,8 @@ external Codex model service.
 - `config.codex.example.json`: next pilot
 - `protocol/`: communication schema drafts
 - `tests/`: regression baseline
+- `docs/reports/2026-08-29-pre-board-5-session-handoff.md`: frozen Board 5
+  starting context and acceptance boundary
 
 ## First checks
 

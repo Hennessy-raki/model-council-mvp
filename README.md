@@ -259,7 +259,8 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - Codex App Server 持久会话；
 - Git worktree 自动创建与合并；
 - Web/Electron 图形界面；
-- token 和费用预算；
+- 自动路由策略；
+- 自动价格目录刷新、货币换算和按时间窗口预算；
 - 人工审批页面；
 - 多轮争论和动态重新规划。
 

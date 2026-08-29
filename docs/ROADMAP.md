@@ -3,6 +3,9 @@
 Productization work is tracked in `docs/DEVELOPMENT_BOARDS.md`. Every board
 produces an implementation, tests, a report and a dedicated commit.
 
+The refreshed context and verification baseline before Board 5 is recorded in
+`docs/reports/2026-08-29-pre-board-5-session-handoff.md`.
+
 ## Productization Board 1: Settings and registry foundation
 
 Status: complete
@@ -54,6 +57,16 @@ Status: complete
 - explicit balance snapshots only for supported Provider APIs.
 
 Report: `docs/reports/2026-08-29-board-4-usage-cost-ledger.md`
+
+## Productization Board 5: Routing policy
+
+Status: next
+
+- manual, automatic and hybrid selection;
+- capability, availability, cost and latency constraints;
+- user locks and required model separation;
+- persisted routing explanations;
+- no Web UI or real-model expansion within this board.
 
 ## Milestone 0: Offline collaboration loop
 
@@ -116,7 +129,7 @@ Status: in progress
 - live task graph and model status;
 - message and Artifact browser;
 - approvals and permission templates;
-- token, time and cost budgets;
+- token, time and cost budget configuration and visualization;
 - run comparison and evaluation dashboards;
 - optional Electron packaging.
 
