@@ -77,13 +77,15 @@ Report: `docs/reports/2026-08-29-board-5-routing-policy.md`
 
 ### Board 6: Local settings interface
 
-Status: next
+Status: complete
 
 - build a local web control plane on top of the stable registry;
 - edit Providers, Models, Agents, roles and settings;
 - show discovery, health and billing capability states;
 - expose provenance and budget controls;
 - keep all state local by default.
+
+Report: `docs/reports/2026-08-30-board-6-local-settings-interface.md`
 
 ### Board 7: Persistent and remote interoperability
 

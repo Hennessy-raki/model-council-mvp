@@ -1,15 +1,16 @@
 # Project Handoff
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
-The authoritative pre-Board-6 context checkpoint is:
+The authoritative Board 6 completion report is:
 
 ```text
-docs/reports/2026-08-29-pre-board-6-session-handoff.md
+docs/reports/2026-08-30-board-6-local-settings-interface.md
 ```
 
-It records the refreshed test, demo, routing, discovery, ledger, GitHub,
-privacy and security baseline. Read it before building the local interface.
+It records the local-interface scope, verification, privacy boundaries and
+next-board boundary. The pre-Board-6 starting context remains in
+`docs/reports/2026-08-29-pre-board-6-session-handoff.md`.
 
 ## Why this project exists
 
@@ -78,8 +79,13 @@ The repository currently contains:
   constraints;
 - immutable routing decisions with selected evidence, rejected candidates and
   reason codes;
+- a loopback-only local settings interface over the persisted SQLite state;
+- user-owned Provider, Model, Agent, role, application-setting and budget
+  editing with sensitive values redacted before storage;
+- local views for discovery observations, Artifact provenance, ledger, budget,
+  balance-snapshot and routing-decision evidence;
 - a local repository privacy scanner and required public-push safety gate;
-- forty-one automated tests.
+- forty-five automated tests.
 
 ## Verified state
 
@@ -95,6 +101,8 @@ On 2026-08-29:
 - all twenty-nine unit/integration tests passed after the usage and cost ledger;
 - all forty-one unit/integration tests passed after the routing policy and
   privacy gate;
+- all forty-five unit/integration tests passed after the local settings
+  interface;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -252,17 +260,21 @@ history. The current tree and reachable history pass the privacy scanner.
 GitHub may retain unreferenced objects until garbage collection; a private
 Support purge remains the strongest follow-up for immediate physical removal.
 
-Board 6, the local settings interface, is next. It must expose the stable local
-registry and routing contracts without moving state to a remote service or
-starting Board 7 interoperability. The real Codex pilot remains paused until
-the user explicitly authorizes sending private repository context to the
-external service.
+Board 6, the local settings interface, is complete. It exposes the stable local
+registry and routing contracts through a loopback-only, dependency-free Web
+server. SQLite remains authoritative; refreshes only read persisted records and
+save operations create user-owned records. It does not invoke models, discovery
+probes, Provider balance APIs or external services.
 
-The frozen Board 6 starting scope, refreshed verification evidence and exact
-next-session prompt are recorded in:
+Board 7 remains unstarted. Codex App Server, A2A, MCP and remote Agent
+interoperability require a separate board authorization. The real Codex pilot
+also remains paused until the user explicitly authorizes sending private
+repository context to the external service.
+
+The completed Board 6 scope and verification evidence are recorded in:
 
 ```text
-docs/reports/2026-08-29-pre-board-6-session-handoff.md
+docs/reports/2026-08-30-board-6-local-settings-interface.md
 ```
 
 ## How to resume safely
@@ -272,7 +284,10 @@ python -m unittest discover -s tests -v
 python -m model_council demo "验证当前基线"
 python scripts/privacy_scan.py
 python -m model_council agents --config config.example.json
+python -m model_council web --config config.example.json
 ```
 
 Read the architecture invariants before changing Adapter or orchestration
 boundaries. Preserve the mock-only baseline even after real models are added.
+The Web command opens only a loopback server and must not be extended into
+Board 7 remote interoperability without new authorization.

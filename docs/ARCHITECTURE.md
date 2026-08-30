@@ -174,11 +174,12 @@ cannot override locks, budgets, separation constraints or permission evidence.
 
 优先级顺序：
 
-1. Board 6 本地设置与控制界面；
-2. 经单独授权后的 Codex `exec` 单模型只读试点；
-3. Board 7 Codex App Server、A2A、MCP 和远程互操作；
-4. Git worktree 隔离与人工审批。
+1. review and operate the Board 6 local settings interface;
+2. a separately authorized narrow Codex `exec` read-only pilot;
+3. Board 7 Codex App Server, A2A, MCP and remote interoperability;
+4. Git worktree isolation and human approval.
 
-Board 6 must consume the stable registry, discovery, provenance, ledger and
-routing contracts. It must not replace deterministic control-plane decisions
-with browser-side or model-generated authorization.
+The Board 6 interface is a loopback-only presentation and local mutation layer
+over SQLite. It does not move state into a remote service and cannot replace
+deterministic control-plane routing with browser-side or model-generated
+authorization.

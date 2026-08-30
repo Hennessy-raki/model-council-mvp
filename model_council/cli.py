@@ -237,6 +237,14 @@ def build_parser() -> argparse.ArgumentParser:
     settings_set.add_argument("value")
     settings_set.add_argument("--config", default=str(default_config_path()))
 
+    web = subparsers.add_parser(
+        "web",
+        help="start the local-only settings interface without invoking models",
+    )
+    web.add_argument("--config", default=str(default_config_path()))
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8765)
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -395,6 +403,11 @@ def main(argv: list[str] | None = None) -> None:
                         indent=2,
                     )
                 )
+        elif args.command == "web":
+            config = load_config(args.config)
+            from .web import serve
+
+            serve(config, host=args.host, port=args.port)
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)

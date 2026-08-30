@@ -72,13 +72,15 @@ Report: `docs/reports/2026-08-29-board-5-routing-policy.md`
 
 ## Productization Board 6: Local settings interface
 
-Status: next
+Status: complete
 
 - local web control plane over the stable registry and router;
 - Provider, Model, Agent, role and application-setting editing;
 - discovery, provenance, ledger, budget and routing explanation views;
 - local-only state and explicit approval boundaries;
 - no Board 7 remote interoperability within this board.
+
+Report: `docs/reports/2026-08-30-board-6-local-settings-interface.md`
 
 ## Milestone 0: Offline collaboration loop
 

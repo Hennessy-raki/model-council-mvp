@@ -187,6 +187,25 @@ python -m model_council routing decisions --run <RUN_ID> `
 `hybrid` preserves the preferred Agent and falls back only when the assignment
 is unlocked. Unknown cost and latency remain unknown rather than becoming zero.
 
+## Local settings interface
+
+Board 6 adds a dependency-free local Web control surface. It binds to loopback
+by default, reads and writes the same SQLite registry used by the CLI, and
+never invokes a model, discovery probe, Provider balance API or external
+service.
+
+```powershell
+python -m model_council web --config config.example.json
+```
+
+Open the printed local URL. The interface can edit user-owned Provider, Model,
+Agent, role, application-setting and budget records. It also displays persisted
+discovery observations, Artifact provenance, usage and cost evidence, budget
+alerts, balance snapshots, configured Adapter capabilities and deterministic
+routing explanations. Edit buttons prefill the local forms. Writes require a
+per-process session token plus trusted Host and same-origin checks. Provider and
+Agent configuration values continue to be redacted before SQLite storage.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：

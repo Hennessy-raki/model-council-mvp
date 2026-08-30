@@ -250,6 +250,181 @@ class RegistryService:
                 now=now,
             )
 
+    def upsert_provider(
+        self,
+        provider_id: str,
+        *,
+        display_name: str,
+        kind: str,
+        enabled: bool = True,
+        config: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a user-owned Provider without storing credential values."""
+        _require_text(provider_id, "provider id")
+        _require_text(display_name, "provider display name")
+        _require_text(kind, "provider kind")
+        if config is not None and not isinstance(config, dict):
+            raise ValueError("provider config must be a JSON object")
+        now = utc_now()
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO providers(
+                    id, display_name, kind, enabled, config_json, source,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'user', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    kind = excluded.kind,
+                    enabled = excluded.enabled,
+                    config_json = excluded.config_json,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    provider_id,
+                    display_name,
+                    kind,
+                    int(enabled),
+                    _dump(sanitize_for_storage(config or {})),
+                    now,
+                    now,
+                ),
+            )
+
+    def upsert_model(
+        self,
+        model_id: str,
+        *,
+        provider_id: str,
+        display_name: str,
+        enabled: bool = True,
+        capabilities: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a user-owned Model in the SQLite registry."""
+        _require_text(model_id, "model id")
+        _require_text(provider_id, "model provider id")
+        _require_text(display_name, "model display name")
+        if capabilities is not None and not isinstance(capabilities, list):
+            raise ValueError("model capabilities must be a JSON array")
+        _require_string_list(capabilities or [], "model capabilities")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("model metadata must be a JSON object")
+        now = utc_now()
+        with self.store.connect() as conn:
+            if not self._exists(conn, "providers", provider_id):
+                raise ValueError(f"unknown provider {provider_id!r}")
+            conn.execute(
+                """
+                INSERT INTO models(
+                    id, provider_id, display_name, enabled,
+                    capabilities_json, metadata_json, source,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    provider_id = excluded.provider_id,
+                    display_name = excluded.display_name,
+                    enabled = excluded.enabled,
+                    capabilities_json = excluded.capabilities_json,
+                    metadata_json = excluded.metadata_json,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    model_id,
+                    provider_id,
+                    display_name,
+                    int(enabled),
+                    _dump(capabilities or []),
+                    _dump(sanitize_for_storage(metadata or {})),
+                    now,
+                    now,
+                ),
+            )
+
+    def upsert_agent(
+        self,
+        agent_id: str,
+        *,
+        adapter_type: str,
+        provider_id: str | None,
+        model_id: str | None,
+        role: str,
+        description: str = "",
+        enabled: bool = True,
+        capabilities: list[str] | None = None,
+        boundaries: list[str] | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a user-owned Agent profile with verified registry links."""
+        _require_text(agent_id, "agent id")
+        _require_text(adapter_type, "agent adapter type")
+        _require_text(role, "agent role")
+        if capabilities is not None and not isinstance(capabilities, list):
+            raise ValueError("agent capabilities must be a JSON array")
+        _require_string_list(capabilities or [], "agent capabilities")
+        if boundaries is not None and not isinstance(boundaries, list):
+            raise ValueError("agent boundaries must be a JSON array")
+        _require_string_list(boundaries or [], "agent boundaries")
+        if config is not None and not isinstance(config, dict):
+            raise ValueError("agent config must be a JSON object")
+        now = utc_now()
+        with self.store.connect() as conn:
+            model_provider_id = None
+            if model_id:
+                row = conn.execute(
+                    "SELECT provider_id FROM models WHERE id = ?",
+                    (model_id,),
+                ).fetchone()
+                if row is None:
+                    raise ValueError(f"unknown model {model_id!r}")
+                model_provider_id = row["provider_id"]
+            if provider_id and not self._exists(conn, "providers", provider_id):
+                raise ValueError(f"unknown provider {provider_id!r}")
+            if model_provider_id and provider_id and model_provider_id != provider_id:
+                raise ValueError(
+                    f"model {model_id!r} does not belong to provider "
+                    f"{provider_id!r}"
+                )
+            resolved_provider_id = provider_id or model_provider_id
+            conn.execute(
+                """
+                INSERT INTO agent_profiles(
+                    id, adapter_type, provider_id, model_id, role,
+                    description, enabled, capabilities_json,
+                    boundaries_json, config_json, source,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    adapter_type = excluded.adapter_type,
+                    provider_id = excluded.provider_id,
+                    model_id = excluded.model_id,
+                    role = excluded.role,
+                    description = excluded.description,
+                    enabled = excluded.enabled,
+                    capabilities_json = excluded.capabilities_json,
+                    boundaries_json = excluded.boundaries_json,
+                    config_json = excluded.config_json,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    agent_id,
+                    adapter_type,
+                    resolved_provider_id,
+                    model_id,
+                    role,
+                    description,
+                    int(enabled),
+                    _dump(capabilities or []),
+                    _dump(boundaries or []),
+                    _dump(sanitize_for_storage(config or {})),
+                    now,
+                    now,
+                ),
+            )
+
     def set_setting(self, key: str, value: Any) -> None:
         if not key.strip():
             raise ValueError("setting key cannot be empty")
@@ -746,3 +921,13 @@ def _optional_text(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _require_text(value: str, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} cannot be empty")
+
+
+def _require_string_list(value: list[Any], label: str) -> None:
+    if any(not isinstance(item, str) or not item.strip() for item in value):
+        raise ValueError(f"{label} must contain non-empty strings")
