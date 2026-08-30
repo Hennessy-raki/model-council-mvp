@@ -19,6 +19,24 @@ outside the versioned repository.
 Configuration examples must use environment-variable references and generic
 placeholders. Runtime and discovery state remains local and ignored by Git.
 
+## Privacy issue triage and recording
+
+Record every privacy-related observation in `docs/PRIVACY_ISSUES.md`. Classify
+it by the data at risk and the recipient:
+
+- credential, private-key or private-project exposure is critical;
+- personal or machine-specific data reaching GitHub or another party is high
+  priority and must be fixed before the current board closes;
+- correlatable but non-identifying metadata is medium priority;
+- behavior carrying no personal, machine-specific, credential or
+  private-project data is low priority and may be deferred.
+
+Privacy work should be proportionate. Low-priority findings must be visible in
+the register but should not delay unrelated product development. Deterministic
+local gates may be accepted with automated local evidence when they prevent the
+process or network request from starting; a repeated live call is not required
+solely to retest such a gate.
+
 ## Required board-completion gate
 
 After every development board:

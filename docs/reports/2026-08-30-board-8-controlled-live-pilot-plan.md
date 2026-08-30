@@ -114,5 +114,6 @@ amended:
 - Windows and POSIX personal home paths are blocked before process startup;
 - public configuration obtains the synthetic working directory from
   `MODEL_COUNCIL_SYNTHETIC_CWD`;
-- Board 8 privacy acceptance remains pending until this corrected scope is
-  separately approved and live-revalidated.
+- the deterministic pre-start correction may close with automated local
+  evidence under `docs/PRIVACY.md`; another live call is optional because the
+  control does not depend on provider behavior.

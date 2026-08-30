@@ -105,7 +105,7 @@ Report: `docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md`
 
 ### Board 8: Controlled live-model pilot and outbound context approval
 
-Status: control implementation complete; live privacy acceptance pending
+Status: complete
 
 - one read-only Codex App Server architect role only;
 - mock manager and reviewer only;
@@ -116,9 +116,21 @@ Status: control implementation complete; live privacy acceptance pending
 - local fake-App-Server regression coverage and one functionally successful
   live synthetic run;
 - post-pilot correction binds `cwd`, model, sandbox and approval policy and
-  blocks personal home paths; correction not yet revalidated live;
+  blocks personal home paths before process startup;
 - no repository-context, A2A or MCP live verification claim.
 
 Plan: `docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md`
 
 Report: `docs/reports/2026-08-30-board-8-controlled-live-pilot.md`
+
+### Board 9: Isolated Git worktrees and write/test/merge permissions
+
+Status: ready to start; implementation not started
+
+- create one isolated Git worktree per writing Agent;
+- separate read, write, test and merge permissions;
+- collect diffs, test output and bounded evidence bundles;
+- require explicit human approval before merge or destructive action;
+- keep repository privacy scanning and the privacy issue register as release
+  gates;
+- do not add repair loops, a second real Agent family or product UI scope.

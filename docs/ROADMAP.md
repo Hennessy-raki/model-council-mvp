@@ -99,8 +99,7 @@ Report:
 
 ## Productization Board 8: Controlled live-model pilot and outbound context approval
 
-Status: control implementation complete; live functional path succeeded, but
-privacy revalidation is pending
+Status: complete
 
 - require local preview and one-time approval for the exact App Server prompt;
 - bind approval to endpoint, SHA-256 and UTF-8 byte count;
@@ -134,7 +133,7 @@ Status: complete
 
 ## Milestone 1: One real Codex worker
 
-Status: functionally complete; privacy revalidation pending
+Status: complete for the synthetic read-only pilot
 
 - [x] resolve and launch the npm-installed Codex CLI from Python;
 - [x] add a no-invocation Adapter doctor check;
@@ -150,8 +149,18 @@ Status: functionally complete; privacy revalidation pending
   authorized live run;
 - [x] keep all other roles on mocks during the pilot.
 - [x] identify and correct the unapproved App Server `cwd` disclosure gap;
-- [ ] revalidate the corrected combined-scope gate in a separately approved
-  live synthetic run.
+- [x] accept deterministic pre-start privacy enforcement with local automated
+  evidence; an additional live call is optional and not a Board 9 blocker.
+
+## Productization Board 9: Isolated Git worktrees and permissions
+
+Status: ready to start
+
+- one isolated Git worktree per writing Agent;
+- explicit read, write, test and merge permission states;
+- diff, test and evidence collection;
+- human approval before merge or destructive action;
+- resumable local state without introducing Board 10 repair loops.
 
 ## Milestone 2: Persistent sessions and a second model family
 

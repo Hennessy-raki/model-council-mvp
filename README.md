@@ -282,8 +282,10 @@ One live synthetic Codex App Server run completed functionally, but its first
 manifest covered only the Turn prompt and not the `thread/start` working
 directory. That run may therefore have disclosed its absolute synthetic
 directory path through Codex environment context. The strengthened combined
-scope gate is offline-verified but has not received a second live validation.
-No repository-content, A2A or MCP live verification is claimed.
+scope gate is deterministic, runs before process startup and is covered by
+automated tests. Under the privacy triage policy, a second live validation is
+optional and does not block Board 9. No repository-content, A2A or MCP live
+verification is claimed.
 
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 

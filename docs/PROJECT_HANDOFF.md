@@ -12,8 +12,8 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
-Board 8 completed one functionally successful live synthetic Codex App Server
-run, but privacy acceptance remains pending. Its scope is:
+Board 8 is complete. It includes one functionally successful live synthetic
+Codex App Server run and deterministic privacy corrections. Its scope is:
 
 ```text
 docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
@@ -32,7 +32,9 @@ Post-run review found that the manifest did not include App Server
 `thread/start.cwd`; the absolute synthetic working path may therefore have
 entered upstream environment context. The corrected gate now binds prompt,
 resolved `cwd`, model, sandbox and approval policy and blocks personal home
-paths. This correction is offline-verified but not live-revalidated.
+paths before process startup. This correction is offline-verified and accepted
+under the privacy triage policy because it does not depend on provider
+behavior. The issue remains documented in `docs/PRIVACY_ISSUES.md`.
 
 ## Why this project exists
 
@@ -233,13 +235,13 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 7 are complete. Board 8 control implementation
-is complete, but live privacy acceptance is pending corrected-scope
-revalidation. Repository analysis remains separately gated.
+Productization Boards 1 through 8 are complete. Board 9, isolated Git worktrees
+and write/test/merge permissions, is ready to start. Repository analysis
+remains separately gated.
 
 Milestone 1 is functionally complete because one real Codex role participated
-in a full run from an ordinary PowerShell session. Its privacy acceptance is
-not complete.
+in a full run from an ordinary PowerShell session. The privacy correction is
+accepted through deterministic local evidence.
 
 Acceptance criteria:
 
@@ -258,8 +260,8 @@ Acceptance criteria:
     policy, and the working path is outside personal home directories.
 
 Criteria 1 through 10 passed for the functional run. Criterion 11 was added
-after the `cwd` finding and is offline-verified only. A separately approved
-live revalidation is required before marking the privacy milestone complete.
+after the `cwd` finding and is verified by the local pre-start gate and
+automated tests. A separately approved live revalidation is optional.
 
 ## Productization board status
 

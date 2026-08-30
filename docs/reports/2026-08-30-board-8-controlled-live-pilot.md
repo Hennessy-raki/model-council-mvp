@@ -2,8 +2,7 @@
 
 Date: 2026-08-30
 
-Status: control implementation accepted; live functional path succeeded,
-privacy acceptance pending corrected-scope revalidation
+Status: accepted and complete
 
 ## Objective
 
@@ -148,8 +147,11 @@ The live Turn succeeded, but three findings were recorded:
    the latest Turn breakdown into provider-reported ledger usage. Local fake
    protocol and redaction tests verify the correction.
 
-These corrections are offline-verified. The report does not claim that a second
-live Turn revalidated the corrected privacy scope or mitigations.
+These corrections are offline-verified. The combined-scope and personal-path
+controls execute locally before App Server process startup, so their
+effectiveness does not depend on provider behavior. Under the privacy triage
+policy, this deterministic evidence is sufficient to close Board 8. The report
+does not claim that a second live Turn revalidated the mitigations.
 
 ## Continuing live boundary
 
@@ -157,8 +159,10 @@ Committed examples keep `invoke_enabled: false`. Every future live attempt
 requires a fresh exact prompt-plus-transport manifest, explicit user
 authorization and a generic working directory outside personal home paths.
 Repository content or derived private material remains excluded. Board 8
-privacy acceptance remains pending until the corrected gate is separately
-approved and live-revalidated.
+is complete; an optional future live call must still use a fresh exact approval
+but is not a prerequisite for Board 9.
+
+The findings and disposition are recorded in `docs/PRIVACY_ISSUES.md`.
 
 ## Deferred
 

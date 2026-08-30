@@ -4,9 +4,8 @@ Use this document when continuing in a new Model Council conversation.
 
 ## Current checkpoint
 
-Productization Boards 1 through 7 are complete. Board 8 control implementation
-is complete, but live privacy acceptance remains pending. The authoritative
-Board 7 report is:
+Productization Boards 1 through 8 are complete. Board 9 is ready to start. The
+authoritative Board 7 report is:
 
 ```text
 docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
@@ -24,8 +23,10 @@ transports. Board 8 completed one functionally successful live synthetic
 read-only Codex run with mock manager/reviewer, zero files and zero Artifacts.
 That first manifest did not cover App Server `cwd`, so its absolute synthetic
 directory path may have entered upstream environment context. The corrected
-combined-scope gate is offline-verified only. A2A, MCP and repository-context
-live operation remain unverified.
+combined-scope gate is a deterministic pre-start control and has automated
+offline evidence. Its finding and resolution are recorded in
+`docs/PRIVACY_ISSUES.md`. A2A, MCP and repository-context live operation remain
+unverified.
 
 ## Suggested opening prompt
 
@@ -47,12 +48,15 @@ explicit user authorization for that exact pilot. Credentials must remain
 environment-variable references. MCP tools require a persisted single-use
 approval.
 
-Board 8 privacy acceptance remains pending. Any future live pilot must show
+Board 8 is complete. Any future live pilot must show
 `interop context <MANIFEST_ID> --show-prompt` to the user, obtain explicit
 authorization for the displayed prompt and transport context, and approve the
 matching `approval_sha256` once. The resolved `cwd` must be a generic synthetic
-directory outside personal home paths. Do not expand to repository content or
-begin Board 9 before the corrected gate is live-revalidated.
+directory outside personal home paths.
+
+The next board is Board 9: isolated Git worktrees and explicit read, write,
+test and merge permissions. Do not add Board 10 repair loops or Board 11 model
+expansion within it.
 ```
 
 ## Repository orientation
