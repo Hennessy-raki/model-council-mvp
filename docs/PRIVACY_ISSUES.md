@@ -88,3 +88,74 @@ evidence.
 - Evidence: fake App Server and registry redaction tests pass.
 - Residual risk: new protocol field names require future allowlist review.
 - Blocks development: no
+
+### PRIV-005: Worktree audit state contains machine and private-project context
+
+- Date found: 2026-08-30
+- Channel: ignored local runtime SQLite and linked worktree directories
+- Priority: medium
+- Data class: absolute paths, filenames, diffs, test commands and bounded test
+  output
+- Status: mitigated and accepted
+- Resolution:
+  - every linked worktree is created below the configured runtime root;
+  - an in-repository runtime root must already be ignored before creation;
+  - stdout/stderr and diff retention is bounded while complete hashes are
+    stored;
+  - public reports contain only synthetic aggregate evidence, never runtime
+    rows or downstream content;
+  - full-history privacy scanning and staged-diff review remain release gates.
+- Evidence: synthetic tests create all worktrees in temporary repositories;
+  repository `.gitignore` covers `runtime/` and `runtime-*`.
+- Residual risk: a user can deliberately copy ignored runtime evidence into a
+  tracked path; the board-completion review must detect that before push.
+- Blocks development: no
+
+### PRIV-006: Agent labels in generated Git branch names
+
+- Date found: 2026-08-30
+- Channel: Git refs that could be pushed accidentally
+- Priority: medium
+- Data class: user-defined Agent label that could contain correlatable or
+  personal naming
+- Status: resolved before public commit
+- Resolution: generated branches use only
+  `model-council/worktree-<opaque lease prefix>` and never include Agent IDs,
+  usernames or repository names.
+- Evidence: automated tests assert that the synthetic Agent label is absent
+  from the generated branch.
+- Residual risk: users can manually rename a local branch outside Model
+  Council; merge scope validation rejects a worktree whose assigned branch
+  changed.
+- Blocks development: no
+
+### PRIV-007: Synthetic test fixture used a generic non-noreply email
+
+- Date found: 2026-08-30
+- Channel: public test source
+- Priority: low
+- Data class: synthetic, non-personal email-shaped placeholder
+- Status: resolved before public commit
+- Resolution: replaced the generic `.invalid` fixture address with the fixed
+  project GitHub-noreply identity already used for isolated checkpoints.
+- Evidence: the full-history privacy scanner no longer reports the test file.
+- Residual risk: none; no personal or machine-specific value was present.
+- Blocks development: no
+
+### PRIV-008: Runtime ignore check covered only the target repository
+
+- Date found: 2026-08-30
+- Channel: a public Git repository containing a custom `state_dir`
+- Priority: high
+- Data class: linked private-project worktree files, absolute paths and local
+  runtime evidence
+- Status: resolved before public commit
+- Resolution: before creating a worktree, Model Council now discovers any Git
+  repository that contains the configured runtime root and requires the
+  generated path to be ignored there. The target repository is checked
+  separately when applicable.
+- Evidence: a synthetic cross-repository test rejects an unignored control
+  repository, then succeeds only after its runtime root is ignored.
+- Residual risk: a user can later remove an ignore rule or deliberately force
+  add runtime content; staged-diff and full-history scans remain mandatory.
+- Blocks development: no; the deterministic pre-creation gate is fixed.

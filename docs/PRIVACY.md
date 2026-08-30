@@ -75,3 +75,23 @@ Interoperability sessions, Agent Cards, event payloads, MCP arguments and
 approval records are local runtime state. Never commit the runtime database or
 copy those records into a public report. MCP tool calls require a persisted
 single-use approval even when the server itself is already configured.
+
+## Local worktree evidence boundary
+
+Worktree leases may contain absolute repository/worktree paths, user-defined
+Agent identities, private filenames, source diffs, test commands and bounded
+test output. Treat all of it as private local runtime data:
+
+- create linked worktrees only below the configured ignored runtime root;
+- never copy a worktree, runtime SQLite row, diff or test excerpt into this
+  public repository or a public board report;
+- use opaque generated Git branch names rather than Agent/user labels;
+- retain only bounded diff/test excerpts and full-stream hashes;
+- reject inline credential flags in persisted test command arrays;
+- confirm `runtime/` and `runtime-*` remain ignored before public push;
+- run the full-history scanner even though runtime data should never be staged.
+
+If runtime evidence is accidentally committed or pushed, stop the active board,
+remove it from the current tree and all reachable history, rotate any exposed
+credential, assess whether private project content reached another party, and
+verify the repaired public refs independently before continuing.

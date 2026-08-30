@@ -125,7 +125,7 @@ Report: `docs/reports/2026-08-30-board-8-controlled-live-pilot.md`
 
 ### Board 9: Isolated Git worktrees and write/test/merge permissions
 
-Status: ready to start; implementation not started
+Status: complete
 
 - create one isolated Git worktree per writing Agent;
 - separate read, write, test and merge permissions;
@@ -134,3 +134,18 @@ Status: ready to start; implementation not started
 - keep repository privacy scanning and the privacy issue register as release
   gates;
 - do not add repair loops, a second real Agent family or product UI scope.
+
+Plan: `docs/reports/2026-08-30-board-9-isolated-git-worktrees-plan.md`
+
+Report: `docs/reports/2026-08-30-board-9-isolated-git-worktrees.md`
+
+### Board 10: Bounded reviewer-writer repair loops and recovery
+
+Status: ready for planning; implementation not started
+
+- freeze repair-loop iteration, time, cost and changed-file limits;
+- checkpoint and review every writer iteration;
+- recover persisted state after Agent, process, test or approval failure;
+- require current evidence and human approval before merge or destructive
+  cleanup;
+- do not add the Board 11 second real Agent family or Board 12 product UI.

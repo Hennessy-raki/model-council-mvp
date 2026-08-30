@@ -58,6 +58,16 @@ class CliAdapter(AgentAdapter):
     def invoke(self, request: AgentRequest) -> AgentResponse:
         return self._invoke_in_cwd(request, self.cwd)
 
+    def invoke_in_workspace(
+        self,
+        request: AgentRequest,
+        workspace: str | Path,
+    ) -> AgentResponse:
+        cwd = Path(workspace).resolve(strict=True)
+        if not cwd.is_dir():
+            raise ValueError("workspace must be an existing directory")
+        return self._invoke_in_cwd(request, cwd)
+
     def _invoke_in_cwd(
         self,
         request: AgentRequest,

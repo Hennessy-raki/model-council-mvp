@@ -15,6 +15,7 @@ from .orchestrator import Orchestrator
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
+from .workspaces import WorkspaceService
 
 
 def default_config_path() -> Path:
@@ -351,6 +352,159 @@ def build_parser() -> argparse.ArgumentParser:
     interop_context.add_argument("--reject", action="store_true")
     interop_context.add_argument("--config", default=str(default_config_path()))
 
+    workspace = subparsers.add_parser(
+        "workspace",
+        help="operate isolated Git worktrees and persisted permissions",
+    )
+    workspace_commands = workspace.add_subparsers(
+        dest="workspace_command",
+        required=True,
+    )
+    workspace_prepare = workspace_commands.add_parser(
+        "prepare",
+        help="create one read-only isolated worktree lease for an Agent",
+    )
+    workspace_prepare.add_argument("repository")
+    workspace_prepare.add_argument("agent")
+    workspace_prepare.add_argument("--base", default="HEAD")
+    workspace_prepare.add_argument("--config", default=str(default_config_path()))
+    workspace_list = workspace_commands.add_parser(
+        "list",
+        help="list persisted worktree leases",
+    )
+    workspace_list.add_argument(
+        "--status",
+        choices=("active", "merged", "discarded", "failed"),
+    )
+    workspace_list.add_argument("--agent")
+    workspace_list.add_argument("--config", default=str(default_config_path()))
+    workspace_show = workspace_commands.add_parser(
+        "show",
+        help="show one worktree lease and its permissions",
+    )
+    workspace_show.add_argument("lease_id")
+    workspace_show.add_argument("--config", default=str(default_config_path()))
+    workspace_permission = workspace_commands.add_parser(
+        "permission",
+        help="persist one explicit read, write, test or merge permission",
+    )
+    workspace_permission.add_argument("lease_id")
+    workspace_permission.add_argument(
+        "permission",
+        choices=("read", "write", "test", "merge"),
+    )
+    workspace_permission.add_argument("decision", choices=("allow", "deny"))
+    workspace_permission.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_checkpoint = workspace_commands.add_parser(
+        "checkpoint",
+        help="commit current isolated worktree changes with a generic author",
+    )
+    workspace_checkpoint.add_argument("lease_id")
+    workspace_checkpoint.add_argument("--message", required=True)
+    workspace_checkpoint.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_diff = workspace_commands.add_parser(
+        "diff",
+        help="collect bounded diff evidence",
+    )
+    workspace_diff.add_argument("lease_id")
+    workspace_diff.add_argument("--config", default=str(default_config_path()))
+    workspace_test = workspace_commands.add_parser(
+        "test",
+        help="run an approved argument-array test command with bounded output",
+    )
+    workspace_test.add_argument("lease_id")
+    workspace_test.add_argument(
+        "--command-json",
+        required=True,
+        help="test command as a JSON string array",
+    )
+    workspace_test.add_argument("--timeout", type=int, default=600)
+    workspace_test.add_argument("--config", default=str(default_config_path()))
+    workspace_evidence = workspace_commands.add_parser(
+        "evidence",
+        help="show local bounded evidence for one lease",
+    )
+    workspace_evidence.add_argument("lease_id")
+    workspace_evidence.add_argument(
+        "--kind",
+        choices=("checkpoint", "diff", "test", "merge"),
+    )
+    workspace_evidence.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_request_merge = workspace_commands.add_parser(
+        "request-merge",
+        help="create an exact pending approval for a verified fast-forward merge",
+    )
+    workspace_request_merge.add_argument("lease_id")
+    workspace_request_merge.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_request_discard = workspace_commands.add_parser(
+        "request-discard",
+        help="create an exact pending approval for destructive worktree discard",
+    )
+    workspace_request_discard.add_argument("lease_id")
+    workspace_request_discard.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_approvals = workspace_commands.add_parser(
+        "approvals",
+        help="list pending and decided workspace approvals",
+    )
+    workspace_approvals.add_argument(
+        "--status",
+        choices=("pending", "approved", "rejected", "consumed", "failed", "stale"),
+    )
+    workspace_approvals.add_argument("--lease")
+    workspace_approvals.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_approve = workspace_commands.add_parser(
+        "approve",
+        help="approve one exact merge or discard scope once",
+    )
+    workspace_approve.add_argument("approval_id")
+    workspace_approve.add_argument("--scope-sha256", required=True)
+    workspace_approve.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_reject = workspace_commands.add_parser(
+        "reject",
+        help="reject one pending workspace action",
+    )
+    workspace_reject.add_argument("approval_id")
+    workspace_reject.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    workspace_merge = workspace_commands.add_parser(
+        "merge",
+        help="consume one exact approval and fast-forward the clean target",
+    )
+    workspace_merge.add_argument("approval_id")
+    workspace_merge.add_argument("--config", default=str(default_config_path()))
+    workspace_discard = workspace_commands.add_parser(
+        "discard",
+        help="consume one exact approval and remove the isolated worktree",
+    )
+    workspace_discard.add_argument("approval_id")
+    workspace_discard.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -590,6 +744,76 @@ def main(argv: list[str] | None = None) -> None:
                 elif args.interop_command == "tools":
                     payload = broker.list_tools(args.server)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "workspace":
+            config = load_config(args.config)
+            workspaces = WorkspaceService(
+                CouncilStore(config.state_dir / "council.db")
+            )
+            if args.workspace_command == "prepare":
+                payload = workspaces.prepare(
+                    repository=args.repository,
+                    agent_id=args.agent,
+                    base_ref=args.base,
+                )
+            elif args.workspace_command == "list":
+                payload = workspaces.workspaces(
+                    status=args.status,
+                    agent_id=args.agent,
+                )
+            elif args.workspace_command == "show":
+                payload = workspaces.workspace(args.lease_id)
+            elif args.workspace_command == "permission":
+                payload = workspaces.set_permission(
+                    args.lease_id,
+                    permission=args.permission,
+                    enabled=args.decision == "allow",
+                )
+            elif args.workspace_command == "checkpoint":
+                payload = workspaces.checkpoint(
+                    args.lease_id,
+                    message=args.message,
+                )
+            elif args.workspace_command == "diff":
+                payload = workspaces.collect_diff(args.lease_id)
+            elif args.workspace_command == "test":
+                payload = workspaces.run_test(
+                    args.lease_id,
+                    command=_parse_json_array(
+                        args.command_json,
+                        "--command-json",
+                    ),
+                    timeout_seconds=args.timeout,
+                )
+            elif args.workspace_command == "evidence":
+                payload = workspaces.evidence(
+                    args.lease_id,
+                    kind=args.kind,
+                )
+            elif args.workspace_command == "request-merge":
+                payload = workspaces.request_merge(args.lease_id)
+            elif args.workspace_command == "request-discard":
+                payload = workspaces.request_discard(args.lease_id)
+            elif args.workspace_command == "approvals":
+                payload = workspaces.approvals(
+                    status=args.status,
+                    lease_id=args.lease,
+                )
+            elif args.workspace_command == "approve":
+                payload = workspaces.decide(
+                    args.approval_id,
+                    approve=True,
+                    confirmation=args.scope_sha256,
+                )
+            elif args.workspace_command == "reject":
+                payload = workspaces.decide(
+                    args.approval_id,
+                    approve=False,
+                )
+            elif args.workspace_command == "merge":
+                payload = workspaces.merge(args.approval_id)
+            elif args.workspace_command == "discard":
+                payload = workspaces.discard(args.approval_id)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)
@@ -698,4 +922,16 @@ def _parse_json_object(value: str, label: str) -> dict:
         raise ValueError(f"{label} must be valid JSON") from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{label} must be a JSON object")
+    return parsed
+
+
+def _parse_json_array(value: str, label: str) -> list[str]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} must be valid JSON") from exc
+    if not isinstance(parsed, list) or not all(
+        isinstance(item, str) for item in parsed
+    ):
+        raise ValueError(f"{label} must be a JSON string array")
     return parsed

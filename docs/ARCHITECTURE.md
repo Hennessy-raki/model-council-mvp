@@ -213,14 +213,53 @@ The local settings interface projects endpoints, remote identity observations,
 sessions, protocol events and approval controls. Browser approval cannot bypass
 the same persisted single-use check enforced by the broker.
 
+## Isolated Git workspaces
+
+Board 9 adds a separate `WorkspaceService` control plane. It does not let the
+manager model create permissions. A local operator creates one lease for one
+writing Agent, and the lease begins with only `read=true`.
+
+```text
+clean target checkout
+  -> ignored runtime/worktrees/<opaque lease id>
+  -> explicit read/write/test/merge permissions
+  -> Agent checkpoint on isolated branch
+  -> bounded test and diff evidence
+  -> exact pending merge or discard approval
+  -> SHA-256 confirmation and single consumption
+  -> fast-forward merge or destructive cleanup
+```
+
+SQLite stores the lease, repository/worktree paths, permissions, bounded
+stdout/stderr excerpts, full-stream hashes, evidence metadata and approval
+state. This data is local runtime state because paths, diffs and test output may
+identify a workstation or contain private downstream-project material.
+
+Worktree paths are generated below the configured runtime root and must be
+ignored when that root is inside the target repository. Git refs use an opaque
+lease identifier rather than an Agent name. Every subprocess uses an argument
+array and `shell=False`. Test output retains at most 64,000 bytes per stream;
+diff output retains at most 128,000 bytes; complete output hashes remain
+available for evidence comparison.
+
+Merge permission depends on read, write and test permission. A merge approval
+can be requested only when the target and Agent worktree are clean, the target
+has not moved, the Agent branch is a fast-forward, and current diff plus
+passing-test evidence match the exact source SHA. Dirty discard approvals hash
+tracked changes and up to 1,000 untracked files / 64 MiB of untracked content.
+Any state drift makes the approval stale. Board 9 does not add automatic
+reviewer-writer retries, rebases, conflict repair or deployment.
+
 ## 下一阶段边界
 
 优先级顺序：
 
-1. review and operate the Board 7 interoperability evidence;
-2. separately authorize one read-only live endpoint pilot;
-3. define the next productization board before adding broader capabilities;
-4. design Git worktree isolation and repair-loop approvals separately.
+1. preserve the Board 8 external-context gate;
+2. operate Board 9 workspaces only through persisted permission and approval
+   evidence;
+3. define Board 10 repair-loop iteration, retry and recovery bounds before
+   implementation;
+4. keep second-family expansion and product UI work in later boards.
 
 The Board 6 interface is a loopback-only presentation and local mutation layer
 over SQLite. It does not move state into a remote service and cannot replace

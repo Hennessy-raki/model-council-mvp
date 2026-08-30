@@ -325,6 +325,58 @@ class CouncilStore:
                     decided_at TEXT,
                     consumed_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS worktree_leases (
+                    id TEXT PRIMARY KEY,
+                    repository_root TEXT NOT NULL,
+                    target_branch TEXT NOT NULL,
+                    base_ref TEXT NOT NULL,
+                    base_sha TEXT NOT NULL,
+                    branch_name TEXT NOT NULL UNIQUE,
+                    worktree_path TEXT NOT NULL UNIQUE,
+                    agent_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    completed_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS worktree_permissions (
+                    lease_id TEXT PRIMARY KEY REFERENCES worktree_leases(id),
+                    read_enabled INTEGER NOT NULL,
+                    write_enabled INTEGER NOT NULL,
+                    test_enabled INTEGER NOT NULL,
+                    merge_enabled INTEGER NOT NULL,
+                    source TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS worktree_evidence (
+                    id TEXT PRIMARY KEY,
+                    lease_id TEXT NOT NULL REFERENCES worktree_leases(id),
+                    kind TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    command_json TEXT NOT NULL,
+                    exit_code INTEGER,
+                    duration_ms INTEGER NOT NULL,
+                    stdout_text TEXT NOT NULL,
+                    stderr_text TEXT NOT NULL,
+                    stdout_bytes INTEGER NOT NULL,
+                    stderr_bytes INTEGER NOT NULL,
+                    stdout_sha256 TEXT NOT NULL,
+                    stderr_sha256 TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS worktree_approvals (
+                    id TEXT PRIMARY KEY,
+                    lease_id TEXT NOT NULL REFERENCES worktree_leases(id),
+                    action TEXT NOT NULL,
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT,
+                    failure TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -361,6 +413,16 @@ class CouncilStore:
                     ON outbound_context_manifests(endpoint_id, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_outbound_context_status
                     ON outbound_context_manifests(status, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_worktree_leases_agent
+                    ON worktree_leases(agent_id, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_worktree_leases_status
+                    ON worktree_leases(status, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_worktree_evidence_lease
+                    ON worktree_evidence(lease_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_worktree_approvals_lease
+                    ON worktree_approvals(lease_id, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_worktree_approvals_status
+                    ON worktree_approvals(status, requested_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

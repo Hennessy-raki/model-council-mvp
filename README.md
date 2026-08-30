@@ -287,6 +287,52 @@ automated tests. Under the privacy triage policy, a second live validation is
 optional and does not block Board 9. No repository-content, A2A or MCP live
 verification is claimed.
 
+## Isolated Git workspaces
+
+Board 9 adds a local control plane for writing Agents without granting direct
+access to the user's primary checkout. Each lease creates one linked Git
+worktree under ignored runtime state and starts with read permission only.
+Write, test and merge permissions are enabled separately and persisted in
+SQLite.
+
+A typical local workflow is:
+
+```powershell
+python -m model_council workspace prepare C:\path\to\synthetic-repo writer `
+  --config <LOCAL_CONFIG>
+python -m model_council workspace permission <LEASE_ID> write allow `
+  --config <LOCAL_CONFIG>
+python -m model_council workspace permission <LEASE_ID> test allow `
+  --config <LOCAL_CONFIG>
+python -m model_council workspace checkpoint <LEASE_ID> `
+  --message "Apply reviewed Agent change" --config <LOCAL_CONFIG>
+python -m model_council workspace test <LEASE_ID> `
+  --command-json '["python","-m","unittest","discover","-s","tests","-v"]' `
+  --config <LOCAL_CONFIG>
+python -m model_council workspace diff <LEASE_ID> --config <LOCAL_CONFIG>
+python -m model_council workspace permission <LEASE_ID> merge allow `
+  --config <LOCAL_CONFIG>
+python -m model_council workspace request-merge <LEASE_ID> `
+  --config <LOCAL_CONFIG>
+```
+
+The pending merge displays a `scope_sha256` bound to the clean target SHA,
+Agent branch SHA, bounded diff evidence and a passing test captured at that
+exact branch state. Approve and consume it once:
+
+```powershell
+python -m model_council workspace approve <APPROVAL_ID> `
+  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
+python -m model_council workspace merge <APPROVAL_ID> `
+  --config <LOCAL_CONFIG>
+```
+
+Merge is fast-forward only and fails if the target branch, target SHA, Agent
+branch, worktree cleanliness or evidence changes. Destructive discard uses the
+same two-step approval pattern. Git and test subprocesses are argument arrays
+with `shell=False`; stdout/stderr retention is bounded while hashes cover the
+complete streams.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：
@@ -367,7 +413,7 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - API 密钥只读取环境变量；
 - 每个任务都有明确的目标 agent；
 - Artifact 通过哈希定位，消息只传引用；
-- 当前版本不自动修改用户项目、不自动合并 Git、不部署；
+- 当前版本不会未经持久化权限修改用户主检出，也不会未经单次精确审批合并或丢弃 Git worktree；
 - 真实 agent 的系统权限仍由对应 CLI、沙箱和操作系统控制。
 
 ## 目前刻意未做
@@ -375,7 +421,7 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - A2A 网络服务器；
 - MCP 工具代理；
 - Codex App Server 持久会话；
-- Git worktree 自动创建与合并；
+- reviewer-writer 自动修复循环与冲突恢复；
 - Web/Electron 图形界面；
 - 自动价格目录刷新、货币换算和按时间窗口预算；
 - 人工审批页面；

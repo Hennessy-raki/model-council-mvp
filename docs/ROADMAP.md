@@ -154,13 +154,28 @@ Status: complete for the synthetic read-only pilot
 
 ## Productization Board 9: Isolated Git worktrees and permissions
 
-Status: ready to start
+Status: complete
 
 - one isolated Git worktree per writing Agent;
 - explicit read, write, test and merge permission states;
 - diff, test and evidence collection;
 - human approval before merge or destructive action;
 - resumable local state without introducing Board 10 repair loops.
+
+Plan: `docs/reports/2026-08-30-board-9-isolated-git-worktrees-plan.md`
+
+Report: `docs/reports/2026-08-30-board-9-isolated-git-worktrees.md`
+
+## Productization Board 10: Bounded reviewer-writer repair and recovery
+
+Status: ready for planning; implementation not started
+
+- define a bounded reviewer-writer repair loop;
+- bind every iteration to a worktree checkpoint and evidence bundle;
+- limit retries, elapsed time, token/cost budget and changed-file scope;
+- recover cleanly from Adapter, test, approval and merge failures;
+- preserve human approval before merge or destructive cleanup;
+- do not add a second real Agent family or Board 12 product UI scope.
 
 ## Milestone 2: Persistent sessions and a second model family
 

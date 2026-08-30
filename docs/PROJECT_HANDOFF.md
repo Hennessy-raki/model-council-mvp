@@ -12,8 +12,16 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
-Board 8 is complete. It includes one functionally successful live synthetic
-Codex App Server run and deterministic privacy corrections. Its scope is:
+Board 9 is complete. Its isolated-worktree scope and completion evidence are:
+
+```text
+docs/reports/2026-08-30-board-9-isolated-git-worktrees-plan.md
+docs/reports/2026-08-30-board-9-isolated-git-worktrees.md
+```
+
+Board 8 remains the latest live-model milestone. It includes one functionally
+successful live synthetic Codex App Server run and deterministic privacy
+corrections. Its scope is:
 
 ```text
 docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
@@ -67,8 +75,8 @@ The local control plane now integrates:
 - Codex App Server for persistent Codex sessions;
 - a local Web control console.
 
-Git worktrees, repair loops and merge approval remain future integration
-targets.
+Isolated Git worktrees and merge/discard approval are now implemented.
+Bounded reviewer-writer repair loops remain the next integration target.
 
 ## What is implemented
 
@@ -116,7 +124,11 @@ The repository currently contains:
   single-use MCP tool approvals;
 - a local repository privacy scanner and required public-push safety gate;
 - exact prompt-plus-transport context approval for Codex App Server;
-- fifty-five automated tests.
+- persistent isolated Git worktree leases and explicit read/write/test/merge
+  permissions;
+- bounded test/diff evidence with complete-stream hashes;
+- exact single-use fast-forward merge and destructive-discard approvals;
+- sixty-two automated tests.
 
 ## Verified state
 
@@ -138,6 +150,8 @@ Baseline history through 2026-08-30:
   interoperability;
 - all fifty-five unit/integration tests passed after Board 8 and its
   post-pilot privacy corrections;
+- all sixty-two unit/integration tests passed after isolated Git worktrees and
+  workspace permissions;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -214,7 +228,8 @@ This information may become stale and should be reverified before provider work.
 - There is no automatic price catalog refresh or time-based budget policy.
 - Codex JSONL is collected after process completion; live event streaming is not
   implemented.
-- There is no Git worktree creation, diff review or merge workflow.
+- Worktree merge is intentionally fast-forward only; Board 9 does not
+  automatically rebase, resolve conflicts or repair a failed review.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
 - One live synthetic Codex App Server Turn completed functionally. Complete
@@ -235,9 +250,9 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 8 are complete. Board 9, isolated Git worktrees
-and write/test/merge permissions, is ready to start. Repository analysis
-remains separately gated.
+Productization Boards 1 through 9 are complete. Board 10, bounded
+reviewer-writer repair loops and recovery, is ready for planning but has not
+started. Repository-context external analysis remains separately gated.
 
 Milestone 1 is functionally complete because one real Codex role participated
 in a full run from an ordinary PowerShell session. The privacy correction is
@@ -338,6 +353,19 @@ The completed Board 7 scope and verification evidence are recorded in:
 
 ```text
 docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
+```
+
+Board 8, controlled live-model pilot and outbound context approval, is
+complete. Its combined prompt/transport scope gate remains mandatory for any
+future live Codex App Server call.
+
+Board 9, isolated Git worktrees and permissions, is complete. It creates one
+opaque runtime worktree lease per writing Agent, starts read-only, persists
+write/test/merge permissions, collects bounded evidence and requires an exact
+single-use approval before fast-forward merge or destructive discard.
+
+```text
+docs/reports/2026-08-30-board-9-isolated-git-worktrees.md
 ```
 
 ## How to resume safely

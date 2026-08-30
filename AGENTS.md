@@ -67,10 +67,10 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 8 are complete. Board 9, isolated Git
-worktrees and write/test/merge permissions, is the next board. Read the Board 8
-plan/report and `docs/PRIVACY_ISSUES.md` before changing persistent sessions,
-outbound-context approval or workspace permissions.
+Productization Boards 1 through 9 are complete. Board 10, bounded
+reviewer-writer repair loops and recovery, is next but has not started. Read
+the Board 9 plan/report and `docs/PRIVACY_ISSUES.md` before changing worktree
+permissions, evidence binding, approval consumption or destructive recovery.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
@@ -83,6 +83,13 @@ and mock manager/reviewer. The discovered `cwd` disclosure gap is resolved by a
 deterministic pre-start scope gate that binds prompt plus transport metadata and
 blocks personal home paths. Per the privacy triage policy, that local evidence
 is sufficient to close Board 8. No live A2A or MCP endpoint has been verified.
+
+Board 9 worktree state remains local and authoritative in SQLite. New leases
+start read-only. Write, test and merge permissions are explicit and persisted.
+Merge requires a clean fast-forward target plus current diff and passing-test
+evidence bound to one SHA-256-confirmed approval. Dirty worktree discard also
+requires one exact approval. Do not store worktrees outside ignored runtime
+state or include private downstream evidence in public reports.
 
 ## Codex pilot boundary
 
