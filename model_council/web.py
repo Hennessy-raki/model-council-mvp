@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlsplit
 from .adapters import build_adapters
 from .config import CouncilConfig
 from .ledger import UsageLedger
+from .interoperability import InteroperabilityService
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
@@ -27,7 +28,8 @@ class LocalSettingsApplication:
         self.store = CouncilStore(config.state_dir / "council.db")
         self.registry = RegistryService(self.store)
         self.registry.sync_from_config(config)
-        self.adapters = build_adapters(config)
+        self.interoperability = InteroperabilityService(config, self.store)
+        self.adapters = build_adapters(config, self.store)
         self.ledger = UsageLedger(
             config=config,
             store=self.store,
@@ -64,6 +66,7 @@ class LocalSettingsApplication:
                 }
                 for agent_id, adapter in sorted(self.adapters.items())
             ],
+            "interoperability": self.interoperability.snapshot(),
             "registry": self.registry.snapshot(),
             "ledger": {
                 "summary": self.ledger.summary(
@@ -140,6 +143,14 @@ class LocalSettingsApplication:
                 warning=payload.get("warning"),
                 hard=payload.get("hard"),
                 currency=_optional_text(payload, "currency"),
+            )
+        elif resource == "interop-approvals":
+            decision = _text(payload, "decision")
+            if decision not in {"approve", "reject"}:
+                raise ValueError("decision must be approve or reject")
+            self.interoperability.decide_approval(
+                resource_id,
+                approve=decision == "approve",
             )
         else:
             raise ValueError(f"unsupported local resource {resource!r}")
@@ -491,6 +502,22 @@ INDEX_HTML = """<!doctype html>
           button.dataset.id
         ));
       });
+      document.querySelectorAll(".approval-action").forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            const id = button.dataset.id;
+            const decision = button.dataset.decision;
+            const state = await put(
+              `/api/interop-approvals/${encodeURIComponent(id)}`,
+              {id, decision}
+            );
+            render(state);
+            message.textContent = `${decision === "approve" ? "Approved" : "Rejected"} interoperability request “${id}”.`;
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      });
     }
     function setField(formElement, name, value, asJson = false) {
       const field = formElement.elements[name];
@@ -534,6 +561,10 @@ INDEX_HTML = """<!doctype html>
     function render(state) {
       currentState = state;
       const r = state.registry, ledger = state.ledger;
+      const interop = state.interoperability;
+      const approvalTable = interop.approvals.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Requested</th><th>Endpoint</th><th>Action</th><th>Resource</th><th>Arguments</th><th>Status</th><th>Decision</th></tr></thead><tbody>${interop.approvals.map(item => `<tr><td>${escapeHtml(item.requested_at)}</td><td>${escapeHtml(item.endpoint_id)}</td><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.resource)}</td><td><code>${json(item.arguments)}</code></td><td>${escapeHtml(item.status)}</td><td>${item.status === "pending" ? `<button class="approval-action" type="button" data-id="${escapeHtml(item.id)}" data-decision="approve">Approve once</button> <button class="approval-action" type="button" data-id="${escapeHtml(item.id)}" data-decision="reject">Reject</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+        : "<p class='small'>No interoperability approvals.</p>";
       app.innerHTML = `
         <h2>Local state</h2>
         <p><strong>${escapeHtml(state.project.name)}</strong> — ${escapeHtml(state.project.state)}. External calls: ${escapeHtml(state.project.external_calls)}.</p>
@@ -571,6 +602,16 @@ INDEX_HTML = """<!doctype html>
         <h3>Provider balance snapshots</h3>${table(ledger.balance_snapshots, [{key:"checked_at",label:"Checked"},{key:"provider_id",label:"Provider"},{key:"amount",label:"Amount"},{key:"currency",label:"Currency"},{key:"source",label:"Source"}])}
         <h2>Artifact provenance</h2>
         ${table(state.artifacts, [{key:"run_id",label:"Run"},{key:"name",label:"Artifact"},{key:"sha256",label:"SHA-256"},{key:"created_at",label:"Created"},{key:"provenance",label:"Provenance",json:true}])}
+        <h2>Persistent and remote interoperability</h2>
+        <p class="small">These are local records. Listing a configured endpoint does not connect to it. Real invocation additionally requires <code>invoke_enabled=true</code>; MCP tool calls require a separate single-use approval.</p>
+        <h3>Endpoints and remote identities</h3>
+        ${table(interop.endpoints, [{key:"id",label:"Id"},{key:"protocol",label:"Protocol"},{key:"transport",label:"Transport"},{key:"display_name",label:"Name"},{key:"protocol_version",label:"Version"},{key:"auth_type",label:"Auth"},{key:"auth_env",label:"Credential env"},{key:"enabled",label:"Enabled"}])}
+        <h3>Sessions</h3>
+        ${table(interop.sessions, [{key:"updated_at",label:"Updated"},{key:"endpoint_id",label:"Endpoint"},{key:"agent_id",label:"Agent"},{key:"protocol",label:"Protocol"},{key:"remote_session_id",label:"Remote session"},{key:"status",label:"Status"},{key:"metadata",label:"Metadata",json:true}])}
+        <h3>Human approvals</h3>
+        ${approvalTable}
+        <h3>Recent protocol events</h3>
+        ${table(interop.events, [{key:"created_at",label:"Recorded"},{key:"session_id",label:"Session"},{key:"direction",label:"Direction"},{key:"method",label:"Method"},{key:"status",label:"Status"},{key:"payload",label:"Payload",json:true}])}
       `;
       bindForms();
     }

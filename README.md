@@ -206,6 +206,46 @@ routing explanations. Edit buttons prefill the local forms. Writes require a
 per-process session token plus trusted Host and same-origin checks. Provider and
 Agent configuration values continue to be redacted before SQLite storage.
 
+## Persistent and remote interoperability
+
+Board 7 adds persistent, audited protocol clients without enabling any real
+endpoint by default:
+
+- Codex App Server initialization, Thread start/resume, Turn execution and
+  streaming Agent-message collection;
+- A2A v1.0 Agent Card discovery, JSON-RPC message submission and Task polling;
+- MCP 2025-11-25 stdio and Streamable HTTP clients;
+- SQLite endpoint identities, sessions, protocol events and approvals;
+- single-use human approval before every MCP tool call;
+- HTTPS enforcement for non-loopback endpoints and environment-only
+  credential references.
+
+Start from `config.interop.example.json`. Every real endpoint requires
+`invoke_enabled: true`; this is separate from enabling the registry record.
+
+Inspect local interoperability state:
+
+```powershell
+python -m model_council interop show --config config.interop.example.json
+python -m model_council interop sessions --config config.interop.example.json
+python -m model_council interop approvals --config config.interop.example.json
+```
+
+MCP tool execution is deliberately two-step:
+
+```powershell
+python -m model_council interop request-tool local-tools echo `
+  --arguments '{"text":"local request"}' `
+  --config config.interop.example.json
+python -m model_council interop approve <APPROVAL_ID> `
+  --config config.interop.example.json
+python -m model_council interop call-tool <APPROVAL_ID> `
+  --config config.interop.example.json
+```
+
+Approval is consumed once before transport execution. The local settings page
+also shows endpoints, sessions, events and pending approval controls.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：

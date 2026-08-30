@@ -4,16 +4,15 @@ Use this document when continuing in a new Model Council conversation.
 
 ## Current checkpoint
 
-Productization Boards 1 through 6 are complete. The authoritative Board 6
+Productization Boards 1 through 7 are complete. The authoritative Board 7
 report is:
 
 ```text
-docs/reports/2026-08-30-board-6-local-settings-interface.md
+docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
 ```
 
-Board 7 is not authorized or implemented. The real Codex pilot also remains
-paused until the user gives separate, explicit authorization to send repository
-content or derived private details to an external model service.
+The implementation has been verified only with local fake Codex App Server,
+A2A and MCP transports. No live external Agent or model invocation is claimed.
 
 ## Suggested opening prompt
 
@@ -24,30 +23,34 @@ task. Do not create a replacement repository.
 Before changing code, read AGENTS.md, README.md, docs/ARCHITECTURE.md,
 docs/PROJECT_HANDOFF.md, docs/ROADMAP.md, docs/DEVELOPMENT_BOARDS.md,
 docs/PRIVACY.md, docs/START_HERE_NEXT_SESSION.md and
-docs/reports/2026-08-30-board-6-local-settings-interface.md.
+docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md.
 
-Verify the clean public main baseline and run the offline tests and privacy
-scan. Inspect the Board 6 local settings interface only on loopback. Do not
-invoke a real external model, discovery probe or Provider balance endpoint.
+Verify the clean public main baseline, run all fifty-one offline tests and run the
+full-history privacy scan. Keep SQLite authoritative.
 
-Do not begin Board 7 Codex App Server, A2A, MCP or remote Agent
-interoperability without a new explicit user authorization. Keep SQLite
-authoritative and preserve deterministic routing and user-owned settings.
+Do not set invoke_enabled=true, call a live Codex App Server, contact an A2A
+Agent, connect an MCP server or send repository content externally without
+explicit user authorization for that exact pilot. Credentials must remain
+environment-variable references. MCP tools require a persisted single-use
+approval.
+
+Define the next productization board before adding new scope.
 ```
 
 ## Repository orientation
 
-- `model_council/web.py`: loopback-only Board 6 settings interface
+- `model_council/interoperability.py`: endpoint, session, event, approval and
+  MCP broker contracts
+- `model_council/adapters/codex_app_server.py`: persistent Codex Threads/Turns
+- `model_council/adapters/a2a.py`: A2A Agent Card, Message and Task client
+- `model_council/web.py`: local settings and interoperability evidence UI
 - `model_council/registry.py`: SQLite registry and user-owned edit operations
 - `model_council/orchestrator.py`: deterministic workflow
-- `model_council/store.py`: SQLite persistence
+- `model_council/store.py`: additive SQLite schema and persistence
 - `model_council/discovery.py`: startup discovery and isolated probes
 - `model_council/ledger.py`: usage, cost, budget and balance ledger
 - `model_council/routing.py`: deterministic role selection and audit evidence
-- `artifact_attributions`: internal contributor/reviewer/integrator audit table
-- `agent_discovery`: persisted discovery and setup observations
-- `usage_events`, `budget_policies`, `budget_alerts`: ledger tables
-- `routing_decisions`: durable selected and rejected routing evidence
+- `config.interop.example.json`: disabled-by-default protocol configuration
 - `docs/PRIVACY.md` and `scripts/privacy_scan.py`: public-repository privacy
   gate
 
@@ -61,10 +64,11 @@ python -m model_council doctor --config config.codex.example.json
 python -m model_council discovery scan --config config.example.json
 python -m model_council ledger summary --config config.example.json
 python -m model_council routing decisions --config config.example.json
+python -m model_council interop show --config config.interop.example.json
 python scripts/privacy_scan.py --history
 python -m model_council web --config config.example.json
 ```
 
-Expected baseline: forty-five tests pass. The local Web server binds to
-loopback, displays persisted evidence and writes only user-owned SQLite
-records. It must not call a model or external service.
+Expected baseline: fifty-one tests pass. `interop show` may synchronize disabled
+endpoint identities into ignored local runtime state but must not start a
+process or network request. The Web server binds to loopback.

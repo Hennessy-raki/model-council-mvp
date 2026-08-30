@@ -44,7 +44,7 @@ class DiscoveryService:
     ):
         self.config = config
         self.registry = registry
-        self.adapters = adapters or build_adapters(config)
+        self.adapters = adapters or build_adapters(config, registry.store)
         self.known_targets = known_targets
 
     def scan(self) -> list[dict[str, Any]]:

@@ -50,6 +50,13 @@ class LocalSettingsWebTests(unittest.TestCase):
                         },
                     },
                     "settings": {"locale": "en-US"},
+                    "mcp_servers": {
+                        "local-disabled": {
+                            "transport": "stdio",
+                            "command": ["placeholder-mcp-command"],
+                            "invoke_enabled": False,
+                        }
+                    },
                 }
             ),
             encoding="utf-8",
@@ -251,6 +258,52 @@ class LocalSettingsWebTests(unittest.TestCase):
                     urlopen(request)
                 self.assertEqual(cross_origin.exception.code, 403)
                 cross_origin.exception.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_local_interface_can_decide_interoperability_approval(self):
+        with TemporaryDirectory() as temp:
+            app = self._app(Path(temp))
+            approval = app.interoperability.request_approval(
+                endpoint_id="mcp:local-disabled",
+                action="mcp.tools.call",
+                resource="local-test",
+                arguments={"value": "safe"},
+            )
+            token = "local-test-token"
+            server = ThreadingHTTPServer(
+                ("127.0.0.1", 0),
+                _handler_for(app, token),
+            )
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                host, port = server.server_address[:2]
+                request = Request(
+                    (
+                        f"http://{host}:{port}/api/interop-approvals/"
+                        f"{approval['id']}"
+                    ),
+                    data=json.dumps(
+                        {"id": approval["id"], "decision": "approve"}
+                    ).encode("utf-8"),
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Model-Council-Token": token,
+                    },
+                    method="PUT",
+                )
+                with urlopen(request) as response:
+                    state = json.loads(response.read().decode("utf-8"))
+                decided = next(
+                    item
+                    for item in state["interoperability"]["approvals"]
+                    if item["id"] == approval["id"]
+                )
+                self.assertEqual(decided["status"], "approved")
+                self.assertIsNotNone(decided["decided_at"])
             finally:
                 server.shutdown()
                 server.server_close()

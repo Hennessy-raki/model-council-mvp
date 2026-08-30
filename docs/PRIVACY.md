@@ -42,3 +42,18 @@ Repository contents and derived private-project details must not be sent to an
 external model service without explicit user authorization. Discovery scans,
 doctor checks and privacy scans must remain local and must not be treated as
 authorization for a real model invocation.
+
+## Interoperability boundary
+
+Codex App Server, A2A and MCP configuration must keep credential values out of
+JSON and SQLite. Store only environment-variable names. Non-loopback remote
+endpoints require HTTPS and examples must use generic domains.
+
+`invoke_enabled: true` is an execution gate, not consent to disclose arbitrary
+repository contents. Obtain explicit user authorization for the exact live
+endpoint and context before a pilot.
+
+Interoperability sessions, Agent Cards, event payloads, MCP arguments and
+approval records are local runtime state. Never commit the runtime database or
+copy those records into a public report. MCP tool calls require a persisted
+single-use approval even when the server itself is already configured.

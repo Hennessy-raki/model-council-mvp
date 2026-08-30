@@ -1,0 +1,88 @@
+{
+  "project_name": "model-council-interoperability",
+  "state_dir": "runtime",
+  "max_parallel": 2,
+  "manager": "manager",
+  "reviewer": "reviewer",
+  "agents": {
+    "manager": {
+      "type": "mock",
+      "role": "manager",
+      "description": "Keep planning local while interoperability is evaluated.",
+      "capabilities": ["plan", "route", "synthesize"]
+    },
+    "codex_session": {
+      "type": "codex_app_server",
+      "role": "architect",
+      "description": "Persistent Codex App Server session.",
+      "capabilities": ["architecture", "implementation"],
+      "boundaries": ["read-only", "reject interactive approvals"],
+      "command": ["codex", "app-server"],
+      "sandbox": "read-only",
+      "approval_policy": "never",
+      "invoke_enabled": false
+    },
+    "remote_a2a": {
+      "type": "a2a",
+      "role": "researcher",
+      "description": "Remote A2A Agent using an authenticated HTTPS endpoint.",
+      "capabilities": ["research"],
+      "boundaries": ["remote", "explicit invocation only"],
+      "endpoint": "https://agent.example.com/a2a",
+      "agent_card_url": "https://agent.example.com/.well-known/agent-card.json",
+      "protocol_version": "1.0",
+      "auth_env": "MODEL_COUNCIL_A2A_TOKEN",
+      "invoke_enabled": false
+    },
+    "reviewer": {
+      "type": "mock",
+      "role": "reviewer",
+      "description": "Keep independent review local during pilots.",
+      "capabilities": ["review"]
+    }
+  },
+  "role_assignments": {
+    "decision_manager": {
+      "mode": "manual",
+      "agent": "manager",
+      "locked": true
+    },
+    "architecture_lead": {
+      "mode": "manual",
+      "agent": "codex_session",
+      "locked": true
+    },
+    "research_lead": {
+      "mode": "manual",
+      "agent": "remote_a2a",
+      "locked": true
+    },
+    "independent_reviewer": {
+      "mode": "manual",
+      "agent": "reviewer",
+      "locked": true
+    }
+  },
+  "settings": {
+    "auto_discovery_on_start": false,
+    "artifact_provenance_display": "compact",
+    "usage_estimation_enabled": true
+  },
+  "mcp_servers": {
+    "local-tools": {
+      "display_name": "Local MCP tool server",
+      "transport": "stdio",
+      "command": ["mcp-server-command"],
+      "protocol_version": "2025-11-25",
+      "invoke_enabled": false
+    },
+    "remote-tools": {
+      "display_name": "Authenticated remote MCP server",
+      "transport": "streamable_http",
+      "endpoint": "https://mcp.example.com/mcp",
+      "protocol_version": "2025-11-25",
+      "auth_env": "MODEL_COUNCIL_MCP_TOKEN",
+      "invoke_enabled": false
+    }
+  }
+}

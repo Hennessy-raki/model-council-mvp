@@ -2,15 +2,15 @@
 
 Last updated: 2026-08-30
 
-The authoritative Board 6 completion report is:
+The authoritative Board 7 completion report is:
 
 ```text
-docs/reports/2026-08-30-board-6-local-settings-interface.md
+docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
 ```
 
-It records the local-interface scope, verification, privacy boundaries and
-next-board boundary. The pre-Board-6 starting context remains in
-`docs/reports/2026-08-29-pre-board-6-session-handoff.md`.
+It records the persistent-session, A2A, MCP, remote-identity, approval,
+verification and privacy boundaries. The Board 6 report remains in
+`docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
 ## Why this project exists
 
@@ -36,15 +36,15 @@ Build a small, dependency-free local control plane first. Validate the complete
 collaboration loop with mock models, then replace one role at a time with a real
 model host.
 
-Longer term, the project may integrate:
+The local control plane now integrates:
 
 - A2A for remote agent interoperability;
 - MCP for tool access;
-- Git worktrees for code isolation;
 - Codex App Server for persistent Codex sessions;
-- a web or Electron control console.
+- a local Web control console.
 
-Those systems are integration targets, not requirements for the MVP.
+Git worktrees, repair loops and merge approval remain future integration
+targets.
 
 ## What is implemented
 
@@ -84,12 +84,18 @@ The repository currently contains:
   editing with sensitive values redacted before storage;
 - local views for discovery observations, Artifact provenance, ledger, budget,
   balance-snapshot and routing-decision evidence;
+- persistent interoperability endpoint identities, sessions and events;
+- Codex App Server Thread start/resume and Turn streaming;
+- A2A v1.0 Agent Card, Message and Task support;
+- MCP 2025-11-25 stdio and Streamable HTTP transports;
+- environment-only remote authentication, explicit invocation gates and
+  single-use MCP tool approvals;
 - a local repository privacy scanner and required public-push safety gate;
-- forty-five automated tests.
+- fifty-one automated tests.
 
 ## Verified state
 
-On 2026-08-29:
+Baseline history through 2026-08-30:
 
 - Python version: 3.14.4
 - Node.js version: 24.16.0
@@ -103,6 +109,8 @@ On 2026-08-29:
   privacy gate;
 - all forty-five unit/integration tests passed after the local settings
   interface;
+- all fifty-one unit/integration tests passed after persistent and remote
+  interoperability;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -143,6 +151,11 @@ The real repository-analysis run has not been executed yet. The managed safety
 review correctly required explicit user authorization before sending private
 repository contents or derived details to an external model service.
 
+Board 7 adds a separate `CodexAppServerAdapter` and
+`config.interop.example.json`. The Adapter passed initialization, Thread
+start/resume, Turn streaming and approval-rejection tests against a local fake
+server. It has not invoked the real Codex App Server.
+
 ## Provider caution
 
 The original machine uses a PackyAPI-backed Codex catalog. Earlier local testing
@@ -170,16 +183,20 @@ This information may become stale and should be reverified before provider work.
 - There is no automatic price catalog refresh or time-based budget policy.
 - Codex JSONL is collected after process completion; live event streaming is not
   implemented.
-- There is no App Server, A2A or MCP transport.
 - There is no Git worktree creation, diff review or merge workflow.
-- There is no web UI or human approval screen.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
+- No live Codex App Server, A2A Agent or MCP server has been claimed as
+  verified; Board 7 verification uses local fake transports.
+- App Server interactive command and file-change requests are recorded and
+  declined. A future repair-loop board must define richer user interaction.
+- Streamable HTTP currently supports JSON request/response operation, not
+  resumable SSE event replay.
 
 ## Separate real-agent milestone
 
-The next productization milestone is Board 6. The real-agent milestone below is
-separate and remains paused pending explicit user authorization.
+Productization Boards 1 through 7 are complete. The live-agent milestone below
+remains separate and paused pending explicit authorization.
 
 Milestone 1 is complete when one real Codex role successfully participates in a
 full run from an ordinary PowerShell session.
@@ -198,8 +215,9 @@ Acceptance criteria:
 9. The database contains no failed or blocked tasks.
 10. No credential, user path or runtime database is committed.
 
-After that, add a persistent `CodexAppServerAdapter` with JSONL request IDs,
-thread identity, streaming events and cancellation.
+The persistent `CodexAppServerAdapter` is now implemented and tested against a
+local fake server. Live Codex verification, cancellation and richer interactive
+approval UX remain separate acceptance work.
 
 ## Productization board status
 
@@ -266,15 +284,16 @@ server. SQLite remains authoritative; refreshes only read persisted records and
 save operations create user-owned records. It does not invoke models, discovery
 probes, Provider balance APIs or external services.
 
-Board 7 remains unstarted. Codex App Server, A2A, MCP and remote Agent
-interoperability require a separate board authorization. The real Codex pilot
-also remains paused until the user explicitly authorizes sending private
-repository context to the external service.
+Board 7, persistent and remote interoperability, is complete as an offline
+protocol implementation. It adds Codex App Server, A2A and MCP clients plus
+durable identities, sessions, events and approvals. Real transport is disabled
+unless the endpoint has `invoke_enabled: true`; non-loopback HTTP endpoints must
+use HTTPS and credential values remain outside configuration.
 
-The completed Board 6 scope and verification evidence are recorded in:
+The completed Board 7 scope and verification evidence are recorded in:
 
 ```text
-docs/reports/2026-08-30-board-6-local-settings-interface.md
+docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
 ```
 
 ## How to resume safely
@@ -285,9 +304,10 @@ python -m model_council demo "验证当前基线"
 python scripts/privacy_scan.py
 python -m model_council agents --config config.example.json
 python -m model_council web --config config.example.json
+python -m model_council interop show --config config.interop.example.json
 ```
 
 Read the architecture invariants before changing Adapter or orchestration
 boundaries. Preserve the mock-only baseline even after real models are added.
-The Web command opens only a loopback server and must not be extended into
-Board 7 remote interoperability without new authorization.
+Do not set `invoke_enabled: true` or send repository context to a live endpoint
+without explicit user authorization for that exact pilot.

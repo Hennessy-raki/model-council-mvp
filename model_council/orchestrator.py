@@ -31,7 +31,7 @@ class Orchestrator:
         self.registry = RegistryService(self.store)
         self.registry.sync_from_config(config)
         self.artifacts = ArtifactStore(config.state_dir / "artifacts", self.store)
-        self.adapters = build_adapters(config)
+        self.adapters = build_adapters(config, self.store)
         self.ledger = UsageLedger(config, self.store, self.registry)
         self.router = RoutingService(
             config=config,

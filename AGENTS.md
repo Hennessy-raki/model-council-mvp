@@ -67,17 +67,18 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 5 are complete. The next implementation board
-is Board 6: the local settings interface. Read the completed Board 5 report and
-the pre-Board-6 handoff before changing the control surface.
+Productization Boards 1 through 7 are complete. Read the Board 7 report before
+changing persistent sessions, A2A, MCP or remote identity contracts.
 
-Board 6 must build on the persisted registry, discovery, provenance, ledger and
-routing contracts. It must not move local state into a remote service or bypass
-the deterministic router. Do not begin Board 7 interoperability within the
-local-interface board.
+Interoperability state remains local and authoritative in SQLite. Non-loopback
+HTTP endpoints require HTTPS. Credentials are environment-variable references
+only. Every real App Server, A2A or MCP transport additionally requires
+`invoke_enabled: true`, and MCP tool execution requires a persisted single-use
+human approval.
 
-The real Codex pilot is separately paused pending explicit user authorization
-for sending private repository context to an external service.
+No live external endpoint has been claimed as verified. Sending repository
+content or derived private details to a real service still requires explicit
+user authorization for that pilot.
 
 ## Codex pilot boundary
 
@@ -92,6 +93,7 @@ The next milestone is a narrow Codex pilot:
 5. Use `--json` and `output_format: codex_jsonl`.
 6. Capture thread ID, usage, events, duration, stderr, exit status and the final
    Artifact.
-7. Only after this passes, design a persistent Codex App Server Adapter.
+7. The persistent Codex App Server Adapter is implemented and verified against
+   a local fake server; a live pilot still requires separate authorization.
 
 Do not connect every configured model in one change.

@@ -8,6 +8,7 @@ from pathlib import Path
 from .adapters import build_adapters
 from .config import load_config
 from .discovery import DiscoveryService
+from .interoperability import InteroperabilityService, MCPToolBroker
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
@@ -245,6 +246,78 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--host", default="127.0.0.1")
     web.add_argument("--port", type=int, default=8765)
 
+    interop = subparsers.add_parser(
+        "interop",
+        help="inspect and operate persistent App Server, A2A and MCP contracts",
+    )
+    interop_commands = interop.add_subparsers(
+        dest="interop_command",
+        required=True,
+    )
+    interop_show = interop_commands.add_parser(
+        "show",
+        help="show configured interoperability endpoints and local evidence",
+    )
+    interop_show.add_argument("--config", default=str(default_config_path()))
+    interop_sessions = interop_commands.add_parser(
+        "sessions",
+        help="show persistent interoperability sessions",
+    )
+    interop_sessions.add_argument("--endpoint")
+    interop_sessions.add_argument("--agent")
+    interop_sessions.add_argument("--config", default=str(default_config_path()))
+    interop_events = interop_commands.add_parser(
+        "events",
+        help="show persisted protocol events",
+    )
+    interop_events.add_argument("--session")
+    interop_events.add_argument("--limit", type=int, default=200)
+    interop_events.add_argument("--config", default=str(default_config_path()))
+    interop_approvals = interop_commands.add_parser(
+        "approvals",
+        help="show pending and decided interoperability approvals",
+    )
+    interop_approvals.add_argument(
+        "--status",
+        choices=("pending", "approved", "rejected"),
+    )
+    interop_approvals.add_argument("--config", default=str(default_config_path()))
+    interop_approve = interop_commands.add_parser(
+        "approve",
+        help="approve one pending interoperability action",
+    )
+    interop_approve.add_argument("approval_id")
+    interop_approve.add_argument("--config", default=str(default_config_path()))
+    interop_reject = interop_commands.add_parser(
+        "reject",
+        help="reject one pending interoperability action",
+    )
+    interop_reject.add_argument("approval_id")
+    interop_reject.add_argument("--config", default=str(default_config_path()))
+    interop_request_tool = interop_commands.add_parser(
+        "request-tool",
+        help="create a pending, single-use MCP tool approval",
+    )
+    interop_request_tool.add_argument("server")
+    interop_request_tool.add_argument("tool")
+    interop_request_tool.add_argument("--arguments", default="{}")
+    interop_request_tool.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    interop_call_tool = interop_commands.add_parser(
+        "call-tool",
+        help="consume an approved MCP tool request and execute it once",
+    )
+    interop_call_tool.add_argument("approval_id")
+    interop_call_tool.add_argument("--config", default=str(default_config_path()))
+    interop_tools = interop_commands.add_parser(
+        "tools",
+        help="explicitly list tools from one enabled MCP server",
+    )
+    interop_tools.add_argument("server")
+    interop_tools.add_argument("--config", default=str(default_config_path()))
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -408,6 +481,48 @@ def main(argv: list[str] | None = None) -> None:
             from .web import serve
 
             serve(config, host=args.host, port=args.port)
+        elif args.command == "interop":
+            config = load_config(args.config)
+            interoperability = _load_interoperability(config)
+            if args.interop_command == "show":
+                payload = interoperability.snapshot()
+            elif args.interop_command == "sessions":
+                payload = interoperability.sessions(
+                    endpoint_id=args.endpoint,
+                    agent_id=args.agent,
+                )
+            elif args.interop_command == "events":
+                payload = interoperability.events(
+                    args.session,
+                    limit=args.limit,
+                )
+            elif args.interop_command == "approvals":
+                payload = interoperability.approvals(args.status)
+            elif args.interop_command in {"approve", "reject"}:
+                interoperability.decide_approval(
+                    args.approval_id,
+                    approve=args.interop_command == "approve",
+                )
+                payload = interoperability.approval(args.approval_id)
+            else:
+                broker = MCPToolBroker(
+                    interoperability,
+                    config_dir=Path(config.path).parent,
+                )
+                if args.interop_command == "request-tool":
+                    payload = broker.request_tool_call(
+                        args.server,
+                        args.tool,
+                        _parse_json_object(
+                            args.arguments,
+                            "--arguments",
+                        ),
+                    )
+                elif args.interop_command == "call-tool":
+                    payload = broker.call_approved_tool(args.approval_id)
+                elif args.interop_command == "tools":
+                    payload = broker.list_tools(args.server)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)
@@ -463,7 +578,7 @@ def _load_discovery(config) -> DiscoveryService:
     return DiscoveryService(
         config=config,
         registry=registry,
-        adapters=build_adapters(config),
+        adapters=build_adapters(config, registry.store),
     )
 
 
@@ -482,8 +597,13 @@ def _load_routing(config) -> RoutingService:
         config=config,
         store=registry.store,
         registry=registry,
-        adapters=build_adapters(config),
+        adapters=build_adapters(config, registry.store),
     )
+
+
+def _load_interoperability(config) -> InteroperabilityService:
+    store = CouncilStore(config.state_dir / "council.db")
+    return InteroperabilityService(config, store)
 
 
 def _parse_setting_value(value: str):
@@ -494,10 +614,14 @@ def _parse_setting_value(value: str):
 
 
 def _parse_constraints(value: str) -> dict:
+    return _parse_json_object(value, "--constraints")
+
+
+def _parse_json_object(value: str, label: str) -> dict:
     try:
         parsed = json.loads(value)
     except json.JSONDecodeError as exc:
-        raise ValueError("--constraints must be valid JSON") from exc
+        raise ValueError(f"{label} must be valid JSON") from exc
     if not isinstance(parsed, dict):
-        raise ValueError("--constraints must be a JSON object")
+        raise ValueError(f"{label} must be a JSON object")
     return parsed

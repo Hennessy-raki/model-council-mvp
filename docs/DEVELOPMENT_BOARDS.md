@@ -89,10 +89,16 @@ Report: `docs/reports/2026-08-30-board-6-local-settings-interface.md`
 
 ### Board 7: Persistent and remote interoperability
 
-Status: planned
+Status: complete
 
 - Codex App Server sessions;
 - second real model family;
 - A2A transport;
 - MCP tool broker;
 - remote Agent identity and authentication.
+
+The A2A Adapter is the second external Agent-family integration contract. Its
+offline implementation is complete; no live third-party endpoint is claimed as
+verified.
+
+Report: `docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md`

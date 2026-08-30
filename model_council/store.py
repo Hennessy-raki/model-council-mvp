@@ -256,6 +256,58 @@ class CouncilStore:
                     rejected_candidates_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS interoperability_endpoints (
+                    id TEXT PRIMARY KEY,
+                    protocol TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    transport TEXT NOT NULL,
+                    endpoint TEXT,
+                    command_json TEXT NOT NULL,
+                    protocol_version TEXT NOT NULL,
+                    auth_type TEXT NOT NULL,
+                    auth_env TEXT,
+                    enabled INTEGER NOT NULL,
+                    config_json TEXT NOT NULL,
+                    observations_json TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS interoperability_sessions (
+                    id TEXT PRIMARY KEY,
+                    endpoint_id TEXT NOT NULL
+                        REFERENCES interoperability_endpoints(id),
+                    agent_id TEXT,
+                    protocol TEXT NOT NULL,
+                    remote_session_id TEXT,
+                    status TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS interoperability_events (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL
+                        REFERENCES interoperability_sessions(id),
+                    direction TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    request_id TEXT,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS interoperability_approvals (
+                    id TEXT PRIMARY KEY,
+                    endpoint_id TEXT NOT NULL
+                        REFERENCES interoperability_endpoints(id),
+                    action TEXT NOT NULL,
+                    resource TEXT NOT NULL,
+                    arguments_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -280,11 +332,25 @@ class CouncilStore:
                     ON routing_decisions(run_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_routing_role
                     ON routing_decisions(role_key, created_at);
+                CREATE INDEX IF NOT EXISTS idx_interop_sessions_endpoint
+                    ON interoperability_sessions(endpoint_id, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_interop_sessions_agent
+                    ON interoperability_sessions(agent_id, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_interop_events_session
+                    ON interoperability_events(session_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_interop_approvals_endpoint
+                    ON interoperability_approvals(endpoint_id, requested_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")
             self._ensure_column(conn, "artifacts", "producer_provider_id", "TEXT")
             self._ensure_column(conn, "artifacts", "producer_model_id", "TEXT")
+            self._ensure_column(
+                conn,
+                "interoperability_endpoints",
+                "observations_json",
+                "TEXT NOT NULL DEFAULT '{}'",
+            )
 
     @staticmethod
     def _ensure_column(

@@ -82,6 +82,21 @@ Status: complete
 
 Report: `docs/reports/2026-08-30-board-6-local-settings-interface.md`
 
+## Productization Board 7: Persistent and remote interoperability
+
+Status: complete
+
+- persistent Codex App Server Thread and Turn Adapter;
+- A2A v1.0 remote Agent Adapter and Agent Card observations;
+- MCP 2025-11-25 stdio and Streamable HTTP tool broker;
+- durable endpoint, session, event and approval evidence;
+- HTTPS and environment-only authentication boundaries;
+- explicit invocation gates and single-use MCP approvals;
+- no live external-service verification claim.
+
+Report:
+`docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md`
+
 ## Milestone 0: Offline collaboration loop
 
 Status: complete

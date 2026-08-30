@@ -170,14 +170,46 @@ the requested and selected identities, constraints, bounded evidence, rejected
 candidates and reason codes. Manager suggestions are preferences only; they
 cannot override locks, budgets, separation constraints or permission evidence.
 
+## Persistent and remote interoperability
+
+Board 7 keeps protocol cognition behind Adapters and durable control evidence
+in SQLite:
+
+```text
+configured remote identity
+  -> explicit invoke_enabled gate
+  -> protocol Adapter or MCP broker
+  -> interoperability session
+  -> immutable inbound/outbound events
+  -> local message, Artifact and usage contracts
+```
+
+`CodexAppServerAdapter` initializes a local app-server process for each call,
+resumes the durable remote Thread ID when present, starts one Turn and persists
+the protocol exchange. Server approval requests are recorded and declined by
+default; the Adapter never grants itself command or file-change permission.
+
+`A2AAdapter` validates HTTPS for non-loopback endpoints, persists Agent Card
+observations, submits a JSON-RPC Message and polls returned Tasks to a terminal
+state. Authentication values are read only from named environment variables.
+
+`MCPToolBroker` supports stdio and Streamable HTTP. Listing tools is explicit.
+Calling a tool requires a persisted approval that is approved and consumed
+exactly once before the transport request. Stdio commands remain argument
+arrays with `shell=False`.
+
+The local settings interface projects endpoints, remote identity observations,
+sessions, protocol events and approval controls. Browser approval cannot bypass
+the same persisted single-use check enforced by the broker.
+
 ## 下一阶段边界
 
 优先级顺序：
 
-1. review and operate the Board 6 local settings interface;
-2. a separately authorized narrow Codex `exec` read-only pilot;
-3. Board 7 Codex App Server, A2A, MCP and remote interoperability;
-4. Git worktree isolation and human approval.
+1. review and operate the Board 7 interoperability evidence;
+2. separately authorize one read-only live endpoint pilot;
+3. define the next productization board before adding broader capabilities;
+4. design Git worktree isolation and repair-loop approvals separately.
 
 The Board 6 interface is a loopback-only presentation and local mutation layer
 over SQLite. It does not move state into a remote service and cannot replace

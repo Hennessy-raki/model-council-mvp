@@ -23,6 +23,7 @@ class CouncilConfig:
     role_assignments: dict[str, dict[str, Any]]
     settings: dict[str, Any]
     budgets: dict[str, dict[str, Any]]
+    mcp_servers: dict[str, dict[str, Any]]
 
     def card(self, name: str) -> AgentCard:
         item = self.agents[name]
@@ -46,6 +47,7 @@ def load_config(path: str | Path) -> CouncilConfig:
     role_assignments = _optional_object(data, "role_assignments")
     settings = _optional_object(data, "settings")
     budgets = _optional_object(data, "budgets")
+    mcp_servers = _optional_object(data, "mcp_servers")
     project_name = str(data.get("project_name", "model-council"))
     if "artifact_provenance_display" in settings:
         try:
@@ -74,8 +76,27 @@ def load_config(path: str | Path) -> CouncilConfig:
     for name, item in agents.items():
         if not isinstance(item, dict):
             raise ValueError(f"agent {name!r} must be an object")
-        if item.get("type", "mock") not in {"mock", "cli", "openai_compatible"}:
+        if item.get("type", "mock") not in {
+            "mock",
+            "cli",
+            "openai_compatible",
+            "codex_app_server",
+            "a2a",
+        }:
             raise ValueError(f"agent {name!r} has unsupported type {item.get('type')!r}")
+        adapter_type = str(item.get("type", "mock"))
+        if adapter_type == "codex_app_server":
+            _validate_interop_flags(item, f"agent {name!r}")
+            _command_array(
+                item.get("command"),
+                f"agent {name!r} command",
+            )
+            _reject_plaintext_auth(item, f"agent {name!r}")
+        elif adapter_type == "a2a":
+            _validate_interop_flags(item, f"agent {name!r}")
+            if not str(item.get("endpoint", "")).strip():
+                raise ValueError(f"A2A agent {name!r} requires endpoint")
+            _reject_plaintext_auth(item, f"agent {name!r}")
         provider = item.get("provider")
         model = item.get("model")
         if provider is not None and str(provider) not in providers:
@@ -166,6 +187,27 @@ def load_config(path: str | Path) -> CouncilConfig:
         if metric == "cost" and not str(item.get("currency", "")).strip():
             raise ValueError(f"cost budget {budget_id!r} requires currency")
 
+    for server_id, item in mcp_servers.items():
+        if not isinstance(item, dict):
+            raise ValueError(f"MCP server {server_id!r} must be an object")
+        transport = str(item.get("transport", "stdio"))
+        _validate_interop_flags(item, f"MCP server {server_id!r}")
+        if transport not in {"stdio", "streamable_http"}:
+            raise ValueError(
+                f"MCP server {server_id!r} has unsupported transport "
+                f"{transport!r}"
+            )
+        if transport == "stdio":
+            _command_array(
+                item.get("command"),
+                f"MCP server {server_id!r} command",
+            )
+        elif not str(item.get("endpoint", "")).strip():
+            raise ValueError(
+                f"Streamable HTTP MCP server {server_id!r} requires endpoint"
+            )
+        _reject_plaintext_auth(item, f"MCP server {server_id!r}")
+
     return CouncilConfig(
         path=config_path,
         project_name=project_name,
@@ -179,6 +221,7 @@ def load_config(path: str | Path) -> CouncilConfig:
         role_assignments=role_assignments,
         settings=settings,
         budgets=budgets,
+        mcp_servers=mcp_servers,
     )
 
 
@@ -202,6 +245,77 @@ def _optional_non_negative_decimal(
     if not result.is_finite() or result < 0:
         raise ValueError(f"{label} must be a finite non-negative number")
     return result
+
+
+def _command_array(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list) or not value or not all(
+        isinstance(item, str) and item for item in value
+    ):
+        raise ValueError(f"{label} must be a non-empty string array")
+    sensitive_flags = (
+        "--api-key",
+        "--authorization",
+        "--bearer",
+        "--password",
+        "--secret",
+        "--token",
+    )
+    for item in value:
+        normalized = item.lower()
+        if normalized in sensitive_flags or any(
+            normalized.startswith(f"{flag}=") for flag in sensitive_flags
+        ):
+            raise ValueError(
+                f"{label} must not contain inline credential arguments"
+            )
+    return value
+
+
+def _reject_plaintext_auth(value: dict[str, Any], label: str) -> None:
+    def inspect(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, nested in item.items():
+                normalized = str(key).lower().replace("-", "_")
+                if normalized.endswith(("_env", "_env_var")):
+                    continue
+                token_key = (
+                    normalized == "token"
+                    or normalized.endswith("_token")
+                    or "access_token" in normalized
+                    or "refresh_token" in normalized
+                )
+                if token_key or any(
+                    part in normalized
+                    for part in (
+                        "api_key",
+                        "authorization",
+                        "bearer",
+                        "password",
+                        "secret",
+                    )
+                ):
+                    if nested not in (None, "", False):
+                        raise ValueError(
+                            f"{label} must reference credentials through "
+                            "environment variable names"
+                        )
+                inspect(nested)
+        elif isinstance(item, list):
+            for nested in item:
+                inspect(nested)
+
+    inspect(value)
+
+
+def _validate_interop_flags(value: dict[str, Any], label: str) -> None:
+    for key in ("enabled", "invoke_enabled"):
+        if key in value and not isinstance(value[key], bool):
+            raise ValueError(f"{label} {key} must be true or false")
+    if "auth_env" in value and (
+        not isinstance(value["auth_env"], str)
+        or not value["auth_env"].strip()
+    ):
+        raise ValueError(f"{label} auth_env must be a non-empty string")
 
 
 def validate_routing_constraints(value: Any, label: str) -> None:
