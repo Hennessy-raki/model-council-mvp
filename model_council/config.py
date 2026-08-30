@@ -93,6 +93,7 @@ def load_config(path: str | Path) -> CouncilConfig:
             )
             _reject_plaintext_auth(item, f"agent {name!r}")
             _validate_outbound_context_policy(item, f"agent {name!r}")
+            _validate_codex_cwd(item, f"agent {name!r}")
         elif adapter_type == "a2a":
             _validate_interop_flags(item, f"agent {name!r}")
             if not str(item.get("endpoint", "")).strip():
@@ -326,7 +327,7 @@ def _validate_outbound_context_policy(
     policy = value.get("outbound_context")
     if not isinstance(policy, dict):
         raise ValueError(
-            f"{label} requires an outbound_context object for exact prompt approval"
+            f"{label} requires an outbound_context object for exact scope approval"
         )
     source = policy.get("source")
     if source not in {"synthetic", "repository"}:
@@ -366,6 +367,22 @@ def _validate_outbound_context_policy(
         raise ValueError(
             f"{label} outbound_context.excluded_patterns must be a string array"
         )
+
+
+def _validate_codex_cwd(value: dict[str, Any], label: str) -> None:
+    cwd = value.get("cwd")
+    cwd_env = value.get("cwd_env")
+    if cwd and cwd_env:
+        raise ValueError(f"{label} must not set both cwd and cwd_env")
+    if not cwd and not cwd_env:
+        raise ValueError(
+            f"{label} requires cwd or cwd_env so working-directory disclosure "
+            "is explicit"
+        )
+    if cwd_env is not None and (
+        not isinstance(cwd_env, str) or not cwd_env.strip()
+    ):
+        raise ValueError(f"{label} cwd_env must be a non-empty string")
 
 
 def validate_routing_constraints(value: Any, label: str) -> None:

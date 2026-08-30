@@ -12,8 +12,8 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
-Board 8 completed one constrained live synthetic Codex App Server pilot. Its
-frozen scope is:
+Board 8 completed one functionally successful live synthetic Codex App Server
+run, but privacy acceptance remains pending. Its scope is:
 
 ```text
 docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
@@ -25,12 +25,14 @@ Its offline completion evidence is:
 docs/reports/2026-08-30-board-8-controlled-live-pilot.md
 ```
 
-The successful pilot used the separate `config.pilot.example.json` pattern,
-retained mock manager/reviewer roles, displayed the exact locally stored
-synthetic prompt, obtained explicit user authorization, and consumed its
-SHA-256 approval once. It sent no files, Artifacts, repository content,
-credentials or private-derived details. Any future live attempt must repeat
-that exact-context approval flow.
+The live run retained mock manager/reviewer roles, displayed the exact Turn
+prompt, obtained user authorization and consumed its approval once. It sent no
+files, Artifacts, repository content, credentials or private-derived details.
+Post-run review found that the manifest did not include App Server
+`thread/start.cwd`; the absolute synthetic working path may therefore have
+entered upstream environment context. The corrected gate now binds prompt,
+resolved `cwd`, model, sandbox and approval policy and blocks personal home
+paths. This correction is offline-verified but not live-revalidated.
 
 ## Why this project exists
 
@@ -111,7 +113,8 @@ The repository currently contains:
 - environment-only remote authentication, explicit invocation gates and
   single-use MCP tool approvals;
 - a local repository privacy scanner and required public-push safety gate;
-- fifty-one automated tests.
+- exact prompt-plus-transport context approval for Codex App Server;
+- fifty-five automated tests.
 
 ## Verified state
 
@@ -131,6 +134,8 @@ Baseline history through 2026-08-30:
   interface;
 - all fifty-one unit/integration tests passed after persistent and remote
   interoperability;
+- all fifty-five unit/integration tests passed after Board 8 and its
+  post-pilot privacy corrections;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -148,8 +153,9 @@ WindowsApps-packaged executable previously returned "Access denied" from a
 managed task environment. A separate npm-installed `codex.cmd` is available on
 the local `PATH`; version and Python `subprocess` launch checks both succeeded.
 
-The repository therefore includes `config.codex.example.json`, but no paid or
-remote model invocation has been claimed as verified.
+The repository includes `config.codex.example.json`. One real synthetic Codex
+App Server run completed functionally; repository-context invocation remains
+unverified.
 
 The Codex pilot now uses:
 
@@ -175,7 +181,9 @@ Board 7 adds a separate `CodexAppServerAdapter` and
 `config.interop.example.json`. The Adapter passed initialization, Thread
 start/resume, Turn streaming and approval-rejection tests against a local fake
 server. Board 8 subsequently verified one real synthetic read-only App Server
-Turn under an exact one-time context approval.
+Turn under a one-time prompt approval. Post-run review found the unapproved
+`cwd` metadata gap, so this is functional evidence rather than complete privacy
+acceptance.
 
 ## Provider caution
 
@@ -207,8 +215,9 @@ This information may become stale and should be reverified before provider work.
 - There is no Git worktree creation, diff review or merge workflow.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
-- One live synthetic Codex App Server Turn is verified. A2A and MCP remain
-  local-fake only, and repository context remains unverified.
+- One live synthetic Codex App Server Turn completed functionally. Complete
+  privacy verification is pending because its original manifest omitted
+  `thread/start.cwd`; A2A and MCP remain local-fake only.
 - The first live Turn exposed a harmless but unnecessary featured-plugin
   catalog request that failed with HTTP 401. Public pilot examples now disable
   `plugins`, `remote_plugin` and `apps`; this mitigation is offline-validated
@@ -224,11 +233,13 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 8 are complete. The synthetic live-agent
-milestone below is verified; repository analysis remains separately gated.
+Productization Boards 1 through 7 are complete. Board 8 control implementation
+is complete, but live privacy acceptance is pending corrected-scope
+revalidation. Repository analysis remains separately gated.
 
-Milestone 1 completed when one real Codex role successfully participated in a
-full run from an ordinary PowerShell session.
+Milestone 1 is functionally complete because one real Codex role participated
+in a full run from an ordinary PowerShell session. Its privacy acceptance is
+not complete.
 
 Acceptance criteria:
 
@@ -243,10 +254,12 @@ Acceptance criteria:
 8. The mock manager creates the final synthesis.
 9. The database contains no failed or blocked tasks.
 10. No credential, user path or runtime database is committed.
+11. The approved scope includes resolved `cwd`, model, sandbox and approval
+    policy, and the working path is outside personal home directories.
 
-The persistent `CodexAppServerAdapter` is now implemented and tested against a
-local fake server. Live Codex verification, cancellation and richer interactive
-approval UX remain separate acceptance work.
+Criteria 1 through 10 passed for the functional run. Criterion 11 was added
+after the `cwd` finding and is offline-verified only. A separately approved
+live revalidation is required before marking the privacy milestone complete.
 
 ## Productization board status
 

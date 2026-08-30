@@ -67,9 +67,11 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 8 are complete. Read the Board 7 report and
-Board 8 plan/report before changing persistent sessions, A2A, MCP, remote
-identity contracts or outbound-context approval.
+Productization Boards 1 through 7 are complete. Board 8 has a complete control
+implementation and one functionally successful live synthetic run, but its
+privacy acceptance remains pending after discovering that the original
+manifest did not cover App Server `cwd`. Read the Board 8 plan/report before
+changing persistent sessions or outbound-context approval.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
@@ -77,12 +79,12 @@ only. Every real App Server, A2A or MCP transport additionally requires
 `invoke_enabled: true`, and MCP tool execution requires a persisted single-use
 human approval.
 
-One live synthetic Codex App Server pilot has been verified with a read-only
-architect and mock manager/reviewer. It used an exact locally previewed,
-SHA-256-bound one-time approval and sent no repository content, private-derived
-details, files or Artifacts. No live A2A or MCP endpoint has been verified.
-Any broader external disclosure still requires explicit user authorization for
-that exact pilot.
+One live synthetic Codex App Server run completed with a read-only architect
+and mock manager/reviewer. It sent no files, Artifacts or repository content,
+but its local App Server received an absolute `cwd` that may have been included
+in upstream environment context. The corrected gate binds prompt plus `cwd`,
+model, sandbox and approval policy, and blocks personal home paths; this fix is
+offline-verified only. No live A2A or MCP endpoint has been verified.
 
 ## Codex pilot boundary
 

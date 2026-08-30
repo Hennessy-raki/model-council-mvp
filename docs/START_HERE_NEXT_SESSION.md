@@ -4,8 +4,9 @@ Use this document when continuing in a new Model Council conversation.
 
 ## Current checkpoint
 
-Productization Boards 1 through 8 are complete. The authoritative Board 7
-report is:
+Productization Boards 1 through 7 are complete. Board 8 control implementation
+is complete, but live privacy acceptance remains pending. The authoritative
+Board 7 report is:
 
 ```text
 docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
@@ -19,10 +20,12 @@ docs/reports/2026-08-30-board-8-controlled-live-pilot.md
 ```
 
 Board 7 protocol coverage uses local fake Codex App Server, A2A and MCP
-transports. Board 8 additionally completed one live synthetic read-only Codex
-App Server pilot with mock manager/reviewer, zero files, zero Artifacts and an
-exact one-time prompt approval. A2A, MCP and repository-context live operation
-remain unverified.
+transports. Board 8 completed one functionally successful live synthetic
+read-only Codex run with mock manager/reviewer, zero files and zero Artifacts.
+That first manifest did not cover App Server `cwd`, so its absolute synthetic
+directory path may have entered upstream environment context. The corrected
+combined-scope gate is offline-verified only. A2A, MCP and repository-context
+live operation remain unverified.
 
 ## Suggested opening prompt
 
@@ -44,11 +47,12 @@ explicit user authorization for that exact pilot. Credentials must remain
 environment-variable references. MCP tools require a persisted single-use
 approval.
 
-Board 8 is complete. Any future live pilot must show
+Board 8 privacy acceptance remains pending. Any future live pilot must show
 `interop context <MANIFEST_ID> --show-prompt` to the user, obtain explicit
-authorization for that exact prompt, and approve the matching SHA-256 once.
-Do not expand the context to repository content or begin Board 9 without a new
-Board definition.
+authorization for the displayed prompt and transport context, and approve the
+matching `approval_sha256` once. The resolved `cwd` must be a generic synthetic
+directory outside personal home paths. Do not expand to repository content or
+begin Board 9 before the corrected gate is live-revalidated.
 ```
 
 ## Repository orientation

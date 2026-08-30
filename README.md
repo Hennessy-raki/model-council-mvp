@@ -253,6 +253,11 @@ Board 8 adds a prompt-level gate in front of the existing App Server
 untracked local file. It deliberately contains one read-only Codex architect,
 with the manager and reviewer kept on `mock`.
 
+Set `MODEL_COUNCIL_SYNTHETIC_CWD` to an existing generic synthetic directory
+outside any personal home path, for example `C:\model-council-synthetic`.
+The exact approval scope includes this resolved working directory, model,
+sandbox and approval policy in addition to the prompt.
+
 When an enabled synthetic run reaches the architect, Model Council records a
 local pending manifest and stops before App Server startup. Inspect the exact
 prompt locally, obtain explicit user authorization for that exact scope, then
@@ -263,16 +268,22 @@ python -m model_council interop contexts --config <LOCAL_CONFIG>
 python -m model_council interop context <MANIFEST_ID> --show-prompt `
   --config <LOCAL_CONFIG>
 python -m model_council interop context <MANIFEST_ID> `
-  --approve-sha256 <DISPLAYED_SHA256> --config <LOCAL_CONFIG>
+  --approve-sha256 <DISPLAYED_APPROVAL_SHA256> --config <LOCAL_CONFIG>
 python -m model_council run "<SAME_SYNTHETIC_GOAL>" `
   --outbound-manifest <MANIFEST_ID> --config <LOCAL_CONFIG>
 ```
 
 The initial policy allows synthetic text only: zero files, zero Artifacts and
-at most 8,192 UTF-8 bytes. It rejects repository context, credential/path
-patterns and any changed or replayed prompt. One live synthetic Codex App
-Server pilot has completed under these limits; no repository-context, A2A or
-MCP live verification is claimed.
+at most 8,192 UTF-8 bytes across prompt and transport metadata. It rejects
+repository context, credential/path patterns, personal home-directory paths
+and any changed or replayed scope.
+
+One live synthetic Codex App Server run completed functionally, but its first
+manifest covered only the Turn prompt and not the `thread/start` working
+directory. That run may therefore have disclosed its absolute synthetic
+directory path through Codex environment context. The strengthened combined
+scope gate is offline-verified but has not received a second live validation.
+No repository-content, A2A or MCP live verification is claimed.
 
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 

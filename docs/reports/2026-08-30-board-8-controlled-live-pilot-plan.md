@@ -20,17 +20,18 @@ explicit user confirmation for the exact outbound context of that invocation.
 
 1. A Codex App Server invocation must stop before process startup unless an
    exact outbound-context manifest has been approved once.
-2. The manifest must bind approval to the endpoint, prompt SHA-256 and exact
-   UTF-8 byte count. A changed prompt, a wrong endpoint or replayed approval
-   must fail locally.
+2. The manifest must bind approval to the endpoint, prompt, resolved `cwd`,
+   model, sandbox, approval policy and exact UTF-8 byte count. A changed scope,
+   wrong endpoint or replayed approval must fail locally.
 3. The first allowed configuration must have exactly one Codex App Server
    Agent, `sandbox: "read-only"`, a mock manager, a mock reviewer, no other
    enabled remote Agent and no enabled MCP tool execution.
 4. The initial source class is `synthetic` only. Repository source class,
    Artifact transfer and derived private context are excluded from the Board 8
    live path.
-5. The local user can inspect the exact prompt and a non-secret inventory
-   before approval. Approval requires entering the displayed prompt SHA-256.
+5. The local user can inspect the exact prompt, transport context and a
+   non-secret inventory before approval. Approval requires entering the
+   displayed combined scope SHA-256.
 6. Offline tests use only the local fake App Server. They must prove pending,
    approved, consumed, rejected and blocked transitions, prompt mismatch,
    exclusion rules and the one-role pilot topology.
@@ -43,7 +44,7 @@ explicit user confirmation for the exact outbound context of that invocation.
 | Threat | Board 8 control |
 | --- | --- |
 | Accidental external invocation | Existing `invoke_enabled: true` gate plus mandatory one-time context approval before App Server startup |
-| Scope drift after review | Approval is tied to one prompt SHA-256; any byte change fails |
+| Scope drift after review | Approval is tied to one combined prompt/transport SHA-256; any scope change fails |
 | Repository or private data in first pilot | `synthetic` source only; `repository` source is rejected by controlled-pilot validation |
 | Credential or identity disclosure | Environment-only credentials; content regex excludes common credential headers, private keys and Windows/POSIX home paths |
 | Artifact over-sharing | Initial pilot permits zero Artifacts and zero Artifact bytes |
@@ -60,6 +61,7 @@ For every proposed call, the local manifest records:
 - endpoint and local Agent identity;
 - source class;
 - SHA-256 and UTF-8 byte count for the full rendered prompt;
+- resolved `cwd`, model, sandbox and approval policy plus their combined digest;
 - individually hashed, byte-counted system/request, goal, instruction and
   prior-context sections;
 - Artifact name, media type, digest and byte count when policy permits any;
@@ -98,3 +100,19 @@ changed scope.
 Board 8 does not add Git worktrees, write permission, merge authority,
 reviewer-writer loops, a second real Agent family, real A2A/MCP verification,
 repository-context authorization UI, or any release/deployment capability.
+
+## Post-pilot privacy correction
+
+The first live synthetic run revealed that the original manifest covered the
+Turn prompt but not `thread/start.cwd`. Because Codex may include working
+directory information in upstream environment context, the acceptance scope is
+amended:
+
+- the exact manifest must include resolved `cwd`, model, sandbox and approval
+  policy;
+- one approval digest binds prompt and transport metadata together;
+- Windows and POSIX personal home paths are blocked before process startup;
+- public configuration obtains the synthetic working directory from
+  `MODEL_COUNCIL_SYNTHETIC_CWD`;
+- Board 8 privacy acceptance remains pending until this corrected scope is
+  separately approved and live-revalidated.

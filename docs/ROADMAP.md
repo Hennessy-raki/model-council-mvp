@@ -99,8 +99,8 @@ Report:
 
 ## Productization Board 8: Controlled live-model pilot and outbound context approval
 
-Status: complete; one exact-consent live synthetic Codex App Server pilot
-verified
+Status: control implementation complete; live functional path succeeded, but
+privacy revalidation is pending
 
 - require local preview and one-time approval for the exact App Server prompt;
 - bind approval to endpoint, SHA-256 and UTF-8 byte count;
@@ -110,6 +110,8 @@ verified
   credential/path patterns during the initial synthetic pilot;
 - retain local audit evidence while avoiding prompt duplication in protocol
   events.
+- bind approval to App Server `cwd`, model, sandbox and approval policy;
+- reject personal home-directory paths before process startup;
 - keep repository-context, A2A and MCP live work behind separate approvals.
 
 Plan: `docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md`
@@ -132,7 +134,7 @@ Status: complete
 
 ## Milestone 1: One real Codex worker
 
-Status: complete for the synthetic read-only pilot
+Status: functionally complete; privacy revalidation pending
 
 - [x] resolve and launch the npm-installed Codex CLI from Python;
 - [x] add a no-invocation Adapter doctor check;
@@ -147,6 +149,9 @@ Status: complete for the synthetic read-only pilot
 - [x] verify Artifact, review, synthesis and database evidence from that
   authorized live run;
 - [x] keep all other roles on mocks during the pilot.
+- [x] identify and correct the unapproved App Server `cwd` disclosure gap;
+- [ ] revalidate the corrected combined-scope gate in a separately approved
+  live synthetic run.
 
 ## Milestone 2: Persistent sessions and a second model family
 

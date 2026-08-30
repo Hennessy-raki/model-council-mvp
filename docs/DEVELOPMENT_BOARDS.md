@@ -105,7 +105,7 @@ Report: `docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md`
 
 ### Board 8: Controlled live-model pilot and outbound context approval
 
-Status: complete; one live synthetic Codex App Server pilot verified
+Status: control implementation complete; live privacy acceptance pending
 
 - one read-only Codex App Server architect role only;
 - mock manager and reviewer only;
@@ -113,8 +113,10 @@ Status: complete; one live synthetic Codex App Server pilot verified
 - local preview plus SHA-256-bound, single-use human approval;
 - synthetic context only; no Artifacts, repository content or private-derived
   material in the initial pilot;
-- local fake-App-Server regression coverage and one exact-consent live
-  synthetic pilot;
+- local fake-App-Server regression coverage and one functionally successful
+  live synthetic run;
+- post-pilot correction binds `cwd`, model, sandbox and approval policy and
+  blocks personal home paths; correction not yet revalidated live;
 - no repository-context, A2A or MCP live verification claim.
 
 Plan: `docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md`

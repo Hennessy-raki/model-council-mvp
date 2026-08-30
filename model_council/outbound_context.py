@@ -72,7 +72,7 @@ class OutboundContextPolicy:
 
 
 class OutboundContextService:
-    """Local, one-time consent records for exact App Server prompt bytes."""
+    """Local consent records for exact prompt and App Server metadata."""
 
     def __init__(self, store: CouncilStore):
         self.store = store
@@ -86,7 +86,15 @@ class OutboundContextService:
         prompt: str,
         source: str,
         policy: OutboundContextPolicy,
+        transport_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        transport_context = transport_context or {}
+        transport_text = json.dumps(
+            transport_context,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         if source not in policy.allowed_sources:
             return self._blocked(
                 endpoint_id=endpoint_id,
@@ -94,6 +102,7 @@ class OutboundContextService:
                 request=request,
                 prompt=prompt,
                 source=source,
+                transport_context=transport_context,
                 reason=f"source {source!r} is not permitted",
             )
         if request.artifacts and len(request.artifacts) > policy.max_artifacts:
@@ -103,6 +112,7 @@ class OutboundContextService:
                 request=request,
                 prompt=prompt,
                 source=source,
+                transport_context=transport_context,
                 reason=(
                     f"artifact count {len(request.artifacts)} exceeds "
                     f"limit {policy.max_artifacts}"
@@ -120,6 +130,7 @@ class OutboundContextService:
                     request=request,
                     prompt=prompt,
                     source=source,
+                    transport_context=transport_context,
                     reason=f"artifact {artifact.name!r} is unavailable locally",
                 )
             if size > policy.max_artifact_bytes:
@@ -129,6 +140,7 @@ class OutboundContextService:
                     request=request,
                     prompt=prompt,
                     source=source,
+                    transport_context=transport_context,
                     reason=(
                         f"artifact {artifact.name!r} is {size} bytes, exceeding "
                         f"limit {policy.max_artifact_bytes}"
@@ -143,19 +155,31 @@ class OutboundContextService:
                 }
             )
         prompt_bytes = prompt.encode("utf-8")
-        if len(prompt_bytes) > policy.max_total_bytes:
+        transport_bytes = transport_text.encode("utf-8")
+        total_bytes = len(prompt_bytes) + len(transport_bytes)
+        if total_bytes > policy.max_total_bytes:
             return self._blocked(
                 endpoint_id=endpoint_id,
                 agent_id=agent_id,
                 request=request,
                 prompt=prompt,
                 source=source,
+                transport_context=transport_context,
                 reason=(
-                    f"prompt is {len(prompt_bytes)} bytes, exceeding "
+                    f"outbound scope is {total_bytes} bytes, exceeding "
                     f"limit {policy.max_total_bytes}"
                 ),
             )
-        matches = _excluded_matches(prompt, policy.excluded_patterns)
+        matches = _excluded_matches(
+            "\n".join(
+                [
+                    prompt,
+                    transport_text,
+                    *_string_values(transport_context),
+                ]
+            ),
+            policy.excluded_patterns,
+        )
         if matches:
             return self._blocked(
                 endpoint_id=endpoint_id,
@@ -163,14 +187,27 @@ class OutboundContextService:
                 request=request,
                 prompt=prompt,
                 source=source,
+                transport_context=transport_context,
                 reason=f"excluded context pattern matched: {matches[0]}",
             )
-        items = _prompt_items(request, prompt, artifact_items)
+        items = _prompt_items(
+            request,
+            prompt,
+            artifact_items,
+            transport_text=transport_text,
+        )
+        scope_sha256 = sha256(
+            prompt_bytes + b"\0" + transport_bytes
+        ).hexdigest()
         manifest = {
-            "version": 1,
+            "version": 2,
             "source": source,
             "prompt_sha256": sha256(prompt_bytes).hexdigest(),
-            "total_bytes": len(prompt_bytes),
+            "scope_sha256": scope_sha256,
+            "prompt_bytes": len(prompt_bytes),
+            "transport_bytes": len(transport_bytes),
+            "total_bytes": total_bytes,
+            "transport_context": transport_context,
             "files": [],
             "artifacts": artifact_items,
             "items": items,
@@ -214,6 +251,7 @@ class OutboundContextService:
         manifest_id: str | None,
         endpoint_id: str,
         prompt: str,
+        transport_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not manifest_id:
             prepared = self._latest_pending(endpoint_id, prompt)
@@ -231,6 +269,12 @@ class OutboundContextService:
         if digest != item["prompt_sha256"]:
             raise OutboundContextError(
                 f"outbound context manifest {manifest_id!r} does not match the exact prompt"
+            )
+        expected_transport = item["manifest"].get("transport_context", {})
+        if expected_transport != (transport_context or {}):
+            raise OutboundContextError(
+                f"outbound context manifest {manifest_id!r} does not match "
+                "the exact App Server transport context"
             )
         with self.store.connect() as conn:
             updated = conn.execute(
@@ -253,9 +297,9 @@ class OutboundContextService:
             raise OutboundContextError(
                 f"outbound context manifest {manifest_id!r} is not pending"
             )
-        if approve and confirmation != item["prompt_sha256"]:
+        if approve and confirmation != item["approval_sha256"]:
             raise OutboundContextError(
-                "approval confirmation must exactly match the displayed prompt SHA-256"
+                "approval confirmation must exactly match the displayed scope SHA-256"
             )
         with self.store.connect() as conn:
             conn.execute(
@@ -279,6 +323,10 @@ class OutboundContextService:
             )
         result = dict(row)
         result["manifest"] = json.loads(result.pop("manifest_json"))
+        result["approval_sha256"] = result["manifest"].get(
+            "scope_sha256",
+            result["prompt_sha256"],
+        )
         prompt = result.pop("prompt_text")
         if include_prompt:
             result["prompt"] = prompt
@@ -299,6 +347,10 @@ class OutboundContextService:
         for row in rows:
             item = dict(row)
             item["manifest"] = json.loads(item.pop("manifest_json"))
+            item["approval_sha256"] = item["manifest"].get(
+                "scope_sha256",
+                item["prompt_sha256"],
+            )
             item.pop("prompt_text")
             result.append(item)
         return result
@@ -328,16 +380,36 @@ class OutboundContextService:
         request: AgentRequest,
         prompt: str,
         source: str,
+        transport_context: dict[str, Any] | None = None,
         reason: str,
     ) -> dict[str, Any]:
         prompt_bytes = prompt.encode("utf-8")
+        transport_context = transport_context or {}
+        transport_text = json.dumps(
+            transport_context,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        transport_bytes = transport_text.encode("utf-8")
         manifest_id = str(uuid4())
         manifest = {
-            "version": 1,
+            "version": 2,
             "source": source,
             "prompt_sha256": sha256(prompt_bytes).hexdigest(),
-            "total_bytes": len(prompt_bytes),
-            "items": _prompt_items(request, prompt, []),
+            "scope_sha256": sha256(
+                prompt_bytes + b"\0" + transport_bytes
+            ).hexdigest(),
+            "prompt_bytes": len(prompt_bytes),
+            "transport_bytes": len(transport_bytes),
+            "total_bytes": len(prompt_bytes) + len(transport_bytes),
+            "transport_context": transport_context,
+            "items": _prompt_items(
+                request,
+                prompt,
+                [],
+                transport_text=transport_text,
+            ),
             "artifacts": [],
         }
         with self.store.connect() as conn:
@@ -371,6 +443,8 @@ def _prompt_items(
     request: AgentRequest,
     prompt: str,
     artifacts: list[dict[str, Any]],
+    *,
+    transport_text: str,
 ) -> list[dict[str, Any]]:
     values = (
         ("system_and_request", prompt),
@@ -395,6 +469,13 @@ def _prompt_items(
                 "bytes": sum(int(item["bytes"]) for item in artifacts),
             }
         )
+    items.append(
+        {
+            "kind": "transport_context",
+            "bytes": len(transport_text.encode("utf-8")),
+            "sha256": sha256(transport_text.encode("utf-8")).hexdigest(),
+        }
+    )
     return items
 
 
@@ -409,6 +490,20 @@ def _excluded_matches(text: str, patterns: tuple[str, ...]) -> list[str]:
                 f"invalid outbound context excluded pattern {pattern!r}"
             ) from exc
     return matched
+
+
+def _string_values(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        result = []
+        for item in value.values():
+            result.extend(_string_values(item))
+        return result
+    if isinstance(value, (list, tuple)):
+        result = []
+        for item in value:
+            result.extend(_string_values(item))
+        return result
+    return [value] if isinstance(value, str) else []
 
 
 def validate_controlled_pilot(

@@ -62,6 +62,7 @@
         "--disable",
         "apps"
       ],
+      "cwd_env": "MODEL_COUNCIL_SYNTHETIC_CWD",
       "sandbox": "read-only",
       "approval_policy": "never",
       "outbound_context": {

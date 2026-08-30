@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,12 @@ class CodexAppServerAdapter(AgentAdapter):
         self.endpoint = interoperability.endpoint(self.endpoint_id)
         self.command = list(settings["command"])
         self.timeout_seconds = int(settings.get("timeout_seconds", 600))
-        cwd_value = settings.get("cwd")
+        cwd_env = _optional_text(settings.get("cwd_env"))
+        cwd_value = os.environ.get(cwd_env) if cwd_env else settings.get("cwd")
+        if cwd_env and not cwd_value:
+            raise ValueError(
+                f"Codex App Server cwd environment variable {cwd_env!r} is not set"
+            )
         if cwd_value:
             cwd = Path(str(cwd_value))
             self.cwd = (cwd if cwd.is_absolute() else config_dir / cwd).resolve()
@@ -75,6 +81,7 @@ class CodexAppServerAdapter(AgentAdapter):
     def invoke(self, request: AgentRequest) -> AgentResponse:
         self.interoperability.require_invocation_enabled(self.endpoint)
         prompt = self.render_outbound_prompt(request)
+        transport_context = self.outbound_transport_context()
         manifest_id = _optional_text(
             request.metadata.get("outbound_context_manifest_id")
         )
@@ -83,6 +90,7 @@ class CodexAppServerAdapter(AgentAdapter):
                 manifest_id=manifest_id,
                 endpoint_id=self.endpoint_id,
                 prompt=prompt,
+                transport_context=transport_context,
             )
         else:
             manifest = self.outbound_context.prepare(
@@ -92,6 +100,7 @@ class CodexAppServerAdapter(AgentAdapter):
                 prompt=prompt,
                 source=self.outbound_source,
                 policy=self.outbound_policy,
+                transport_context=transport_context,
             )
             if manifest["status"] == "blocked":
                 raise InteroperabilityError(manifest["reason"])
@@ -247,6 +256,14 @@ class CodexAppServerAdapter(AgentAdapter):
             raise
         finally:
             transport.close()
+
+    def outbound_transport_context(self) -> dict[str, Any]:
+        return {
+            "cwd": str(self.cwd),
+            "sandbox": self.sandbox,
+            "approval_policy": self.approval_policy,
+            "model": self.model,
+        }
 
     def diagnose(self) -> dict[str, Any]:
         executable = self.command[0]

@@ -19,6 +19,7 @@ from model_council.interoperability import (
 from model_council.outbound_context import (
     OutboundContextApprovalRequired,
     OutboundContextError,
+    OutboundContextPolicy,
     validate_controlled_pilot,
 )
 from model_council.orchestrator import Orchestrator
@@ -209,6 +210,7 @@ class InteroperabilityTests(unittest.TestCase):
                                 sys.executable,
                                 str(self.fake_codex),
                             ],
+                            "cwd": str(root),
                             "sandbox": "read-only",
                             "approval_policy": "never",
                             "outbound_context": {
@@ -218,6 +220,10 @@ class InteroperabilityTests(unittest.TestCase):
                                 "max_total_bytes": 8192,
                                 "max_artifacts": 0,
                                 "max_artifact_bytes": 0,
+                                "excluded_patterns": [
+                                    "(?i)(api[_-]?key|authorization|bearer|"
+                                    "password|secret|token)\\s*[:=]"
+                                ],
                             },
                             "invoke_enabled": invoke_enabled,
                         },
@@ -325,11 +331,12 @@ class InteroperabilityTests(unittest.TestCase):
             prompt=prompt,
             source=adapter.outbound_source,
             policy=adapter.outbound_policy,
+            transport_context=adapter.outbound_transport_context(),
         )
         adapter.outbound_context.decide(
             manifest["id"],
             approve=True,
-            confirmation=manifest["prompt_sha256"],
+            confirmation=manifest["approval_sha256"],
         )
         request.metadata["outbound_context_manifest_id"] = manifest["id"]
         return request
@@ -535,6 +542,32 @@ class InteroperabilityTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be true or false"):
                 load_config(string_gate_path)
 
+            missing_cwd = json.loads(
+                self._write_config(root).read_text(encoding="utf-8")
+            )
+            missing_cwd["agents"]["codex_app"].pop("cwd")
+            missing_cwd_path = root / "missing-cwd.json"
+            missing_cwd_path.write_text(
+                json.dumps(missing_cwd),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "requires cwd or cwd_env"):
+                load_config(missing_cwd_path)
+
+            duplicate_cwd = json.loads(
+                self._write_config(root).read_text(encoding="utf-8")
+            )
+            duplicate_cwd["agents"]["codex_app"]["cwd_env"] = (
+                "MODEL_COUNCIL_SYNTHETIC_CWD"
+            )
+            duplicate_cwd_path = root / "duplicate-cwd.json"
+            duplicate_cwd_path.write_text(
+                json.dumps(duplicate_cwd),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "must not set both"):
+                load_config(duplicate_cwd_path)
+
             public_example = load_config(
                 self.repo / "config.interop.example.json"
             )
@@ -556,6 +589,10 @@ class InteroperabilityTests(unittest.TestCase):
             )
             self.assertFalse(
                 pilot_example.agents["codex_architect"]["invoke_enabled"]
+            )
+            self.assertEqual(
+                pilot_example.agents["codex_architect"]["cwd_env"],
+                "MODEL_COUNCIL_SYNTHETIC_CWD",
             )
             self.assertEqual(
                 pilot_example.agents["codex_architect"]["outbound_context"][
@@ -586,12 +623,33 @@ class InteroperabilityTests(unittest.TestCase):
             self.assertIn("Exercise offline interoperability", manifest["prompt"])
             self.assertNotIn("run-interop", manifest["prompt"])
             self.assertEqual(manifest["manifest"]["artifacts"], [])
+            self.assertEqual(
+                manifest["manifest"]["transport_context"],
+                adapter.outbound_transport_context(),
+            )
+            self.assertNotEqual(
+                manifest["approval_sha256"],
+                manifest["prompt_sha256"],
+            )
 
             adapter.outbound_context.decide(
                 manifest["id"],
                 approve=True,
-                confirmation=manifest["prompt_sha256"],
+                confirmation=manifest["approval_sha256"],
             )
+            with self.assertRaisesRegex(
+                OutboundContextError,
+                "transport context",
+            ):
+                adapter.outbound_context.require_approved(
+                    manifest_id=manifest["id"],
+                    endpoint_id=adapter.endpoint_id,
+                    prompt=adapter.render_outbound_prompt(request),
+                    transport_context={
+                        **adapter.outbound_transport_context(),
+                        "sandbox": "workspace-write",
+                    },
+                )
             request.metadata["outbound_context_manifest_id"] = manifest["id"]
             response = adapter.invoke(request)
             self.assertIn("Persistent App Server result", response.content)
@@ -625,12 +683,39 @@ class InteroperabilityTests(unittest.TestCase):
                 prompt=prompt,
                 source=adapter.outbound_source,
                 policy=adapter.outbound_policy,
+                transport_context=adapter.outbound_transport_context(),
             )
             with self.assertRaisesRegex(OutboundContextError, "exactly match"):
                 adapter.outbound_context.decide(
                     manifest["id"],
                     approve=True,
                     confirmation="not-the-displayed-digest",
+                )
+
+            strict_policy = OutboundContextPolicy.from_settings(
+                {
+                    "allowed_sources": ["synthetic"],
+                    "max_files": 0,
+                    "max_total_bytes": 8192,
+                    "max_artifacts": 0,
+                    "max_artifact_bytes": 0,
+                }
+            )
+            personal_cwd = "C:" + "\\Us" + "ers\\example-user\\synthetic"
+            with self.assertRaisesRegex(OutboundContextError, "excluded context"):
+                adapter.outbound_context.prepare(
+                    endpoint_id=adapter.endpoint_id,
+                    agent_id="codex_app",
+                    request=clean,
+                    prompt=prompt,
+                    source="synthetic",
+                    policy=strict_policy,
+                    transport_context={
+                        "cwd": personal_cwd,
+                        "sandbox": "read-only",
+                        "approval_policy": "never",
+                        "model": None,
+                    },
                 )
 
     def test_controlled_pilot_rejects_non_mock_and_non_synthetic_scope(self):
@@ -648,6 +733,7 @@ class InteroperabilityTests(unittest.TestCase):
                 prompt=prompt,
                 source=adapter.outbound_source,
                 policy=adapter.outbound_policy,
+                transport_context=adapter.outbound_transport_context(),
             )
             pilot_data = json.loads(
                 self._write_config(root).read_text(encoding="utf-8")
@@ -723,7 +809,7 @@ class InteroperabilityTests(unittest.TestCase):
             adapter.outbound_context.decide(
                 manifest["id"],
                 approve=True,
-                confirmation=manifest["prompt_sha256"],
+                confirmation=manifest["approval_sha256"],
             )
 
             resumed = Orchestrator(
