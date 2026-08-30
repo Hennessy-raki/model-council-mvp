@@ -67,10 +67,11 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 9 are complete. Board 10, bounded
-reviewer-writer repair loops and recovery, is next but has not started. Read
-the Board 9 plan/report and `docs/PRIVACY_ISSUES.md` before changing worktree
-permissions, evidence binding, approval consumption or destructive recovery.
+Productization Boards 1 through 10 are complete. Boards 11 and 12 are assigned
+to the next session and must be completed sequentially: first a second real
+Agent family with objective evaluation, then product UI, approval center,
+comparison, backup and release preparation. Read the Board 10 plan/report and
+`docs/PRIVACY_ISSUES.md` before connecting repair evidence to any Adapter.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
@@ -90,6 +91,11 @@ Merge requires a clean fast-forward target plus current diff and passing-test
 evidence bound to one SHA-256-confirmed approval. Dirty worktree discard also
 requires one exact approval. Do not store worktrees outside ignored runtime
 state or include private downstream evidence in public reports.
+
+Board 10 repair sessions are bounded by persisted iteration, elapsed-time,
+changed-file, diff, feedback and optional usage/cost limits. Repair goals,
+feedback and review bundles are private local runtime data. The Board 10 driver
+uses local callbacks only; it does not authorize or implement external review.
 
 ## Codex pilot boundary
 

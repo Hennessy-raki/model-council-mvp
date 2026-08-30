@@ -141,7 +141,7 @@ Report: `docs/reports/2026-08-30-board-9-isolated-git-worktrees.md`
 
 ### Board 10: Bounded reviewer-writer repair loops and recovery
 
-Status: ready for planning; implementation not started
+Status: complete
 
 - freeze repair-loop iteration, time, cost and changed-file limits;
 - checkpoint and review every writer iteration;
@@ -149,3 +149,27 @@ Status: ready for planning; implementation not started
 - require current evidence and human approval before merge or destructive
   cleanup;
 - do not add the Board 11 second real Agent family or Board 12 product UI.
+
+Plan: `docs/reports/2026-08-30-board-10-bounded-repair-recovery-plan.md`
+
+Report: `docs/reports/2026-08-30-board-10-bounded-repair-recovery.md`
+
+### Board 11: Second real Agent family and objective evaluation
+
+Status: ready for next-session planning; implementation not started
+
+- select and integrate one second real Agent family;
+- freeze context disclosure and credential boundaries before a live call;
+- evaluate it with objective synthetic tasks and persisted evidence;
+- preserve existing routing, budget, worktree, repair and approval controls;
+- do not add Board 12 product UI scope.
+
+### Board 12: Product interface, backup and release preparation
+
+Status: queued after Board 11; implementation not started
+
+- add the product approval center and repair/workspace views;
+- add run comparison and evaluation views;
+- add local backup/restore safeguards;
+- complete privacy, security and public-release verification;
+- prepare release documentation and a reviewable release candidate.

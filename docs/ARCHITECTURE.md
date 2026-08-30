@@ -250,16 +250,47 @@ tracked changes and up to 1,000 untracked files / 64 MiB of untracked content.
 Any state drift makes the approval stale. Board 9 does not add automatic
 reviewer-writer retries, rebases, conflict repair or deployment.
 
+## Bounded repair state machine
+
+Board 10 adds `RepairService` above `WorkspaceService`:
+
+```text
+waiting_writer
+  -> writer_running
+  -> checkpoint + test + diff + inventory
+  -> waiting_review
+  -> reviewer_running
+  -> repair_requested | accepted | limit_reached
+```
+
+SQLite stores sessions, iterations and bounded events. The session policy caps
+iteration count, elapsed time, changed files, diff bytes, feedback bytes and
+optional token/cost totals. Unknown usage remains unknown and blocks a further
+call when a corresponding hard budget exists.
+
+The reviewer cannot override test evidence: `accept` is rejected unless the
+bound test record passed. A repair decision stores bounded feedback for the
+next writer attempt. Acceptance stores the exact clean Git head and can only
+request the existing Board 9 merge approval while that head remains unchanged.
+
+`recovery_required` is explicit. A writer may retry only when it changed no Git
+state; dirty or committed interrupted work must be explicitly captured or the
+session explicitly failed. Captured reviewer evidence can be retried without
+running the writer again. Cancellation and failure never delete the worktree.
+
+Repair goals, feedback, filenames and evidence excerpts remain private local
+runtime data. Board 10's automatic driver accepts injected local callbacks and
+has no Adapter/network path.
+
 ## 下一阶段边界
 
 优先级顺序：
 
-1. preserve the Board 8 external-context gate;
-2. operate Board 9 workspaces only through persisted permission and approval
-   evidence;
-3. define Board 10 repair-loop iteration, retry and recovery bounds before
-   implementation;
-4. keep second-family expansion and product UI work in later boards.
+1. preserve Board 8 external-context approval and Board 9 merge authority;
+2. connect one second real Agent family in Board 11 only after exact context
+   authorization and objective evaluation design;
+3. complete Board 11 before starting Board 12 product UI and release work;
+4. keep repair evidence local unless the user approves its exact disclosure.
 
 The Board 6 interface is a loopback-only presentation and local mutation layer
 over SQLite. It does not move state into a remote service and cannot replace

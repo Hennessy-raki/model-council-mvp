@@ -333,6 +333,42 @@ same two-step approval pattern. Git and test subprocesses are argument arrays
 with `shell=False`; stdout/stderr retention is bounded while hashes cover the
 complete streams.
 
+## Bounded repair and recovery
+
+Board 10 layers a persistent reviewer-writer state machine over one active
+Board 9 lease. A session starts only after read, write and test permissions are
+present. Every iteration begins at a clean head, captures a checkpoint, runs
+the configured test, collects diff evidence and records `accept` or `repair`.
+
+Start and inspect a local manual session:
+
+```powershell
+python -m model_council repair start <LEASE_ID> `
+  "Fix the bounded synthetic task" --reviewer reviewer `
+  --test-command-json '["python","-m","unittest"]' `
+  --max-iterations 3 --max-changed-files 50 `
+  --config <LOCAL_CONFIG>
+python -m model_council repair begin <SESSION_ID> --config <LOCAL_CONFIG>
+python -m model_council repair capture <SESSION_ID> --config <LOCAL_CONFIG>
+python -m model_council repair bundle <SESSION_ID> --config <LOCAL_CONFIG>
+python -m model_council repair review <SESSION_ID> `
+  --decision repair --feedback "Address the failing evidence." `
+  --config <LOCAL_CONFIG>
+```
+
+Limits cover iterations, elapsed time, changed files, diff bytes, feedback
+bytes and optional token/cost budgets. Unknown usage blocks conservatively
+when its hard budget is enabled. A reviewer cannot accept failing tests.
+Interrupted writer/reviewer stages require explicit `repair recover` actions;
+no recovery path automatically deletes, rebases, merges or deploys.
+
+After acceptance, `repair request-merge` only creates the existing Board 9
+pending approval. The user must still inspect and approve its exact digest.
+
+Board 10 is local-only: it does not invoke an Adapter or send a review bundle
+to a model. Real writer/reviewer integration requires a later exact
+outbound-context approval.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：
@@ -421,7 +457,8 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - A2A 网络服务器；
 - MCP 工具代理；
 - Codex App Server 持久会话；
-- reviewer-writer 自动修复循环与冲突恢复；
+- 第二个真实 Agent 家族的客观评估；
+- 审批中心、运行比较、备份和发布准备；
 - Web/Electron 图形界面；
 - 自动价格目录刷新、货币换算和按时间窗口预算；
 - 人工审批页面；

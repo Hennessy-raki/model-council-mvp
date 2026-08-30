@@ -12,11 +12,12 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
-Board 9 is complete. Its isolated-worktree scope and completion evidence are:
+Board 10 is complete. Its bounded repair/recovery scope and completion evidence
+are:
 
 ```text
-docs/reports/2026-08-30-board-9-isolated-git-worktrees-plan.md
-docs/reports/2026-08-30-board-9-isolated-git-worktrees.md
+docs/reports/2026-08-30-board-10-bounded-repair-recovery-plan.md
+docs/reports/2026-08-30-board-10-bounded-repair-recovery.md
 ```
 
 Board 8 remains the latest live-model milestone. It includes one functionally
@@ -75,8 +76,9 @@ The local control plane now integrates:
 - Codex App Server for persistent Codex sessions;
 - a local Web control console.
 
-Isolated Git worktrees and merge/discard approval are now implemented.
-Bounded reviewer-writer repair loops remain the next integration target.
+Isolated Git worktrees, merge/discard approval and bounded reviewer-writer
+repair/recovery are now implemented. The next session owns Board 11 real-Agent
+evaluation followed by Board 12 product/release work.
 
 ## What is implemented
 
@@ -128,7 +130,9 @@ The repository currently contains:
   permissions;
 - bounded test/diff evidence with complete-stream hashes;
 - exact single-use fast-forward merge and destructive-discard approvals;
-- sixty-two automated tests.
+- bounded repair sessions, iterations, evidence bundles and explicit recovery;
+- deterministic iteration/time/file/diff/feedback and optional usage budgets;
+- seventy-three automated tests.
 
 ## Verified state
 
@@ -152,6 +156,8 @@ Baseline history through 2026-08-30:
   post-pilot privacy corrections;
 - all sixty-two unit/integration tests passed after isolated Git worktrees and
   workspace permissions;
+- all seventy-three unit/integration tests passed after bounded repair and
+  recovery;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -230,6 +236,8 @@ This information may become stale and should be reverified before provider work.
   implemented.
 - Worktree merge is intentionally fast-forward only; Board 9 does not
   automatically rebase, resolve conflicts or repair a failed review.
+- Board 10 repair orchestration is local-only. It does not connect an Adapter
+  or send a review bundle to a real writer/reviewer.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
 - One live synthetic Codex App Server Turn completed functionally. Complete
@@ -244,15 +252,15 @@ This information may become stale and should be reverified before provider work.
   The Adapter now safely normalizes numeric usage fields and tests verify
   provider-reported ledger input; that correction is offline-validated.
 - App Server interactive command and file-change requests are recorded and
-  declined. A future repair-loop board must define richer user interaction.
+  declined. Board 10 recovery does not change that external approval policy.
 - Streamable HTTP currently supports JSON request/response operation, not
   resumable SSE event replay.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 9 are complete. Board 10, bounded
-reviewer-writer repair loops and recovery, is ready for planning but has not
-started. Repository-context external analysis remains separately gated.
+Productization Boards 1 through 10 are complete. The next session must complete
+Board 11 and then Board 12. Repository-context external analysis remains
+separately gated and is not authorized by Board 10.
 
 Milestone 1 is functionally complete because one real Codex role participated
 in a full run from an ordinary PowerShell session. The privacy correction is
@@ -368,15 +376,26 @@ single-use approval before fast-forward merge or destructive discard.
 docs/reports/2026-08-30-board-9-isolated-git-worktrees.md
 ```
 
+Board 10, bounded reviewer-writer repair and recovery, is complete. It persists
+bounded iterations, test/diff evidence, reviewer decisions, feedback, optional
+usage budgets and explicit interrupted-stage recovery. It never merges or
+discards automatically and exposes no built-in external reviewer path.
+
+```text
+docs/reports/2026-08-30-board-10-bounded-repair-recovery.md
+```
+
 ## How to resume safely
 
 ```powershell
 python -m unittest discover -s tests -v
 python -m model_council demo "验证当前基线"
-python scripts/privacy_scan.py
+python scripts/privacy_scan.py --history
 python -m model_council agents --config config.example.json
 python -m model_council web --config config.example.json
 python -m model_council interop show --config config.interop.example.json
+python -m model_council workspace list --config config.example.json
+python -m model_council repair list --config config.example.json
 ```
 
 Read the architecture invariants before changing Adapter or orchestration

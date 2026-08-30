@@ -159,3 +159,59 @@ evidence.
 - Residual risk: a user can later remove an ignore rule or deliberately force
   add runtime content; staged-diff and full-history scans remain mandatory.
 - Blocks development: no; the deterministic pre-creation gate is fixed.
+
+### PRIV-009: Repair token-limit policy was over-redacted
+
+- Date found: 2026-08-30
+- Channel: ignored local repair policy state
+- Priority: low
+- Data class: non-sensitive numeric token limit
+- Status: resolved before public commit
+- Resolution: validated repair policy values and validated test command arrays
+  use direct JSON serialization; untrusted Agent metadata and audit events
+  continue through sensitive-value sanitization.
+- Evidence: all Board 10 policy and budget tests pass.
+- Residual risk: new numeric policy field names require explicit validation
+  before bypassing generic sanitization.
+- Blocks development: no
+
+### PRIV-010: Repair sessions retain private project context
+
+- Date found: 2026-08-30
+- Channel: ignored local runtime SQLite and local CLI output
+- Priority: medium
+- Data class: repair goal, Agent identities, reviewer feedback, changed
+  filenames, errors and bounded test/diff excerpts
+- Status: mitigated and accepted
+- Resolution:
+  - repair state is stored only in the existing ignored runtime database;
+  - feedback, diff, test and event payloads have explicit byte limits;
+  - writer output is stored only as byte count, SHA-256 and sanitized metadata;
+  - public reports contain synthetic aggregate evidence only.
+- Evidence: synthetic tests use temporary repositories; staged and full-history
+  privacy scans are release gates.
+- Residual risk: local operators can display private evidence in their own
+  terminal or deliberately copy it into a tracked file.
+- Blocks development: no
+
+### PRIV-011: Review bundles contain repository-derived evidence
+
+- Date found: 2026-08-30
+- Channel: potential future external Reviewer
+- Priority: high
+- Data class: changed filenames, source diff and test output from a downstream
+  repository
+- Status: mitigated for Board 10
+- Resolution:
+  - Board 10 does not construct or invoke an Adapter and has no network path;
+  - `run_local_until_terminal` accepts only injected local callbacks and is
+    explicitly named/documented as local;
+  - CLI review bundle display is local inspection only;
+  - a future real Reviewer must use a new exact outbound-context inventory and
+    explicit user authorization rather than inheriting Board 10 permission.
+- Evidence: all Board 10 tests use local Python callbacks and synthetic
+  repositories; no real endpoint was invoked.
+- Residual risk: application code outside Model Council can deliberately pass a
+  callback that transmits data; that is outside the Board 10 built-in path and
+  remains prohibited without explicit authorization.
+- Blocks development: no; no built-in disclosure path exists.

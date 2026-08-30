@@ -377,6 +377,62 @@ class CouncilStore:
                     consumed_at TEXT,
                     failure TEXT
                 );
+                CREATE TABLE IF NOT EXISTS repair_sessions (
+                    id TEXT PRIMARY KEY,
+                    lease_id TEXT NOT NULL REFERENCES worktree_leases(id),
+                    writer_agent_id TEXT NOT NULL,
+                    reviewer_agent_id TEXT NOT NULL,
+                    goal TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    policy_json TEXT NOT NULL,
+                    test_command_json TEXT NOT NULL,
+                    iteration_count INTEGER NOT NULL,
+                    total_tokens INTEGER NOT NULL,
+                    total_tokens_known INTEGER NOT NULL,
+                    total_cost TEXT NOT NULL,
+                    total_cost_known INTEGER NOT NULL,
+                    cost_currency TEXT,
+                    accepted_head_sha TEXT,
+                    last_feedback_text TEXT NOT NULL,
+                    last_feedback_sha256 TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    error TEXT
+                );
+                CREATE TABLE IF NOT EXISTS repair_iterations (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES repair_sessions(id),
+                    iteration_number INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    source_head_sha TEXT NOT NULL,
+                    checkpoint_head_sha TEXT,
+                    writer_output_sha256 TEXT,
+                    writer_output_bytes INTEGER,
+                    writer_metadata_json TEXT NOT NULL,
+                    test_evidence_id TEXT REFERENCES worktree_evidence(id),
+                    diff_evidence_id TEXT REFERENCES worktree_evidence(id),
+                    changed_files_json TEXT NOT NULL,
+                    changed_file_count INTEGER,
+                    reviewer_decision TEXT,
+                    reviewer_feedback_text TEXT NOT NULL,
+                    reviewer_feedback_sha256 TEXT NOT NULL,
+                    reviewer_metadata_json TEXT NOT NULL,
+                    writer_started_at TEXT NOT NULL,
+                    evidence_captured_at TEXT,
+                    review_started_at TEXT,
+                    reviewed_at TEXT,
+                    error TEXT,
+                    UNIQUE(session_id, iteration_number)
+                );
+                CREATE TABLE IF NOT EXISTS repair_events (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES repair_sessions(id),
+                    iteration_id TEXT REFERENCES repair_iterations(id),
+                    event_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -423,6 +479,14 @@ class CouncilStore:
                     ON worktree_approvals(lease_id, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_worktree_approvals_status
                     ON worktree_approvals(status, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_sessions_lease
+                    ON repair_sessions(lease_id, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_sessions_status
+                    ON repair_sessions(status, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_iterations_session
+                    ON repair_iterations(session_id, iteration_number);
+                CREATE INDEX IF NOT EXISTS idx_repair_events_session
+                    ON repair_events(session_id, created_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

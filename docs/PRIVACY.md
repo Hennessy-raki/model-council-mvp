@@ -95,3 +95,16 @@ If runtime evidence is accidentally committed or pushed, stop the active board,
 remove it from the current tree and all reachable history, rotate any exposed
 credential, assess whether private project content reached another party, and
 verify the repaired public refs independently before continuing.
+
+## Repair-loop evidence boundary
+
+Repair goals, reviewer feedback, changed-file inventories, failure diagnostics
+and review bundles are private downstream-project context. Keep them in ignored
+runtime SQLite and local terminal output only.
+
+Board 10 does not send review bundles through an Adapter or network transport.
+Its automatic driver accepts injected local callbacks only. Connecting a real
+writer or reviewer in a later board requires a new exact outbound-context
+inventory and explicit authorization for the selected files, diff, test output,
+goal and feedback. Worktree permission, `invoke_enabled`, an accepted repair
+session or a prior synthetic pilot does not authorize that disclosure.

@@ -480,6 +480,68 @@ class WorkspaceService:
             rows = conn.execute(query, tuple(params)).fetchall()
         return [self._evidence_row(row) for row in rows]
 
+    def git_state(self, lease_id: str) -> dict[str, Any]:
+        workspace = self._active_workspace(lease_id)
+        self._require_permission(workspace, "read")
+        path = self._registered_worktree(workspace)
+        status_bytes = self._status_bytes(path)
+        return {
+            "lease_id": lease_id,
+            "head_sha": self._head_sha(path),
+            "clean": not bool(status_bytes),
+            "status_sha256": sha256(status_bytes).hexdigest(),
+        }
+
+    def change_inventory(
+        self,
+        lease_id: str,
+        *,
+        max_files: int = 1_000,
+        max_bytes: int = MAX_STATUS_BYTES,
+    ) -> dict[str, Any]:
+        if max_files < 1 or max_bytes < 1:
+            raise ValueError("change inventory limits must be positive")
+        workspace = self._active_workspace(lease_id)
+        self._require_permission(workspace, "read")
+        path = self._registered_worktree(workspace)
+        result = self._run_bounded(
+            [
+                "git",
+                "-C",
+                str(path),
+                "diff",
+                "--name-only",
+                "-z",
+                workspace["base_sha"],
+                "HEAD",
+                "--",
+            ],
+            cwd=path,
+            timeout_seconds=120,
+            max_stdout_bytes=max_bytes,
+            max_stderr_bytes=MAX_TEST_STREAM_BYTES,
+        )
+        if result.exit_code != 0:
+            raise WorkspaceError("could not collect changed-file inventory")
+        if result.stdout.truncated:
+            raise WorkspaceError(
+                f"changed-file inventory exceeds {max_bytes} bytes"
+            )
+        raw_names = [item for item in result.stdout.data.split(b"\0") if item]
+        if len(raw_names) > max_files:
+            raise WorkspaceError(
+                f"changed-file inventory exceeds {max_files} files"
+            )
+        names = [os.fsdecode(item) for item in raw_names]
+        return {
+            "lease_id": lease_id,
+            "head_sha": self._head_sha(path),
+            "files": names,
+            "file_count": len(names),
+            "inventory_bytes": result.stdout.total_bytes,
+            "inventory_sha256": result.stdout.digest,
+        }
+
     def request_merge(self, lease_id: str) -> dict[str, Any]:
         workspace = self._active_workspace(lease_id)
         self._require_permission(workspace, "merge")

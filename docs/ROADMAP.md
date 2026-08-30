@@ -168,7 +168,7 @@ Report: `docs/reports/2026-08-30-board-9-isolated-git-worktrees.md`
 
 ## Productization Board 10: Bounded reviewer-writer repair and recovery
 
-Status: ready for planning; implementation not started
+Status: complete
 
 - define a bounded reviewer-writer repair loop;
 - bind every iteration to a worktree checkpoint and evidence bundle;
@@ -176,6 +176,31 @@ Status: ready for planning; implementation not started
 - recover cleanly from Adapter, test, approval and merge failures;
 - preserve human approval before merge or destructive cleanup;
 - do not add a second real Agent family or Board 12 product UI scope.
+
+Plan: `docs/reports/2026-08-30-board-10-bounded-repair-recovery-plan.md`
+
+Report: `docs/reports/2026-08-30-board-10-bounded-repair-recovery.md`
+
+## Productization Board 11: Second real Agent family and objective evaluation
+
+Status: ready for next-session planning; implementation not started
+
+- select one additional real Agent family only;
+- freeze exact outbound context and credentials boundary before invocation;
+- compare declared capability with objective synthetic task evidence;
+- keep Manager/Reviewer topology changes controlled and independently audited;
+- preserve Board 8-10 invocation, worktree, repair and merge gates;
+- do not add Board 12 product UI scope.
+
+## Productization Board 12: Product interface and release preparation
+
+Status: queued after Board 11; implementation not started
+
+- productize the local interface and approval center;
+- compare runs and evaluation evidence;
+- add local backup and restore safeguards;
+- complete privacy/security release review and public documentation;
+- prepare a release candidate without weakening existing approval gates.
 
 ## Milestone 2: Persistent sessions and a second model family
 

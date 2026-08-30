@@ -10,6 +10,7 @@ from .config import load_config
 from .discovery import DiscoveryService
 from .interoperability import InteroperabilityService, MCPToolBroker
 from .outbound_context import OutboundContextService, validate_controlled_pilot
+from .repair import RepairPolicy, RepairService
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
@@ -505,6 +506,114 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_config_path()),
     )
 
+    repair = subparsers.add_parser(
+        "repair",
+        help="operate bounded reviewer-writer repair sessions",
+    )
+    repair_commands = repair.add_subparsers(
+        dest="repair_command",
+        required=True,
+    )
+    repair_start = repair_commands.add_parser(
+        "start",
+        help="create a bounded repair session on one active worktree lease",
+    )
+    repair_start.add_argument("lease_id")
+    repair_start.add_argument("goal")
+    repair_start.add_argument("--writer")
+    repair_start.add_argument("--reviewer", required=True)
+    repair_start.add_argument("--test-command-json", required=True)
+    repair_start.add_argument("--max-iterations", type=int, default=3)
+    repair_start.add_argument("--max-elapsed-seconds", type=int, default=1800)
+    repair_start.add_argument("--max-changed-files", type=int, default=50)
+    repair_start.add_argument("--max-diff-bytes", type=int, default=128000)
+    repair_start.add_argument("--max-feedback-bytes", type=int, default=16000)
+    repair_start.add_argument("--max-total-tokens", type=int)
+    repair_start.add_argument("--max-total-cost")
+    repair_start.add_argument("--cost-currency")
+    repair_start.add_argument("--config", default=str(default_config_path()))
+    repair_list = repair_commands.add_parser(
+        "list",
+        help="list persisted repair sessions",
+    )
+    repair_list.add_argument(
+        "--status",
+        choices=(
+            "waiting_writer",
+            "writer_running",
+            "waiting_review",
+            "reviewer_running",
+            "accepted",
+            "limit_reached",
+            "recovery_required",
+            "failed",
+            "cancelled",
+        ),
+    )
+    repair_list.add_argument("--lease")
+    repair_list.add_argument("--config", default=str(default_config_path()))
+    repair_show = repair_commands.add_parser(
+        "show",
+        help="show one repair session, its iterations and audit events",
+    )
+    repair_show.add_argument("session_id")
+    repair_show.add_argument("--config", default=str(default_config_path()))
+    repair_begin = repair_commands.add_parser(
+        "begin",
+        help="begin one bounded writer iteration and show its local context",
+    )
+    repair_begin.add_argument("session_id")
+    repair_begin.add_argument("--config", default=str(default_config_path()))
+    repair_capture = repair_commands.add_parser(
+        "capture",
+        help="checkpoint writer changes and capture test/diff evidence",
+    )
+    repair_capture.add_argument("session_id")
+    repair_capture.add_argument("--writer-result-json", default="{}")
+    repair_capture.add_argument("--config", default=str(default_config_path()))
+    repair_bundle = repair_commands.add_parser(
+        "bundle",
+        help="show the local bounded evidence bundle for reviewer inspection",
+    )
+    repair_bundle.add_argument("session_id")
+    repair_bundle.add_argument("--config", default=str(default_config_path()))
+    repair_review = repair_commands.add_parser(
+        "review",
+        help="record accept or repair after local reviewer inspection",
+    )
+    repair_review.add_argument("session_id")
+    repair_review.add_argument(
+        "--decision",
+        required=True,
+        choices=("accept", "repair"),
+    )
+    repair_review.add_argument("--feedback", default="")
+    repair_review.add_argument("--reviewer-result-json", default="{}")
+    repair_review.add_argument("--config", default=str(default_config_path()))
+    repair_recover = repair_commands.add_parser(
+        "recover",
+        help="inspect or explicitly recover an interrupted repair stage",
+    )
+    repair_recover.add_argument("session_id")
+    repair_recover.add_argument(
+        "--action",
+        choices=("inspect", "retry", "capture", "fail"),
+        default="inspect",
+    )
+    repair_recover.add_argument("--config", default=str(default_config_path()))
+    repair_cancel = repair_commands.add_parser(
+        "cancel",
+        help="stop a non-terminal repair session without deleting its worktree",
+    )
+    repair_cancel.add_argument("session_id")
+    repair_cancel.add_argument("--config", default=str(default_config_path()))
+    repair_merge = repair_commands.add_parser(
+        "request-merge",
+        help="request the existing Board 9 exact merge approval after acceptance",
+    )
+    repair_merge.add_argument("session_id")
+    repair_merge.add_argument("--config", default=str(default_config_path()))
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -813,6 +922,81 @@ def main(argv: list[str] | None = None) -> None:
                 payload = workspaces.merge(args.approval_id)
             elif args.workspace_command == "discard":
                 payload = workspaces.discard(args.approval_id)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "repair":
+            config = load_config(args.config)
+            store = CouncilStore(config.state_dir / "council.db")
+            workspaces = WorkspaceService(store)
+            repairs = RepairService(store, workspaces)
+            if args.repair_command == "start":
+                workspace = workspaces.workspace(args.lease_id)
+                payload = repairs.start(
+                    lease_id=args.lease_id,
+                    writer_agent_id=args.writer or workspace["agent_id"],
+                    reviewer_agent_id=args.reviewer,
+                    goal=args.goal,
+                    test_command=_parse_json_array(
+                        args.test_command_json,
+                        "--test-command-json",
+                    ),
+                    policy=RepairPolicy(
+                        max_iterations=args.max_iterations,
+                        max_elapsed_seconds=args.max_elapsed_seconds,
+                        max_changed_files=args.max_changed_files,
+                        max_diff_bytes=args.max_diff_bytes,
+                        max_feedback_bytes=args.max_feedback_bytes,
+                        max_total_tokens=args.max_total_tokens,
+                        max_total_cost=args.max_total_cost,
+                        cost_currency=args.cost_currency,
+                    ),
+                )
+            elif args.repair_command == "list":
+                payload = repairs.sessions(
+                    status=args.status,
+                    lease_id=args.lease,
+                )
+            elif args.repair_command == "show":
+                payload = repairs.snapshot(args.session_id)
+            elif args.repair_command == "begin":
+                iteration = repairs.begin_iteration(args.session_id)
+                if "iteration_number" in iteration:
+                    payload = {
+                        "iteration": iteration,
+                        "writer_context": repairs.writer_context(
+                            args.session_id
+                        ),
+                    }
+                else:
+                    payload = repairs.snapshot(args.session_id)
+            elif args.repair_command == "capture":
+                payload = repairs.capture_iteration(
+                    args.session_id,
+                    writer_result=_parse_json_object(
+                        args.writer_result_json,
+                        "--writer-result-json",
+                    ),
+                )
+            elif args.repair_command == "bundle":
+                payload = repairs.review_bundle(args.session_id)
+            elif args.repair_command == "review":
+                payload = repairs.submit_review(
+                    args.session_id,
+                    decision=args.decision,
+                    feedback=args.feedback,
+                    reviewer_result=_parse_json_object(
+                        args.reviewer_result_json,
+                        "--reviewer-result-json",
+                    ),
+                )
+            elif args.repair_command == "recover":
+                payload = repairs.recover(
+                    args.session_id,
+                    action=args.action,
+                )
+            elif args.repair_command == "cancel":
+                payload = repairs.cancel(args.session_id)
+            elif args.repair_command == "request-merge":
+                payload = repairs.request_merge(args.session_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "runs":
             config = load_config(args.config)
