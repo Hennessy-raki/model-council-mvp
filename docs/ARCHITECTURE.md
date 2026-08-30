@@ -282,14 +282,42 @@ Repair goals, feedback, filenames and evidence excerpts remain private local
 runtime data. Board 10's automatic driver accepts injected local callbacks and
 has no Adapter/network path.
 
+## Objective Agent evaluation
+
+Board 11 adds `EvaluationService` for one DeepSeek Responses candidate and one
+fixed `synthetic_evaluator` case:
+
+```text
+fixed local oracle
+  -> exact prompt plus HTTP transport manifest
+  -> explicit one-time scope approval
+  -> invoke_enabled gate
+  -> one bounded Responses request
+  -> hash/byte/duration/usage assertions
+  -> passed or failed, with no retry or fallback
+```
+
+The prompt contains no repository, worktree, repair, file or Artifact context.
+The manifest binds endpoint, request URL, model, API style, payload fields,
+static header shape, credential environment-variable name and byte limits.
+The credential value is never included. The candidate response is limited
+before JSON parsing; evaluation tables retain only hashes, byte counts,
+assertions, failure class and ledger references.
+
+The evaluation is separate from manager planning, reviewer acceptance and
+routing. It cannot grant worktree permissions, request a merge, submit repair
+feedback or reuse a prior Board 8-10 approval. Loopback fake servers may
+exercise the same path with temporary test configuration.
+
 ## 下一阶段边界
 
 优先级顺序：
 
 1. preserve Board 8 external-context approval and Board 9 merge authority;
-2. connect one second real Agent family in Board 11 only after exact context
-   authorization and objective evaluation design;
-3. complete Board 11 before starting Board 12 product UI and release work;
+2. finish the one DeepSeek Board 11 evaluation only after exact context
+   authorization;
+3. complete and publish Board 11 before starting Board 12 product UI and
+   release work;
 4. keep repair evidence local unless the user approves its exact disclosure.
 
 The Board 6 interface is a loopback-only presentation and local mutation layer

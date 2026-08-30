@@ -37,7 +37,7 @@ class OutboundContextApprovalRequired(OutboundContextError):
         super().__init__(
             "outbound context requires a one-time human approval; "
             f"preview and approve manifest {manifest_id!r} locally before "
-            "starting the Codex App Server"
+            "starting the external Adapter transport"
         )
         self.manifest_id = manifest_id
 

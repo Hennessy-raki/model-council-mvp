@@ -1,48 +1,34 @@
 # Start Here in the Next Session
 
-Use this document when continuing in the fresh Model Council conversation
-created after Board 10.
+Use this document when continuing after Board 11.
 
 ## Current checkpoint
 
-Productization Boards 1 through 10 are complete. Board 11 must be completed
-first; Board 12 follows in the same new session only after Board 11 passes its
-full delivery and privacy gates.
+Productization Boards 1 through 11 are complete. Board 12 is the active board.
 
 The latest scope and completion reports are:
 
 ```text
-docs/reports/2026-08-30-board-10-bounded-repair-recovery-plan.md
-docs/reports/2026-08-30-board-10-bounded-repair-recovery.md
+docs/reports/2026-08-30-board-11-second-agent-evaluation-plan.md
+docs/reports/2026-08-30-board-11-second-agent-evaluation.md
 ```
 
-Board 10 adds persistent bounded repair sessions, per-iteration checkpoint/test/
-diff evidence, deterministic acceptance, optional usage budgets and explicit
-interrupted-stage recovery. All verification used temporary synthetic Git
-repositories and local callbacks. No real Agent, external endpoint,
-repository-context model call or Model Council worktree was used.
+Board 11 adds a DeepSeek Responses `synthetic_evaluator`, exact single-use
+outbound approval, bounded request/response context and objective local
+evidence. One authorized 937-byte synthetic scope was consumed once. Transport
+and ledger recording succeeded; the 131-byte response failed the required
+16-byte exact-token metric. No retry, file, Artifact, repository, worktree or
+repair context was used.
 
 ## Required next-session sequence
 
 ### Board 11: second real Agent family and objective evaluation
 
-Before implementation, freeze:
-
-- exactly one additional Agent family and one narrow role;
-- synthetic evaluation tasks and objective acceptance metrics;
-- exact endpoint, model, credential environment variable and invocation gate;
-- exact outbound prompt, files, Artifacts, paths and byte limits;
-- evaluation comparison against the existing baseline;
-- failure, cost and privacy rollback behavior.
-
-Do not send repository content, repair bundles or private-derived context to
-the new Agent without displaying the exact outbound scope and obtaining
-explicit authorization for that invocation. Complete Board 11 tests, report,
-privacy scan, commit, push and remote verification before Board 12.
+Status: complete. Preserve its exact-context gate and recorded failed objective
+outcome. Do not reinterpret the live synthetic approval as authorization for a
+new call or repository-derived context.
 
 ### Board 12: product interface and release preparation
-
-After Board 11 is complete:
 
 - add the local product approval center;
 - expose workspace/repair/evaluation evidence without moving it out of SQLite;
@@ -62,22 +48,18 @@ task. Do not create a replacement repository.
 
 Read AGENTS.md, README.md, docs/ARCHITECTURE.md, docs/PROJECT_HANDOFF.md,
 docs/ROADMAP.md, docs/DEVELOPMENT_BOARDS.md, docs/PRIVACY.md,
-docs/PRIVACY_ISSUES.md, docs/START_HERE_NEXT_SESSION.md, and the Board 10
+docs/PRIVACY_ISSUES.md, docs/START_HERE_NEXT_SESSION.md, and the Board 11
 plan/report.
 
-Verify the clean published main baseline, run all seventy-three offline tests and
+Verify the clean published main baseline, run all eighty-one offline tests and
 run python scripts/privacy_scan.py --history.
 
-Complete Board 11 first: one second real Agent family plus objective synthetic
-evaluation. Freeze its exact endpoint, role, context inventory, byte/file/
-Artifact limits, credentials boundary, metrics and failure rollback before
-code. A live call or repository-derived disclosure still requires exact user
-authorization; prior invoke_enabled, worktree or repair permissions do not
-authorize it.
+Board 11 is complete. Preserve its recorded objective failure and do not retry
+or disclose a different context under its consumed approval.
 
-After Board 11 is fully tested, reported, scanned, committed, pushed and
-remotely verified, complete Board 12: local product interface, approval center,
-run comparison, privacy-safe backup/restore and release preparation.
+Complete Board 12: local product interface, approval center, workspace/repair/
+evaluation evidence views, run comparison, privacy-safe backup/restore and
+release preparation.
 
 Keep SQLite authoritative. Never commit runtime databases, worktrees, repair
 goals/feedback, evaluation prompts/results containing private context, personal

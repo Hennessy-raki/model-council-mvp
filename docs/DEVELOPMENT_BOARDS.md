@@ -156,13 +156,20 @@ Report: `docs/reports/2026-08-30-board-10-bounded-repair-recovery.md`
 
 ### Board 11: Second real Agent family and objective evaluation
 
-Status: ready for next-session planning; implementation not started
+Status: complete
 
-- select and integrate one second real Agent family;
-- freeze context disclosure and credential boundaries before a live call;
-- evaluate it with objective synthetic tasks and persisted evidence;
+- select DeepSeek Responses as the only second Agent family;
+- freeze exact prompt/transport disclosure, environment-only credential,
+  request/response byte limits and single-use approval before a live call;
+- evaluate one fixed synthetic token task with persisted hash/count/assertion
+  and usage evidence;
 - preserve existing routing, budget, worktree, repair and approval controls;
 - do not add Board 12 product UI scope.
+
+Plan: `docs/reports/2026-08-30-board-11-second-agent-evaluation-plan.md`
+
+Report:
+`docs/reports/2026-08-30-board-11-second-agent-evaluation.md`
 
 ### Board 12: Product interface, backup and release preparation
 

@@ -4,9 +4,18 @@ import json
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import (
+    HTTPRedirectHandler,
+    Request,
+    build_opener,
+)
 
 from .base import AgentAdapter
+from ..outbound_context import (
+    OutboundContextApprovalRequired,
+    OutboundContextPolicy,
+    OutboundContextService,
+)
 from ..types import (
     AgentRequest,
     AgentResponse,
@@ -18,13 +27,20 @@ from ..types import (
 
 
 class OpenAICompatibleAdapter(AgentAdapter):
-    def __init__(self, card, settings: dict[str, Any]):
+    def __init__(
+        self,
+        card,
+        settings: dict[str, Any],
+        outbound_context: OutboundContextService | None = None,
+    ):
         super().__init__(card)
+        self.settings = settings
         self.base_url = str(settings.get("base_url", "")).rstrip("/")
         self.model = str(settings.get("model", ""))
         self.api_key_env = str(settings.get("api_key_env", "OPENAI_API_KEY"))
         self.api_style = str(settings.get("api_style", "responses"))
         self.timeout_seconds = int(settings.get("timeout_seconds", 180))
+        self.max_response_bytes = int(settings.get("max_response_bytes", 16384))
         self.balance_endpoint = str(settings.get("balance_endpoint", "")).strip()
         self.balance_amount_field = str(
             settings.get("balance_amount_field", "balance")
@@ -35,6 +51,20 @@ class OpenAICompatibleAdapter(AgentAdapter):
         self.balance_currency = str(
             settings.get("balance_currency", "USD")
         ).upper()
+        self.invoke_enabled = bool(settings.get("invoke_enabled", False))
+        context_settings = settings.get("outbound_context")
+        self.outbound_policy = (
+            OutboundContextPolicy.from_settings(context_settings)
+            if isinstance(context_settings, dict)
+            else None
+        )
+        self.outbound_source = (
+            str(context_settings["source"])
+            if isinstance(context_settings, dict)
+            else None
+        )
+        self.outbound_context = outbound_context
+        self.endpoint_id = f"agent:{card.name}"
         if not self.base_url or not self.model:
             raise ValueError(
                 f"OpenAI-compatible agent {card.name!r} requires base_url and model"
@@ -43,12 +73,46 @@ class OpenAICompatibleAdapter(AgentAdapter):
             raise ValueError("api_style must be responses or chat_completions")
 
     def invoke(self, request: AgentRequest) -> AgentResponse:
+        if not self.invoke_enabled:
+            raise RuntimeError(
+                f"OpenAI-compatible agent {self.card.name!r} requires "
+                "invoke_enabled=true"
+            )
+        if (
+            not self.outbound_context
+            or not self.outbound_policy
+            or not self.outbound_source
+        ):
+            raise RuntimeError(
+                f"OpenAI-compatible agent {self.card.name!r} requires an exact "
+                "outbound_context policy and local approval service"
+            )
         api_key = os.environ.get(self.api_key_env)
         if not api_key:
             raise RuntimeError(
                 f"environment variable {self.api_key_env!r} is not configured"
             )
-        prompt = self.render_prompt(request)
+        prompt = self.render_outbound_prompt(request)
+        transport_context = self.outbound_transport_context()
+        manifest_id = request.metadata.get("outbound_context_manifest_id")
+        if manifest_id:
+            self.outbound_context.require_approved(
+                manifest_id=str(manifest_id),
+                endpoint_id=self.endpoint_id,
+                prompt=prompt,
+                transport_context=transport_context,
+            )
+        else:
+            manifest = self.outbound_context.prepare(
+                endpoint_id=self.endpoint_id,
+                agent_id=self.card.name,
+                request=request,
+                prompt=prompt,
+                source=self.outbound_source,
+                policy=self.outbound_policy,
+                transport_context=transport_context,
+            )
+            raise OutboundContextApprovalRequired(manifest["id"])
         if self.api_style == "responses":
             url = f"{self.base_url}/responses"
             payload = {
@@ -77,7 +141,7 @@ class OpenAICompatibleAdapter(AgentAdapter):
         data = self._read_json(http_request)
 
         content = self._extract_text(data)
-        if not content:
+        if not content.strip():
             raise RuntimeError(f"model {self.model!r} returned no text")
         metadata: dict[str, Any] = {"model": self.model}
         usage = data.get("usage")
@@ -89,6 +153,31 @@ class OpenAICompatibleAdapter(AgentAdapter):
             metadata["cost"] = cost
         return AgentResponse(content=content, metadata=metadata)
 
+    def render_outbound_prompt(self, request: AgentRequest) -> str:
+        capabilities = ", ".join(self.card.capabilities) or "none declared"
+        boundaries = "\n".join(
+            f"- {item}" for item in self.card.boundaries
+        ) or "- none declared"
+        artifacts = "\n".join(
+            (
+                f"- {item.name} "
+                f"(media_type={item.media_type}, sha256={item.sha256})"
+            )
+            for item in request.artifacts
+        ) or "- none"
+        return (
+            f"Role: {self.card.role}\n"
+            f"Responsibility: {self.card.description}\n"
+            f"Capabilities: {capabilities}\n"
+            f"Boundaries:\n{boundaries}\n"
+            "Follow only the assigned instruction. Distinguish facts, "
+            "inferences, and unknowns.\n\n"
+            f"Goal:\n{request.goal}\n\n"
+            f"Instruction:\n{request.instruction}\n\n"
+            f"Context:\n{request.context or 'none'}\n\n"
+            f"Artifact references:\n{artifacts}\n"
+        )
+
     def diagnose(self) -> dict[str, Any]:
         return {
             "ok": bool(os.environ.get(self.api_key_env)),
@@ -99,6 +188,33 @@ class OpenAICompatibleAdapter(AgentAdapter):
             "api_style": self.api_style,
             "api_key_env": self.api_key_env,
             "api_key_present": bool(os.environ.get(self.api_key_env)),
+            "invoke_enabled": self.invoke_enabled,
+        }
+
+    def outbound_transport_context(self) -> dict[str, Any]:
+        path = (
+            "/responses"
+            if self.api_style == "responses"
+            else "/chat/completions"
+        )
+        payload_fields = (
+            ["model", "input"]
+            if self.api_style == "responses"
+            else ["model", "messages"]
+        )
+        return {
+            "adapter": "openai_compatible",
+            "base_url": self.base_url,
+            "request_url": f"{self.base_url}{path}",
+            "api_style": self.api_style,
+            "model": self.model,
+            "payload_fields": payload_fields,
+            "headers": {
+                "Authorization": "Bearer <environment-only>",
+                "Content-Type": "application/json",
+            },
+            "credential_env": self.api_key_env,
+            "max_response_bytes": self.max_response_bytes,
         }
 
     def discovery_capabilities(self) -> dict[str, bool]:
@@ -214,12 +330,29 @@ class OpenAICompatibleAdapter(AgentAdapter):
 
     def _read_json(self, request: Request) -> dict[str, Any]:
         try:
-            with urlopen(request, timeout=self.timeout_seconds) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            with _NO_REDIRECT_OPENER.open(
+                request,
+                timeout=self.timeout_seconds,
+            ) as response:
+                raw = response.read(self.max_response_bytes + 1)
+                if len(raw) > self.max_response_bytes:
+                    raise RuntimeError(
+                        f"response from {request.full_url} exceeded "
+                        f"{self.max_response_bytes} bytes"
+                    )
+                data = json.loads(raw.decode("utf-8"))
         except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
+            try:
+                detail = exc.read(self.max_response_bytes + 1)
+            finally:
+                exc.close()
+            detail_text = detail[: self.max_response_bytes].decode(
+                "utf-8",
+                errors="replace",
+            )
             raise RuntimeError(
-                f"HTTP {exc.code} from {request.full_url}: {detail[-2000:]}"
+                f"HTTP {exc.code} from {request.full_url}: "
+                f"{detail_text[-2000:]}"
             ) from exc
         except URLError as exc:
             raise RuntimeError(
@@ -242,14 +375,22 @@ class OpenAICompatibleAdapter(AgentAdapter):
         if self.api_style == "chat_completions":
             choices = data.get("choices") or []
             if choices:
-                return str(choices[0].get("message", {}).get("content", "")).strip()
+                return str(choices[0].get("message", {}).get("content", ""))
             return ""
         if isinstance(data.get("output_text"), str):
-            return data["output_text"].strip()
+            return data["output_text"]
         texts: list[str] = []
         for item in data.get("output", []):
             for content in item.get("content", []):
                 text = content.get("text")
                 if isinstance(text, str):
                     texts.append(text)
-        return "\n".join(texts).strip()
+        return "\n".join(texts)
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = build_opener(_NoRedirectHandler())

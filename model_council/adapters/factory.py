@@ -10,6 +10,7 @@ from .mock import MockAdapter
 from .openai_compatible import OpenAICompatibleAdapter
 from ..config import CouncilConfig
 from ..interoperability import InteroperabilityService
+from ..outbound_context import OutboundContextService
 from ..store import CouncilStore
 
 
@@ -39,7 +40,13 @@ def build_adapters(
         elif adapter_type == "cli":
             adapter = CliAdapter(card, settings, config_dir)
         elif adapter_type == "openai_compatible":
-            adapter = OpenAICompatibleAdapter(card, settings)
+            adapter = OpenAICompatibleAdapter(
+                card,
+                settings,
+                outbound_context=OutboundContextService(
+                    store or CouncilStore(config.state_dir / "council.db")
+                ),
+            )
         elif adapter_type == "codex_app_server":
             assert interoperability is not None
             adapter = CodexAppServerAdapter(

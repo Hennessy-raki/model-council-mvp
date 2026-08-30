@@ -20,6 +20,21 @@ docs/reports/2026-08-30-board-10-bounded-repair-recovery-plan.md
 docs/reports/2026-08-30-board-10-bounded-repair-recovery.md
 ```
 
+Board 11 is complete. Its frozen scope and completion report are:
+
+```text
+docs/reports/2026-08-30-board-11-second-agent-evaluation-plan.md
+docs/reports/2026-08-30-board-11-second-agent-evaluation.md
+```
+
+The DeepSeek Responses candidate is limited to one `synthetic_evaluator` task,
+zero files, zero Artifacts, exact single-use outbound approval and bounded
+request/response context. All eighty-one offline tests and the history privacy
+scan pass. One explicitly authorized live scope was consumed once. Transport,
+authentication and ledger recording succeeded, while the 131-byte response
+failed the exact 16-byte token metric. No retry or fallback occurred. Board 12
+is the next board after Board 11 is committed, pushed and remotely verified.
+
 Board 8 remains the latest live-model milestone. It includes one functionally
 successful live synthetic Codex App Server run and deterministic privacy
 corrections. Its scope is:
@@ -258,9 +273,9 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 10 are complete. The next session must complete
-Board 11 and then Board 12. Repository-context external analysis remains
-separately gated and is not authorized by Board 10.
+Productization Boards 1 through 11 are complete. Board 12 is next.
+Repository-context external analysis remains separately gated and is not
+authorized by the Board 11 synthetic evaluation.
 
 Milestone 1 is functionally complete because one real Codex role participated
 in a full run from an ordinary PowerShell session. The privacy correction is

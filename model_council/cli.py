@@ -8,6 +8,7 @@ from pathlib import Path
 from .adapters import build_adapters
 from .config import load_config
 from .discovery import DiscoveryService
+from .evaluation import EvaluationService
 from .interoperability import InteroperabilityService, MCPToolBroker
 from .outbound_context import OutboundContextService, validate_controlled_pilot
 from .repair import RepairPolicy, RepairService
@@ -352,6 +353,75 @@ def build_parser() -> argparse.ArgumentParser:
     )
     interop_context.add_argument("--reject", action="store_true")
     interop_context.add_argument("--config", default=str(default_config_path()))
+
+    evaluation = subparsers.add_parser(
+        "evaluation",
+        help="prepare, approve and run the one-shot Board 11 synthetic evaluation",
+    )
+    evaluation_commands = evaluation.add_subparsers(
+        dest="evaluation_command",
+        required=True,
+    )
+    evaluation_prepare = evaluation_commands.add_parser(
+        "prepare",
+        help="persist the fixed synthetic case and its exact outbound manifest",
+    )
+    evaluation_prepare.add_argument("agent")
+    evaluation_prepare.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    evaluation_list = evaluation_commands.add_parser(
+        "list",
+        help="list persisted objective evaluations",
+    )
+    evaluation_list.add_argument("--agent")
+    evaluation_list.add_argument(
+        "--status",
+        choices=("prepared", "passed", "failed"),
+    )
+    evaluation_list.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    evaluation_show = evaluation_commands.add_parser(
+        "show",
+        help="show one evaluation and its hash/count/assertion evidence",
+    )
+    evaluation_show.add_argument("evaluation_id")
+    evaluation_show.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    evaluation_context = evaluation_commands.add_parser(
+        "context",
+        help="show or decide the exact one-time evaluation context",
+    )
+    evaluation_context.add_argument("evaluation_id")
+    evaluation_context.add_argument(
+        "--show-prompt",
+        action="store_true",
+        help="print the exact fixed prompt that would leave this machine",
+    )
+    evaluation_context.add_argument(
+        "--approve-sha256",
+        help="approve only when this matches the displayed scope SHA-256",
+    )
+    evaluation_context.add_argument("--reject", action="store_true")
+    evaluation_context.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    evaluation_run = evaluation_commands.add_parser(
+        "run",
+        help="consume one approved manifest and invoke the candidate exactly once",
+    )
+    evaluation_run.add_argument("evaluation_id")
+    evaluation_run.add_argument("--outbound-manifest", required=True)
+    evaluation_run.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
 
     workspace = subparsers.add_parser(
         "workspace",
@@ -852,6 +922,47 @@ def main(argv: list[str] | None = None) -> None:
                     payload = broker.call_approved_tool(args.approval_id)
                 elif args.interop_command == "tools":
                     payload = broker.list_tools(args.server)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "evaluation":
+            config = load_config(args.config)
+            evaluations = EvaluationService(config)
+            if args.evaluation_command == "prepare":
+                payload = evaluations.prepare(args.agent)
+            elif args.evaluation_command == "list":
+                payload = evaluations.evaluations(
+                    agent_id=args.agent,
+                    status=args.status,
+                )
+            elif args.evaluation_command == "show":
+                payload = evaluations.snapshot(args.evaluation_id)
+            elif args.evaluation_command == "context":
+                snapshot = evaluations.snapshot(args.evaluation_id)
+                manifest_id = snapshot["case"]["outbound_manifest_id"]
+                if args.approve_sha256 and args.reject:
+                    raise ValueError(
+                        "--approve-sha256 and --reject cannot be used together"
+                    )
+                if args.approve_sha256:
+                    evaluations.contexts.decide(
+                        manifest_id,
+                        approve=True,
+                        confirmation=args.approve_sha256,
+                    )
+                elif args.reject:
+                    evaluations.contexts.decide(
+                        manifest_id,
+                        approve=False,
+                        confirmation="",
+                    )
+                payload = evaluations.contexts.manifest(
+                    manifest_id,
+                    include_prompt=args.show_prompt,
+                )
+            elif args.evaluation_command == "run":
+                payload = evaluations.run(
+                    args.evaluation_id,
+                    args.outbound_manifest,
+                )
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "workspace":
             config = load_config(args.config)

@@ -369,6 +369,52 @@ Board 10 is local-only: it does not invoke an Adapter or send a review bundle
 to a model. Real writer/reviewer integration requires a later exact
 outbound-context approval.
 
+## Objective second-family evaluation
+
+Board 11 adds one DeepSeek Responses candidate in the sole
+`synthetic_evaluator` role. `config.evaluation.example.json` keeps
+`invoke_enabled` false and references only
+`MODEL_COUNCIL_DEEPSEEK_API_KEY`.
+
+The fixed evaluation asks for exactly `MC-EVAL-ORBIT-42`. It sends no files or
+Artifacts, allows at most 4,096 bytes of prompt plus transport metadata and
+rejects an HTTP response larger than 16,384 bytes. SQLite records the expected
+and observed hashes, byte counts, objective assertions, failure class and
+usage-ledger reference without copying response text into evaluation tables.
+Non-loopback endpoints require HTTPS, and HTTP redirects are rejected.
+
+Prepare and inspect the exact local scope:
+
+```powershell
+python -m model_council evaluation prepare deepseek_evaluator `
+  --config config.evaluation.example.json
+python -m model_council evaluation context <EVALUATION_ID> --show-prompt `
+  --config config.evaluation.example.json
+```
+
+Running requires a local untracked configuration with
+`invoke_enabled: true`, the credential environment variable, and an explicit
+one-time approval of the displayed scope digest:
+
+```powershell
+python -m model_council evaluation context <EVALUATION_ID> `
+  --approve-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
+python -m model_council evaluation run <EVALUATION_ID> `
+  --outbound-manifest <MANIFEST_ID> --config <LOCAL_CONFIG>
+```
+
+A prepared manifest, credential presence, Board 8 pilot approval, Board 9
+workspace permission or Board 10 repair acceptance does not authorize this
+call. Local fake-server tests exercise the complete flow without contacting an
+external service.
+
+One explicitly authorized live synthetic evaluation consumed its manifest
+once. DeepSeek returned a valid Responses result in 1,009 ms with 236
+provider-reported tokens, but the 131-byte response did not equal the required
+16-byte token. The objective evaluation therefore failed without retry or
+fallback. This outcome is retained as evidence rather than weakened into a
+pass.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：
@@ -429,7 +475,17 @@ $env:MODEL_COUNCIL_API_KEY = "..."
   "base_url": "https://example.com/v1",
   "api_key_env": "MODEL_COUNCIL_API_KEY",
   "model": "your-model-id",
-  "api_style": "responses"
+  "api_style": "responses",
+  "max_response_bytes": 16384,
+  "outbound_context": {
+    "source": "synthetic",
+    "allowed_sources": ["synthetic"],
+    "max_files": 0,
+    "max_total_bytes": 4096,
+    "max_artifacts": 0,
+    "max_artifact_bytes": 0
+  },
+  "invoke_enabled": false
 }
 ```
 

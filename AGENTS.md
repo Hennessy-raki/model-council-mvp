@@ -67,11 +67,17 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 10 are complete. Boards 11 and 12 are assigned
-to the next session and must be completed sequentially: first a second real
-Agent family with objective evaluation, then product UI, approval center,
-comparison, backup and release preparation. Read the Board 10 plan/report and
-`docs/PRIVACY_ISSUES.md` before connecting repair evidence to any Adapter.
+Productization Boards 1 through 11 are complete. Board 12 is next: product UI,
+approval center, comparison, backup and release preparation. Read the Board 11
+plan/report and `docs/PRIVACY_ISSUES.md` before presenting external evaluation
+evidence or changing any approval boundary.
+
+Board 11 is complete. The sole candidate is DeepSeek `deepseek-v4-flash` in
+the `synthetic_evaluator` role. One explicitly authorized synthetic manifest
+was consumed once with zero files and zero Artifacts. The endpoint returned a
+valid Responses result, but its 131-byte output failed the exact 16-byte token
+metric; no retry or fallback occurred. Board 12 is next, after the Board 11
+commit is pushed and independently verified on public `main`.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references

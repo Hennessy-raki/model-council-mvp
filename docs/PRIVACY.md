@@ -108,3 +108,23 @@ writer or reviewer in a later board requires a new exact outbound-context
 inventory and explicit authorization for the selected files, diff, test output,
 goal and feedback. Worktree permission, `invoke_enabled`, an accepted repair
 session or a prior synthetic pilot does not authorize that disclosure.
+
+## Objective-evaluation evidence boundary
+
+Board 11 evaluation manifests and results remain ignored local runtime data.
+The tracked example freezes only public synthetic text, the public endpoint and
+model identifiers, byte/count limits and the credential environment-variable
+name.
+
+- The candidate receives zero files and zero Artifacts.
+- Prompt plus transport metadata is limited to 4,096 UTF-8 bytes.
+- The HTTP response body is limited to 16,384 bytes before JSON parsing.
+- Non-loopback endpoints require HTTPS and HTTP redirects are rejected.
+- Evaluation tables store output SHA-256 and byte count, not response text.
+- The exact prompt is displayed only through an explicit local CLI option.
+- A real request requires `invoke_enabled: true` and one approved, unused
+  manifest whose prompt and transport digest still match.
+
+Never copy local manifests, provider responses, usage payloads or evaluation
+database rows into a public report. Any future repository-derived evaluation
+requires a new policy, new exact manifest and separate user authorization.

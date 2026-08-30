@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .types import AgentCard, ProvenanceDisplayMode
 
@@ -94,6 +95,36 @@ def load_config(path: str | Path) -> CouncilConfig:
             _reject_plaintext_auth(item, f"agent {name!r}")
             _validate_outbound_context_policy(item, f"agent {name!r}")
             _validate_codex_cwd(item, f"agent {name!r}")
+        elif adapter_type == "openai_compatible":
+            _validate_interop_flags(item, f"agent {name!r}")
+            _reject_plaintext_auth(item, f"agent {name!r}")
+            if not str(item.get("base_url", "")).strip():
+                raise ValueError(
+                    f"OpenAI-compatible agent {name!r} requires base_url"
+                )
+            _validate_remote_base_url(
+                str(item["base_url"]),
+                f"OpenAI-compatible agent {name!r} base_url",
+            )
+            if not str(item.get("model", "")).strip():
+                raise ValueError(
+                    f"OpenAI-compatible agent {name!r} requires model"
+                )
+            if not str(item.get("api_key_env", "")).strip():
+                raise ValueError(
+                    f"OpenAI-compatible agent {name!r} requires api_key_env"
+                )
+            max_response_bytes = item.get("max_response_bytes")
+            if (
+                not isinstance(max_response_bytes, int)
+                or isinstance(max_response_bytes, bool)
+                or max_response_bytes < 1
+            ):
+                raise ValueError(
+                    f"OpenAI-compatible agent {name!r} requires a positive "
+                    "max_response_bytes"
+                )
+            _validate_outbound_context_policy(item, f"agent {name!r}")
         elif adapter_type == "a2a":
             _validate_interop_flags(item, f"agent {name!r}")
             if not str(item.get("endpoint", "")).strip():
@@ -383,6 +414,24 @@ def _validate_codex_cwd(value: dict[str, Any], label: str) -> None:
         not isinstance(cwd_env, str) or not cwd_env.strip()
     ):
         raise ValueError(f"{label} cwd_env must be a non-empty string")
+
+
+def _validate_remote_base_url(value: str, label: str) -> None:
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"{label} must be an http or https URL")
+    if parsed.username or parsed.password:
+        raise ValueError(f"{label} must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError(
+            f"{label} must not contain query parameters or fragments"
+        )
+    if parsed.scheme == "http" and parsed.hostname not in {
+        "127.0.0.1",
+        "::1",
+        "localhost",
+    }:
+        raise ValueError(f"{label} must use HTTPS for non-loopback endpoints")
 
 
 def validate_routing_constraints(value: Any, label: str) -> None:

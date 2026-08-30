@@ -183,14 +183,21 @@ Report: `docs/reports/2026-08-30-board-10-bounded-repair-recovery.md`
 
 ## Productization Board 11: Second real Agent family and objective evaluation
 
-Status: ready for next-session planning; implementation not started
+Status: complete
 
-- select one additional real Agent family only;
-- freeze exact outbound context and credentials boundary before invocation;
-- compare declared capability with objective synthetic task evidence;
+- selected DeepSeek Responses as the sole additional Agent family;
+- froze the exact endpoint, model, credential reference, synthetic prompt,
+  context/response limits and one-time invocation gate;
+- compare declared objective-evaluation capability with deterministic token,
+  hash, byte, duration and usage evidence;
 - keep Manager/Reviewer topology changes controlled and independently audited;
 - preserve Board 8-10 invocation, worktree, repair and merge gates;
 - do not add Board 12 product UI scope.
+
+Plan: `docs/reports/2026-08-30-board-11-second-agent-evaluation-plan.md`
+
+Report:
+`docs/reports/2026-08-30-board-11-second-agent-evaluation.md`
 
 ## Productization Board 12: Product interface and release preparation
 

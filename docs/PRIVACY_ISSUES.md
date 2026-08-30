@@ -215,3 +215,38 @@ evidence.
   callback that transmits data; that is outside the Board 10 built-in path and
   remains prohibited without explicit authorization.
 - Blocks development: no; no built-in disclosure path exists.
+
+### PRIV-012: Evaluation prompts and responses are external-service evidence
+
+- Date found: 2026-08-30
+- Channel: ignored local evaluation SQLite, local CLI and an explicitly
+  approved external Responses endpoint
+- Priority: medium for the fixed synthetic case; high for any future
+  repository-derived case
+- Data class: exact outbound prompt, endpoint/model metadata, response text,
+  usage and objective result
+- Status: mitigated and accepted
+- Resolution:
+  - Board 11 freezes one public synthetic token task with zero files and zero
+    Artifacts;
+  - prompt plus transport metadata is limited to 4,096 UTF-8 bytes and bound to
+    one exact, single-use approval;
+  - response JSON is limited to 16,384 bytes before parsing;
+  - non-loopback HTTP endpoints and HTTP redirects are rejected before a
+    credential-bearing follow-up request can occur;
+  - evaluation tables retain output hashes, byte counts, assertions and ledger
+    references rather than response text;
+  - tracked configuration stores only
+    `MODEL_COUNCIL_DEEPSEEK_API_KEY`, never its value.
+- Evidence: local loopback tests cover exact payload, approval consumption,
+  objective pass/fail, missing invocation permission, plaintext credential
+  rejection, redirect rejection and response-size failure without retry. One
+  explicitly authorized live call consumed a 937-byte synthetic-only scope
+  with zero files and zero Artifacts; response text was not published or copied
+  into evaluation tables.
+- Residual risk: a user can explicitly display the local prompt or inspect
+  ignored runtime/provider response state. A future non-synthetic task could
+  contain private data and therefore needs a separately frozen policy and
+  authorization.
+- Blocks development: no; the fixed live scope was explicitly authorized and
+  consumed once.

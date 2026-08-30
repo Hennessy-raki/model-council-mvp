@@ -1,0 +1,113 @@
+{
+  "project_name": "model-council-board-11-evaluation",
+  "state_dir": "runtime",
+  "max_parallel": 1,
+  "manager": "manager",
+  "reviewer": "reviewer",
+  "providers": {
+    "mock-local": {
+      "kind": "mock",
+      "display_name": "Local offline mock provider",
+      "enabled": true
+    },
+    "deepseek-api": {
+      "kind": "openai_compatible",
+      "display_name": "DeepSeek API",
+      "enabled": true
+    }
+  },
+  "models": {
+    "mock-general": {
+      "provider": "mock-local",
+      "display_name": "Mock general model",
+      "capabilities": ["planning", "review"],
+      "enabled": true
+    },
+    "deepseek-v4-flash": {
+      "provider": "deepseek-api",
+      "display_name": "DeepSeek V4 Flash",
+      "capabilities": ["objective_evaluation"],
+      "enabled": true
+    }
+  },
+  "agents": {
+    "manager": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "manager",
+      "description": "Keep planning local during the isolated evaluation.",
+      "capabilities": ["plan"]
+    },
+    "deepseek_evaluator": {
+      "type": "openai_compatible",
+      "provider": "deepseek-api",
+      "model": "deepseek-v4-flash",
+      "role": "synthetic_evaluator",
+      "description": "Evaluate one fixed project-neutral synthetic task.",
+      "capabilities": ["objective_evaluation"],
+      "boundaries": [
+        "synthetic context only",
+        "zero files",
+        "zero Artifacts",
+        "one approved invocation only"
+      ],
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "MODEL_COUNCIL_DEEPSEEK_API_KEY",
+      "api_style": "responses",
+      "timeout_seconds": 30,
+      "max_response_bytes": 16384,
+      "outbound_context": {
+        "source": "synthetic",
+        "allowed_sources": ["synthetic"],
+        "max_files": 0,
+        "max_total_bytes": 4096,
+        "max_artifacts": 0,
+        "max_artifact_bytes": 0
+      },
+      "invoke_enabled": false
+    },
+    "reviewer": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "reviewer",
+      "description": "Keep independent review local during the evaluation.",
+      "capabilities": ["review"]
+    }
+  },
+  "role_assignments": {
+    "decision_manager": {
+      "mode": "manual",
+      "agent": "manager",
+      "locked": true
+    },
+    "objective_evaluator": {
+      "mode": "manual",
+      "agent": "deepseek_evaluator",
+      "model": "deepseek-v4-flash",
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["objective_evaluation"]
+      }
+    },
+    "independent_reviewer": {
+      "mode": "manual",
+      "agent": "reviewer",
+      "locked": true
+    }
+  },
+  "settings": {
+    "auto_discovery_on_start": false,
+    "artifact_provenance_display": "compact",
+    "usage_estimation_enabled": true
+  },
+  "budgets": {
+    "evaluation-tokens": {
+      "scope": "role",
+      "scope_key": "synthetic_evaluator",
+      "metric": "tokens",
+      "hard": 4096
+    }
+  }
+}

@@ -57,8 +57,9 @@ class FakeHttpResponse:
     def __exit__(self, exc_type, exc, traceback):
         return False
 
-    def read(self):
-        return json.dumps(self.payload).encode("utf-8")
+    def read(self, size=-1):
+        data = json.dumps(self.payload).encode("utf-8")
+        return data if size is None or size < 0 else data[:size]
 
 
 class LedgerTests(unittest.TestCase):
@@ -394,7 +395,8 @@ class LedgerTests(unittest.TestCase):
         )
         with patch.dict(os.environ, {"LEDGER_TEST_API_KEY": "test-value"}):
             with patch(
-                "model_council.adapters.openai_compatible.urlopen",
+                "model_council.adapters.openai_compatible."
+                "_NO_REDIRECT_OPENER.open",
                 return_value=response,
             ):
                 balance = adapter.provider_balance()
