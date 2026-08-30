@@ -92,6 +92,7 @@ def load_config(path: str | Path) -> CouncilConfig:
                 f"agent {name!r} command",
             )
             _reject_plaintext_auth(item, f"agent {name!r}")
+            _validate_outbound_context_policy(item, f"agent {name!r}")
         elif adapter_type == "a2a":
             _validate_interop_flags(item, f"agent {name!r}")
             if not str(item.get("endpoint", "")).strip():
@@ -316,6 +317,55 @@ def _validate_interop_flags(value: dict[str, Any], label: str) -> None:
         or not value["auth_env"].strip()
     ):
         raise ValueError(f"{label} auth_env must be a non-empty string")
+
+
+def _validate_outbound_context_policy(
+    value: dict[str, Any],
+    label: str,
+) -> None:
+    policy = value.get("outbound_context")
+    if not isinstance(policy, dict):
+        raise ValueError(
+            f"{label} requires an outbound_context object for exact prompt approval"
+        )
+    source = policy.get("source")
+    if source not in {"synthetic", "repository"}:
+        raise ValueError(
+            f"{label} outbound_context.source must be 'synthetic' or 'repository'"
+        )
+    allowed_sources = policy.get("allowed_sources")
+    if (
+        not isinstance(allowed_sources, list)
+        or not allowed_sources
+        or not all(item in {"synthetic", "repository"} for item in allowed_sources)
+    ):
+        raise ValueError(
+            f"{label} outbound_context.allowed_sources must be a non-empty "
+            "array containing only 'synthetic' or 'repository'"
+        )
+    if source not in allowed_sources:
+        raise ValueError(
+            f"{label} outbound_context.source must be included in allowed_sources"
+        )
+    for key in (
+        "max_files",
+        "max_total_bytes",
+        "max_artifacts",
+        "max_artifact_bytes",
+    ):
+        number = policy.get(key)
+        if not isinstance(number, int) or number < 0:
+            raise ValueError(
+                f"{label} outbound_context.{key} must be a non-negative integer"
+            )
+    patterns = policy.get("excluded_patterns")
+    if patterns is not None and (
+        not isinstance(patterns, list)
+        or not all(isinstance(item, str) and item for item in patterns)
+    ):
+        raise ValueError(
+            f"{label} outbound_context.excluded_patterns must be a string array"
+        )
 
 
 def validate_routing_constraints(value: Any, label: str) -> None:

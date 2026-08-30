@@ -189,6 +189,15 @@ resumes the durable remote Thread ID when present, starts one Turn and persists
 the protocol exchange. Server approval requests are recorded and declined by
 default; the Adapter never grants itself command or file-change permission.
 
+Board 8 places a local outbound-context approval gate before App Server
+startup. The Adapter renders a prompt without local run IDs or filesystem
+paths, stores the exact text only in ignored runtime SQLite, and records a
+non-secret manifest containing prompt SHA-256, byte count, section digests,
+policy limits and status. The App Server receives nothing until a human has
+reviewed that local prompt and approved the matching digest; approval is
+consumed atomically before transport startup. Protocol-event audit records use
+the manifest ID, digest and byte count instead of copying prompt text.
+
 `A2AAdapter` validates HTTPS for non-loopback endpoints, persists Agent Card
 observations, submits a JSON-RPC Message and polls returned Tasks to a terminal
 state. Authentication values are read only from named environment variables.

@@ -97,6 +97,24 @@ Status: complete
 Report:
 `docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md`
 
+## Productization Board 8: Controlled live-model pilot and outbound context approval
+
+Status: implementation complete; synthetic live invocation awaits an exact
+user-approved context manifest
+
+- require local preview and one-time approval for the exact App Server prompt;
+- bind approval to endpoint, SHA-256 and UTF-8 byte count;
+- keep only one read-only Codex architect external;
+- preserve mock manager and reviewer;
+- reject Artifacts, repository context, private-derived details and excluded
+  credential/path patterns during the initial synthetic pilot;
+- retain local audit evidence while avoiding prompt duplication in protocol
+  events.
+
+Plan: `docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md`
+
+Report: `docs/reports/2026-08-30-board-8-controlled-live-pilot.md`
+
 ## Milestone 0: Offline collaboration loop
 
 Status: complete
@@ -121,10 +139,13 @@ Status: in progress
 - [x] capture thread, usage, event, timing and process metadata;
 - [x] add local regression fixtures and tests;
 - [x] document Windows launch behavior;
-- [ ] obtain explicit authorization to send private repository context;
-- [ ] run one read-only Codex architect through `codex exec`;
-- [ ] verify Artifact, review, synthesis and database evidence;
-- [ ] keep all other roles on mocks during the pilot.
+- [x] implement exact outbound-context preview and single-use approval for the
+  App Server pilot;
+- [ ] obtain explicit authorization for one displayed synthetic prompt;
+- [ ] run one read-only Codex architect through the App Server;
+- [ ] verify Artifact, review, synthesis and database evidence from that
+  authorized live run;
+- [x] keep all other roles on mocks during the pilot.
 
 ## Milestone 2: Persistent sessions and a second model family
 

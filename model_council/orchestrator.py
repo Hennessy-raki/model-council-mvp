@@ -25,8 +25,14 @@ class RunResult:
 
 
 class Orchestrator:
-    def __init__(self, config: CouncilConfig):
+    def __init__(
+        self,
+        config: CouncilConfig,
+        *,
+        outbound_manifest_by_agent: dict[str, str] | None = None,
+    ):
         self.config = config
+        self.outbound_manifest_by_agent = outbound_manifest_by_agent or {}
         self.store = CouncilStore(config.state_dir / "council.db")
         self.registry = RegistryService(self.store)
         self.registry.sync_from_config(config)
@@ -289,6 +295,10 @@ class Orchestrator:
             },
             artifact_ids=[ref.id for ref in dependencies],
         )
+        metadata = {}
+        manifest_id = self.outbound_manifest_by_agent.get(item.agent)
+        if manifest_id:
+            metadata["outbound_context_manifest_id"] = manifest_id
         response = self._invoke_agent(
             item.agent,
             AgentRequest(
@@ -301,6 +311,7 @@ class Orchestrator:
                 recipient=item.agent,
                 context="\n\n".join(context_parts),
                 artifacts=dependencies,
+                metadata=metadata,
             )
         )
         ref = self.artifacts.put_text(

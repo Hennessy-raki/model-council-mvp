@@ -4,15 +4,24 @@ Use this document when continuing in a new Model Council conversation.
 
 ## Current checkpoint
 
-Productization Boards 1 through 7 are complete. The authoritative Board 7
-report is:
+Productization Boards 1 through 8 have offline implementation evidence. The
+authoritative Board 7 report is:
 
 ```text
 docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md
 ```
 
+The Board 8 scope and completion report are:
+
+```text
+docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
+docs/reports/2026-08-30-board-8-controlled-live-pilot.md
+```
+
 The implementation has been verified only with local fake Codex App Server,
-A2A and MCP transports. No live external Agent or model invocation is claimed.
+A2A and MCP transports. Board 8 additionally verifies local outbound-context
+approval against the fake App Server. No live external Agent or model
+invocation is claimed.
 
 ## Suggested opening prompt
 
@@ -25,7 +34,7 @@ docs/PROJECT_HANDOFF.md, docs/ROADMAP.md, docs/DEVELOPMENT_BOARDS.md,
 docs/PRIVACY.md, docs/START_HERE_NEXT_SESSION.md and
 docs/reports/2026-08-30-board-7-persistent-remote-interoperability.md.
 
-Verify the clean public main baseline, run all fifty-one offline tests and run the
+Verify the clean public main baseline, run all fifty-five offline tests and run the
 full-history privacy scan. Keep SQLite authoritative.
 
 Do not set invoke_enabled=true, call a live Codex App Server, contact an A2A
@@ -34,7 +43,11 @@ explicit user authorization for that exact pilot. Credentials must remain
 environment-variable references. MCP tools require a persisted single-use
 approval.
 
-Define the next productization board before adding new scope.
+Board 8 is complete as an offline control implementation. Before any live
+synthetic pilot, show `interop context <MANIFEST_ID> --show-prompt` to the
+user, obtain their explicit authorization for that exact prompt, and then
+approve the matching SHA-256 once. Do not expand the context to repository
+content or begin Board 9 without a new Board definition.
 ```
 
 ## Repository orientation

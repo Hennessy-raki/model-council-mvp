@@ -9,6 +9,7 @@ from .adapters import build_adapters
 from .config import load_config
 from .discovery import DiscoveryService
 from .interoperability import InteroperabilityService, MCPToolBroker
+from .outbound_context import OutboundContextService, validate_controlled_pilot
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
@@ -37,6 +38,13 @@ def build_parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser("run", help="run a goal with a configuration")
     run.add_argument("goal")
     run.add_argument("--config", default=str(default_config_path()))
+    run.add_argument(
+        "--outbound-manifest",
+        help=(
+            "consume one approved Board 8 context manifest for its exact "
+            "synthetic Codex architect prompt"
+        ),
+    )
 
     agents = subparsers.add_parser("agents", help="list configured agents")
     agents.add_argument("--config", default=str(default_config_path()))
@@ -317,6 +325,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     interop_tools.add_argument("server")
     interop_tools.add_argument("--config", default=str(default_config_path()))
+    interop_contexts = interop_commands.add_parser(
+        "contexts",
+        help="inspect and decide exact outbound Codex App Server context",
+    )
+    interop_contexts.add_argument(
+        "--status",
+        choices=("pending", "approved", "rejected", "consumed", "blocked"),
+    )
+    interop_contexts.add_argument("--config", default=str(default_config_path()))
+    interop_context = interop_commands.add_parser(
+        "context",
+        help="show or decide one locally stored outbound context manifest",
+    )
+    interop_context.add_argument("manifest_id")
+    interop_context.add_argument(
+        "--show-prompt",
+        action="store_true",
+        help="print the exact local prompt that would leave this machine",
+    )
+    interop_context.add_argument(
+        "--approve-sha256",
+        help="approve once only when this exactly matches the displayed digest",
+    )
+    interop_context.add_argument("--reject", action="store_true")
+    interop_context.add_argument("--config", default=str(default_config_path()))
 
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
@@ -336,7 +369,15 @@ def main(argv: list[str] | None = None) -> None:
             _run_goal(config, args.goal)
         elif args.command == "run":
             config = load_config(args.config)
-            _run_goal(config, args.goal)
+            manifest_by_agent = {}
+            if args.outbound_manifest:
+                service = OutboundContextService(
+                    CouncilStore(config.state_dir / "council.db")
+                )
+                manifest = service.manifest(args.outbound_manifest)
+                agent_id = validate_controlled_pilot(config, manifest)
+                manifest_by_agent[agent_id] = manifest["id"]
+            _run_goal(config, args.goal, manifest_by_agent)
         elif args.command == "agents":
             config = load_config(args.config)
             for name in config.agents:
@@ -504,6 +545,32 @@ def main(argv: list[str] | None = None) -> None:
                     approve=args.interop_command == "approve",
                 )
                 payload = interoperability.approval(args.approval_id)
+            elif args.interop_command == "contexts":
+                payload = OutboundContextService(interoperability.store).manifests(
+                    status=args.status
+                )
+            elif args.interop_command == "context":
+                contexts = OutboundContextService(interoperability.store)
+                if args.approve_sha256 and args.reject:
+                    raise ValueError(
+                        "--approve-sha256 and --reject cannot be used together"
+                    )
+                if args.approve_sha256:
+                    contexts.decide(
+                        args.manifest_id,
+                        approve=True,
+                        confirmation=args.approve_sha256,
+                    )
+                elif args.reject:
+                    contexts.decide(
+                        args.manifest_id,
+                        approve=False,
+                        confirmation="",
+                    )
+                payload = contexts.manifest(
+                    args.manifest_id,
+                    include_prompt=args.show_prompt,
+                )
             else:
                 broker = MCPToolBroker(
                     interoperability,
@@ -557,8 +624,15 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(1) from exc
 
 
-def _run_goal(config, goal: str) -> None:
-    orchestrator = Orchestrator(config)
+def _run_goal(
+    config,
+    goal: str,
+    outbound_manifest_by_agent: dict[str, str] | None = None,
+) -> None:
+    orchestrator = Orchestrator(
+        config,
+        outbound_manifest_by_agent=outbound_manifest_by_agent,
+    )
     result = orchestrator.run(goal)
     print(f"RUN_ID={result.run_id}")
     print(f"FINAL_ARTIFACT={result.final_artifact.path}")

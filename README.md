@@ -246,6 +246,33 @@ python -m model_council interop call-tool <APPROVAL_ID> `
 Approval is consumed once before transport execution. The local settings page
 also shows endpoints, sessions, events and pending approval controls.
 
+## Controlled Codex pilot
+
+Board 8 adds a prompt-level gate in front of the existing App Server
+`invoke_enabled` gate. Start from `config.pilot.example.json`, copied to an
+untracked local file. It deliberately contains one read-only Codex architect,
+with the manager and reviewer kept on `mock`.
+
+When an enabled synthetic run reaches the architect, Model Council records a
+local pending manifest and stops before App Server startup. Inspect the exact
+prompt locally, obtain explicit user authorization for that exact scope, then
+approve the displayed digest once:
+
+```powershell
+python -m model_council interop contexts --config <LOCAL_CONFIG>
+python -m model_council interop context <MANIFEST_ID> --show-prompt `
+  --config <LOCAL_CONFIG>
+python -m model_council interop context <MANIFEST_ID> `
+  --approve-sha256 <DISPLAYED_SHA256> --config <LOCAL_CONFIG>
+python -m model_council run "<SAME_SYNTHETIC_GOAL>" `
+  --outbound-manifest <MANIFEST_ID> --config <LOCAL_CONFIG>
+```
+
+The initial policy allows synthetic text only: zero files, zero Artifacts and
+at most 8,192 UTF-8 bytes. It rejects repository context, credential/path
+patterns and any changed or replayed prompt. No live endpoint is claimed as
+verified by this repository.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：

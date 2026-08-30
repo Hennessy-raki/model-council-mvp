@@ -308,6 +308,23 @@ class CouncilStore:
                     decided_at TEXT,
                     consumed_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS outbound_context_manifests (
+                    id TEXT PRIMARY KEY,
+                    endpoint_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    prompt_sha256 TEXT NOT NULL,
+                    total_bytes INTEGER NOT NULL,
+                    manifest_json TEXT NOT NULL,
+                    prompt_text TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    reason TEXT,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -340,6 +357,10 @@ class CouncilStore:
                     ON interoperability_events(session_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_interop_approvals_endpoint
                     ON interoperability_approvals(endpoint_id, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_outbound_context_endpoint
+                    ON outbound_context_manifests(endpoint_id, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_outbound_context_status
+                    ON outbound_context_manifests(status, requested_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

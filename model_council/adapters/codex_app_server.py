@@ -10,6 +10,11 @@ from ..interoperability import (
     InteroperabilityService,
     JsonLineProcess,
 )
+from ..outbound_context import (
+    OutboundContextApprovalRequired,
+    OutboundContextPolicy,
+    OutboundContextService,
+)
 from ..types import (
     AgentRequest,
     AgentResponse,
@@ -61,9 +66,36 @@ class CodexAppServerAdapter(AgentAdapter):
                 "Codex App Server approval_policy must be never or on-request"
             )
         self.model = _optional_text(settings.get("model"))
+        self.outbound_policy = OutboundContextPolicy.from_settings(
+            dict(settings["outbound_context"])
+        )
+        self.outbound_source = str(settings["outbound_context"]["source"])
+        self.outbound_context = OutboundContextService(interoperability.store)
 
     def invoke(self, request: AgentRequest) -> AgentResponse:
         self.interoperability.require_invocation_enabled(self.endpoint)
+        prompt = self.render_outbound_prompt(request)
+        manifest_id = _optional_text(
+            request.metadata.get("outbound_context_manifest_id")
+        )
+        if manifest_id:
+            manifest = self.outbound_context.require_approved(
+                manifest_id=manifest_id,
+                endpoint_id=self.endpoint_id,
+                prompt=prompt,
+            )
+        else:
+            manifest = self.outbound_context.prepare(
+                endpoint_id=self.endpoint_id,
+                agent_id=self.card.name,
+                request=request,
+                prompt=prompt,
+                source=self.outbound_source,
+                policy=self.outbound_policy,
+            )
+            if manifest["status"] == "blocked":
+                raise InteroperabilityError(manifest["reason"])
+            raise OutboundContextApprovalRequired(manifest["id"])
         session = self.interoperability.active_session(
             endpoint_id=self.endpoint_id,
             agent_id=self.card.name,
@@ -139,17 +171,29 @@ class CodexAppServerAdapter(AgentAdapter):
                     remote_session_id=thread_id,
                 )
 
+            turn_params = {
+                "threadId": thread_id,
+                "input": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    }
+                ],
+            }
             turn_result = self._exchange(
                 transport,
                 session["id"],
                 3,
                 "turn/start",
-                {
+                turn_params,
+                audit_params={
                     "threadId": thread_id,
                     "input": [
                         {
                             "type": "text",
-                            "text": self.render_prompt(request),
+                            "outbound_context_manifest_id": manifest["id"],
+                            "prompt_sha256": manifest["prompt_sha256"],
+                            "bytes": len(prompt.encode("utf-8")),
                         }
                     ],
                 },
@@ -173,6 +217,8 @@ class CodexAppServerAdapter(AgentAdapter):
                 "turn_id": turn_id,
                 "sandbox": self.sandbox,
                 "approval_policy": self.approval_policy,
+                "outbound_context_manifest_id": manifest["id"],
+                "outbound_context_sha256": manifest["prompt_sha256"],
                 "stderr_tail": transport.stderr_tail(),
             }
             if isinstance(usage, dict):
@@ -279,15 +325,21 @@ class CodexAppServerAdapter(AgentAdapter):
         request_id: int,
         method: str,
         params: dict[str, Any],
+        audit_params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         payload = {"id": request_id, "method": method, "params": params}
         transport.send(payload)
+        audit_payload = {
+            "id": request_id,
+            "method": method,
+            "params": audit_params if audit_params is not None else params,
+        }
         self.interoperability.record_event(
             session_id=session_id,
             direction="outbound",
             method=method,
             request_id=request_id,
-            payload=payload,
+            payload=audit_payload,
         )
         while True:
             response = transport.receive()

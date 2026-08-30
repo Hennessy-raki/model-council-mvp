@@ -67,8 +67,9 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 7 are complete. Read the Board 7 report before
-changing persistent sessions, A2A, MCP or remote identity contracts.
+Productization Boards 1 through 8 have offline implementation evidence. Read
+the Board 7 report and Board 8 plan before changing persistent sessions, A2A,
+MCP, remote identity contracts or outbound-context approval.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
@@ -76,9 +77,12 @@ only. Every real App Server, A2A or MCP transport additionally requires
 `invoke_enabled: true`, and MCP tool execution requires a persisted single-use
 human approval.
 
-No live external endpoint has been claimed as verified. Sending repository
-content or derived private details to a real service still requires explicit
-user authorization for that pilot.
+No live external endpoint has been claimed as verified. The Board 8 pilot uses
+one read-only Codex App Server architect, with manager and reviewer on mock,
+and requires an exact locally previewed, SHA-256-bound one-time approval before
+process startup. Its initial context is synthetic only: no repository content,
+private-derived details, files or Artifacts. Any broader external disclosure
+still requires explicit user authorization for that exact pilot.
 
 ## Codex pilot boundary
 

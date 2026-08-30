@@ -92,3 +92,17 @@ class AgentAdapter(ABC):
             f"上游上下文：\n{request.context or '无'}\n\n"
             f"可用Artifact：\n{artifact_lines}\n"
         )
+
+    def render_outbound_prompt(self, request: AgentRequest) -> str:
+        """Render external context without local run IDs or filesystem paths."""
+        artifact_lines = "\n".join(
+            f"- {item.name} (media_type={item.media_type}, sha256={item.sha256})"
+            for item in request.artifacts
+        ) or "- 无"
+        return (
+            f"{self.system_prompt()}\n\n"
+            f"目标：{request.goal}\n\n"
+            f"当前指令：\n{request.instruction}\n\n"
+            f"已有上下文：\n{request.context or '无'}\n\n"
+            f"可用Artifact：\n{artifact_lines}\n"
+        )

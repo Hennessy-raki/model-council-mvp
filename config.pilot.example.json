@@ -1,0 +1,105 @@
+{
+  "project_name": "model-council-synthetic-codex-pilot",
+  "state_dir": "runtime",
+  "max_parallel": 1,
+  "manager": "manager",
+  "reviewer": "reviewer",
+  "providers": {
+    "mock-local": {
+      "kind": "mock",
+      "display_name": "Local offline mock provider",
+      "enabled": true
+    },
+    "codex-host": {
+      "kind": "codex_app_server",
+      "display_name": "Local Codex App Server host",
+      "enabled": true
+    }
+  },
+  "models": {
+    "mock-general": {
+      "provider": "mock-local",
+      "display_name": "Mock general model",
+      "capabilities": ["plan", "architecture", "review", "synthesize"],
+      "enabled": true
+    },
+    "codex-architect": {
+      "provider": "codex-host",
+      "display_name": "Configured Codex architect",
+      "capabilities": ["architecture"],
+      "enabled": true
+    }
+  },
+  "agents": {
+    "manager": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "manager",
+      "description": "Keep planning and final synthesis local during the pilot.",
+      "capabilities": ["plan", "route", "synthesize"]
+    },
+    "codex_architect": {
+      "type": "codex_app_server",
+      "provider": "codex-host",
+      "model": "codex-architect",
+      "role": "architect",
+      "description": "The sole read-only external role in the synthetic pilot.",
+      "capabilities": ["architecture"],
+      "boundaries": [
+        "read-only",
+        "synthetic context only",
+        "reject interactive approvals",
+        "single approved prompt only"
+      ],
+      "command": ["codex", "app-server"],
+      "sandbox": "read-only",
+      "approval_policy": "never",
+      "outbound_context": {
+        "source": "synthetic",
+        "allowed_sources": ["synthetic"],
+        "max_files": 0,
+        "max_total_bytes": 8192,
+        "max_artifacts": 0,
+        "max_artifact_bytes": 0
+      },
+      "invoke_enabled": false
+    },
+    "reviewer": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "reviewer",
+      "description": "Keep independent review local during the pilot.",
+      "capabilities": ["review"]
+    }
+  },
+  "role_assignments": {
+    "decision_manager": {
+      "mode": "manual",
+      "agent": "manager",
+      "locked": true
+    },
+    "architecture_lead": {
+      "mode": "manual",
+      "agent": "codex_architect",
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["architecture"]
+      }
+    },
+    "independent_reviewer": {
+      "mode": "manual",
+      "agent": "reviewer",
+      "locked": true,
+      "constraints": {
+        "required_capabilities": ["review"]
+      }
+    }
+  },
+  "settings": {
+    "auto_discovery_on_start": false,
+    "artifact_provenance_display": "compact",
+    "usage_estimation_enabled": true
+  }
+}

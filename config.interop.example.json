@@ -20,6 +20,14 @@
       "command": ["codex", "app-server"],
       "sandbox": "read-only",
       "approval_policy": "never",
+      "outbound_context": {
+        "source": "synthetic",
+        "allowed_sources": ["synthetic"],
+        "max_files": 0,
+        "max_total_bytes": 8192,
+        "max_artifacts": 0,
+        "max_artifact_bytes": 0
+      },
       "invoke_enabled": false
     },
     "remote_a2a": {

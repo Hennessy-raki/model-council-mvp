@@ -12,6 +12,26 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
+Board 8 implementation is ready for a constrained synthetic Codex App Server
+pilot. Its frozen scope is:
+
+```text
+docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
+```
+
+Its offline completion evidence is:
+
+```text
+docs/reports/2026-08-30-board-8-controlled-live-pilot.md
+```
+
+The Board 8 code has been verified against the local fake App Server only.
+No real model invocation is claimed. A live attempt must use the separate
+`config.pilot.example.json` pattern, retain mock manager/reviewer roles, show
+the exact locally stored prompt with `interop context <ID> --show-prompt`, and
+obtain explicit user authorization before its SHA-256 may be approved and
+consumed.
+
 ## Why this project exists
 
 The original idea is to let models with different strengths collaborate on a

@@ -16,6 +16,12 @@ from model_council.interoperability import (
     InteroperabilityService,
     MCPToolBroker,
 )
+from model_council.outbound_context import (
+    OutboundContextApprovalRequired,
+    OutboundContextError,
+    validate_controlled_pilot,
+)
+from model_council.orchestrator import Orchestrator
 from model_council.store import CouncilStore
 from model_council.types import AgentRequest
 
@@ -205,6 +211,14 @@ class InteroperabilityTests(unittest.TestCase):
                             ],
                             "sandbox": "read-only",
                             "approval_policy": "never",
+                            "outbound_context": {
+                                "source": "synthetic",
+                                "allowed_sources": ["synthetic"],
+                                "max_files": 0,
+                                "max_total_bytes": 8192,
+                                "max_artifacts": 0,
+                                "max_artifact_bytes": 0,
+                            },
                             "invoke_enabled": invoke_enabled,
                         },
                         "remote_a2a": {
@@ -255,8 +269,11 @@ class InteroperabilityTests(unittest.TestCase):
             config = load_config(self._write_config(root))
             store = CouncilStore(config.state_dir / "council.db")
             adapters = build_adapters(config, store)
-            first = adapters["codex_app"].invoke(self._request("codex_app"))
-            second = adapters["codex_app"].invoke(self._request("codex_app"))
+            adapter = adapters["codex_app"]
+            first_request = self._approved_request(adapter, "codex_app")
+            first = adapter.invoke(first_request)
+            second_request = self._approved_request(adapter, "codex_app")
+            second = adapter.invoke(second_request)
 
             self.assertIn("Persistent App Server result", first.content)
             self.assertEqual(
@@ -282,6 +299,25 @@ class InteroperabilityTests(unittest.TestCase):
                 approvals[0]["action"],
                 "item/commandExecution/requestApproval",
             )
+
+    def _approved_request(self, adapter, agent: str) -> AgentRequest:
+        request = self._request(agent)
+        prompt = adapter.render_outbound_prompt(request)
+        manifest = adapter.outbound_context.prepare(
+            endpoint_id=adapter.endpoint_id,
+            agent_id=agent,
+            request=request,
+            prompt=prompt,
+            source=adapter.outbound_source,
+            policy=adapter.outbound_policy,
+        )
+        adapter.outbound_context.decide(
+            manifest["id"],
+            approve=True,
+            confirmation=manifest["prompt_sha256"],
+        )
+        request.metadata["outbound_context_manifest_id"] = manifest["id"]
+        return request
 
     def test_a2a_task_and_agent_card_use_local_json_rpc(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), FakeA2AHandler)
@@ -499,6 +535,189 @@ class InteroperabilityTests(unittest.TestCase):
                     not bool(item.get("invoke_enabled", False))
                     for item in public_example.mcp_servers.values()
                 )
+            )
+            pilot_example = load_config(
+                self.repo / "config.pilot.example.json"
+            )
+            self.assertFalse(
+                pilot_example.agents["codex_architect"]["invoke_enabled"]
+            )
+            self.assertEqual(
+                pilot_example.agents["codex_architect"]["outbound_context"][
+                    "max_artifacts"
+                ],
+                0,
+            )
+
+    def test_codex_context_is_previewed_and_approved_once_before_startup(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            store = CouncilStore(config.state_dir / "council.db")
+            adapter = build_adapters(config, store)["codex_app"]
+            request = self._request("codex_app")
+
+            with self.assertRaises(OutboundContextApprovalRequired) as raised:
+                adapter.invoke(request)
+            manifest = adapter.outbound_context.manifest(
+                raised.exception.manifest_id,
+                include_prompt=True,
+            )
+            self.assertEqual(manifest["status"], "pending")
+            self.assertIn("Exercise offline interoperability", manifest["prompt"])
+            self.assertNotIn("run-interop", manifest["prompt"])
+            self.assertEqual(manifest["manifest"]["artifacts"], [])
+
+            adapter.outbound_context.decide(
+                manifest["id"],
+                approve=True,
+                confirmation=manifest["prompt_sha256"],
+            )
+            request.metadata["outbound_context_manifest_id"] = manifest["id"]
+            response = adapter.invoke(request)
+            self.assertIn("Persistent App Server result", response.content)
+            self.assertEqual(
+                response.metadata["outbound_context_manifest_id"],
+                manifest["id"],
+            )
+            with self.assertRaisesRegex(OutboundContextError, "unused"):
+                adapter.invoke(request)
+
+    def test_outbound_context_rejects_excluded_content_and_bad_confirmation(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            store = CouncilStore(config.state_dir / "council.db")
+            adapter = build_adapters(config, store)["codex_app"]
+            request = self._request("codex_app")
+            request.context = "authorization: never-send-this"
+
+            with self.assertRaisesRegex(OutboundContextError, "excluded context"):
+                adapter.invoke(request)
+            blocked = adapter.outbound_context.manifests(status="blocked")
+            self.assertEqual(len(blocked), 1)
+
+            clean = self._request("codex_app")
+            prompt = adapter.render_outbound_prompt(clean)
+            manifest = adapter.outbound_context.prepare(
+                endpoint_id=adapter.endpoint_id,
+                agent_id="codex_app",
+                request=clean,
+                prompt=prompt,
+                source=adapter.outbound_source,
+                policy=adapter.outbound_policy,
+            )
+            with self.assertRaisesRegex(OutboundContextError, "exactly match"):
+                adapter.outbound_context.decide(
+                    manifest["id"],
+                    approve=True,
+                    confirmation="not-the-displayed-digest",
+                )
+
+    def test_controlled_pilot_rejects_non_mock_and_non_synthetic_scope(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(self._write_config(root))
+            store = CouncilStore(config.state_dir / "council.db")
+            adapter = build_adapters(config, store)["codex_app"]
+            request = self._request("codex_app")
+            prompt = adapter.render_outbound_prompt(request)
+            manifest = adapter.outbound_context.prepare(
+                endpoint_id=adapter.endpoint_id,
+                agent_id="codex_app",
+                request=request,
+                prompt=prompt,
+                source=adapter.outbound_source,
+                policy=adapter.outbound_policy,
+            )
+            pilot_data = json.loads(
+                self._write_config(root).read_text(encoding="utf-8")
+            )
+            pilot_data["agents"]["remote_a2a"]["invoke_enabled"] = False
+            pilot_data["mcp_servers"]["local-tools"]["invoke_enabled"] = False
+            pilot_path = root / "pilot.json"
+            pilot_path.write_text(json.dumps(pilot_data), encoding="utf-8")
+            pilot_config = load_config(pilot_path)
+            self.assertEqual(
+                validate_controlled_pilot(pilot_config, manifest),
+                "codex_app",
+            )
+
+            invalid = json.loads(self._write_config(root).read_text(encoding="utf-8"))
+            invalid["agents"]["remote_a2a"]["invoke_enabled"] = False
+            invalid["mcp_servers"]["local-tools"]["invoke_enabled"] = False
+            invalid["agents"]["reviewer"]["type"] = "a2a"
+            invalid["agents"]["reviewer"]["endpoint"] = "https://agent.example.com/a2a"
+            invalid["agents"]["reviewer"]["invoke_enabled"] = False
+            invalid_path = root / "invalid-pilot.json"
+            invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+            with self.assertRaisesRegex(OutboundContextError, "reviewer"):
+                validate_controlled_pilot(load_config(invalid_path), manifest)
+
+            repository = json.loads(self._write_config(root).read_text(encoding="utf-8"))
+            repository["agents"]["remote_a2a"]["invoke_enabled"] = False
+            repository["mcp_servers"]["local-tools"]["invoke_enabled"] = False
+            repository["agents"]["codex_app"]["outbound_context"]["source"] = "repository"
+            repository["agents"]["codex_app"]["outbound_context"]["allowed_sources"] = [
+                "synthetic",
+                "repository",
+            ]
+            repository_path = root / "repository-pilot.json"
+            repository_path.write_text(json.dumps(repository), encoding="utf-8")
+            with self.assertRaisesRegex(OutboundContextError, "synthetic"):
+                validate_controlled_pilot(load_config(repository_path), manifest)
+
+    def test_approved_manifest_resumes_a_synthetic_full_mock_review_loop(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            data = json.loads(self._write_config(root).read_text(encoding="utf-8"))
+            data["agents"].pop("remote_a2a")
+            data.pop("mcp_servers")
+            data["providers"] = {
+                "mock-local": {
+                    "kind": "mock",
+                    "display_name": "Local mock",
+                    "enabled": True,
+                }
+            }
+            data["models"] = {
+                "mock-general": {
+                    "provider": "mock-local",
+                    "display_name": "Mock general",
+                    "capabilities": ["plan", "architecture", "review"],
+                    "enabled": True,
+                }
+            }
+            for agent in data["agents"].values():
+                agent["provider"] = "mock-local"
+                agent["model"] = "mock-general"
+            path = root / "controlled-pilot.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            config = load_config(path)
+
+            first = Orchestrator(config)
+            with self.assertRaisesRegex(RuntimeError, "all worker tasks failed"):
+                first.run("Design a synthetic local-only note system")
+            adapter = first.adapters["codex_app"]
+            manifest = adapter.outbound_context.manifests(status="pending")[0]
+            validate_controlled_pilot(config, manifest)
+            adapter.outbound_context.decide(
+                manifest["id"],
+                approve=True,
+                confirmation=manifest["prompt_sha256"],
+            )
+
+            resumed = Orchestrator(
+                config,
+                outbound_manifest_by_agent={"codex_app": manifest["id"]},
+            )
+            result = resumed.run("Design a synthetic local-only note system")
+            self.assertIn("Model Council", result.final_text)
+            run = resumed.store.get_run(result.run_id)
+            self.assertEqual(run["status"], "completed")
+            self.assertEqual(
+                adapter.outbound_context.manifest(manifest["id"])["status"],
+                "consumed",
             )
 
 
