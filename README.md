@@ -270,8 +270,9 @@ python -m model_council run "<SAME_SYNTHETIC_GOAL>" `
 
 The initial policy allows synthetic text only: zero files, zero Artifacts and
 at most 8,192 UTF-8 bytes. It rejects repository context, credential/path
-patterns and any changed or replayed prompt. No live endpoint is claimed as
-verified by this repository.
+patterns and any changed or replayed prompt. One live synthetic Codex App
+Server pilot has completed under these limits; no repository-context, A2A or
+MCP live verification is claimed.
 
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 

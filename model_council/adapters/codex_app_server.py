@@ -199,7 +199,7 @@ class CodexAppServerAdapter(AgentAdapter):
                 },
             )
             turn_id = self._turn_id(turn_result)
-            content, turn = self._read_turn(
+            content, turn, notification_usage = self._read_turn(
                 transport,
                 session_id=session["id"],
                 turn_id=turn_id,
@@ -209,6 +209,8 @@ class CodexAppServerAdapter(AgentAdapter):
                     "Codex App Server returned no agent message"
                 )
             usage = turn.get("usage") if isinstance(turn, dict) else None
+            if not isinstance(usage, dict):
+                usage = notification_usage
             metadata: dict[str, Any] = {
                 "adapter": type(self).__name__,
                 "protocol": "codex_app_server",
@@ -366,9 +368,10 @@ class CodexAppServerAdapter(AgentAdapter):
         *,
         session_id: str,
         turn_id: str,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
         deltas: list[str] = []
         completed_messages: list[str] = []
+        latest_usage: dict[str, Any] | None = None
         while True:
             payload = transport.receive()
             self._record_inbound(session_id, payload)
@@ -389,6 +392,10 @@ class CodexAppServerAdapter(AgentAdapter):
                     text = self._agent_message_text(item)
                     if text:
                         completed_messages.append(text)
+            elif method == "thread/tokenUsage/updated":
+                token_usage = params.get("tokenUsage")
+                if isinstance(token_usage, dict):
+                    latest_usage = self._normalized_usage(token_usage)
             elif method == "turn/completed":
                 turn = params.get("turn")
                 if not isinstance(turn, dict):
@@ -406,7 +413,29 @@ class CodexAppServerAdapter(AgentAdapter):
                     if completed_messages
                     else "".join(deltas).strip()
                 )
-                return content, turn
+                return content, turn, latest_usage
+
+    @staticmethod
+    def _normalized_usage(token_usage: dict[str, Any]) -> dict[str, Any] | None:
+        breakdown = token_usage.get("last")
+        if not isinstance(breakdown, dict):
+            breakdown = token_usage.get("total")
+        if not isinstance(breakdown, dict):
+            return None
+        mapping = {
+            "inputTokens": "input_tokens",
+            "outputTokens": "output_tokens",
+            "totalTokens": "total_tokens",
+            "cachedInputTokens": "cached_input_tokens",
+            "reasoningOutputTokens": "reasoning_output_tokens",
+            "cacheWriteInputTokens": "cache_write_input_tokens",
+        }
+        normalized = {
+            target: value
+            for source, target in mapping.items()
+            if isinstance((value := breakdown.get(source)), int) and value >= 0
+        }
+        return normalized or None
 
     def _reject_server_request(
         self,

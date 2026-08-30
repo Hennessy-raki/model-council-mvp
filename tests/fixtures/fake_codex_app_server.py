@@ -72,17 +72,40 @@ for line in sys.stdin:
         )
         send(
             {
+                "method": "thread/tokenUsage/updated",
+                "params": {
+                    "threadId": params["threadId"],
+                    "turnId": "turn-fake-1",
+                    "tokenUsage": {
+                        "last": {
+                            "inputTokens": 10,
+                            "cachedInputTokens": 2,
+                            "outputTokens": 5,
+                            "reasoningOutputTokens": 1,
+                            "cacheWriteInputTokens": 0,
+                            "totalTokens": 15,
+                        },
+                        "total": {
+                            "inputTokens": 10,
+                            "cachedInputTokens": 2,
+                            "outputTokens": 5,
+                            "reasoningOutputTokens": 1,
+                            "cacheWriteInputTokens": 0,
+                            "totalTokens": 15,
+                        },
+                        "modelContextWindow": 100000,
+                    },
+                },
+            }
+        )
+        send(
+            {
                 "method": "turn/completed",
                 "params": {
                     "threadId": params["threadId"],
                     "turn": {
                         "id": "turn-fake-1",
                         "status": "completed",
-                        "usage": {
-                            "input_tokens": 10,
-                            "output_tokens": 5,
-                            "total_tokens": 15,
-                        },
                     },
                 },
             }

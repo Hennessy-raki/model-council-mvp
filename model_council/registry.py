@@ -900,16 +900,34 @@ def _is_sensitive_key(normalized: str) -> bool:
         for part in SENSITIVE_KEY_PARTS - {"token"}
     ):
         return True
-    token_metrics = (
-        normalized == "tokens"
-        or normalized == "token_source"
-        or normalized == "token_sources"
-        or normalized.endswith("_tokens")
-        or normalized.endswith("_token_count")
-        or normalized.endswith("_token_counts")
-        or normalized.endswith("_token_source")
-        or normalized.endswith("_token_sources")
-    )
+    token_metrics = normalized in {
+        "tokens",
+        "token_usage",
+        "tokenusage",
+        "token_source",
+        "token_sources",
+        "input_tokens",
+        "inputtokens",
+        "prompt_tokens",
+        "prompttokens",
+        "output_tokens",
+        "outputtokens",
+        "completion_tokens",
+        "completiontokens",
+        "total_tokens",
+        "totaltokens",
+        "cached_input_tokens",
+        "cachedinputtokens",
+        "reasoning_output_tokens",
+        "reasoningoutputtokens",
+        "cache_write_input_tokens",
+        "cachewriteinputtokens",
+        "token_count",
+        "token_counts",
+        "input_token_count",
+        "output_token_count",
+        "total_token_count",
+    }
     return "token" in normalized and not token_metrics
 
 

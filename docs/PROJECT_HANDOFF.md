@@ -12,8 +12,8 @@ It records the persistent-session, A2A, MCP, remote-identity, approval,
 verification and privacy boundaries. The Board 6 report remains in
 `docs/reports/2026-08-30-board-6-local-settings-interface.md`.
 
-Board 8 implementation is ready for a constrained synthetic Codex App Server
-pilot. Its frozen scope is:
+Board 8 completed one constrained live synthetic Codex App Server pilot. Its
+frozen scope is:
 
 ```text
 docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
@@ -25,12 +25,12 @@ Its offline completion evidence is:
 docs/reports/2026-08-30-board-8-controlled-live-pilot.md
 ```
 
-The Board 8 code has been verified against the local fake App Server only.
-No real model invocation is claimed. A live attempt must use the separate
-`config.pilot.example.json` pattern, retain mock manager/reviewer roles, show
-the exact locally stored prompt with `interop context <ID> --show-prompt`, and
-obtain explicit user authorization before its SHA-256 may be approved and
-consumed.
+The successful pilot used the separate `config.pilot.example.json` pattern,
+retained mock manager/reviewer roles, displayed the exact locally stored
+synthetic prompt, obtained explicit user authorization, and consumed its
+SHA-256 approval once. It sent no files, Artifacts, repository content,
+credentials or private-derived details. Any future live attempt must repeat
+that exact-context approval flow.
 
 ## Why this project exists
 
@@ -167,14 +167,15 @@ integration variable changes.
 `python -m model_council doctor --config config.codex.example.json` currently
 passes and resolves `codex.cmd` without invoking a model.
 
-The real repository-analysis run has not been executed yet. The managed safety
-review correctly required explicit user authorization before sending private
-repository contents or derived details to an external model service.
+The real repository-analysis run has not been executed. The verified live run
+was synthetic only. Explicit authorization is still required before sending
+private repository contents or derived details to an external model service.
 
 Board 7 adds a separate `CodexAppServerAdapter` and
 `config.interop.example.json`. The Adapter passed initialization, Thread
 start/resume, Turn streaming and approval-rejection tests against a local fake
-server. It has not invoked the real Codex App Server.
+server. Board 8 subsequently verified one real synthetic read-only App Server
+Turn under an exact one-time context approval.
 
 ## Provider caution
 
@@ -206,8 +207,16 @@ This information may become stale and should be reverified before provider work.
 - There is no Git worktree creation, diff review or merge workflow.
 - The current HTTP Adapter is intentionally small and does not cover every
   provider-specific response variant.
-- No live Codex App Server, A2A Agent or MCP server has been claimed as
-  verified; Board 7 verification uses local fake transports.
+- One live synthetic Codex App Server Turn is verified. A2A and MCP remain
+  local-fake only, and repository context remains unverified.
+- The first live Turn exposed a harmless but unnecessary featured-plugin
+  catalog request that failed with HTTP 401. Public pilot examples now disable
+  `plugins`, `remote_plugin` and `apps`; this mitigation is offline-validated
+  but has not been rechecked with another live Turn.
+- The first live Turn emitted token-usage notification data, but the then
+  current sanitizer redacted the container key and the ledger used estimates.
+  The Adapter now safely normalizes numeric usage fields and tests verify
+  provider-reported ledger input; that correction is offline-validated.
 - App Server interactive command and file-change requests are recorded and
   declined. A future repair-loop board must define richer user interaction.
 - Streamable HTTP currently supports JSON request/response operation, not
@@ -215,10 +224,10 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 7 are complete. The live-agent milestone below
-remains separate and paused pending explicit authorization.
+Productization Boards 1 through 8 are complete. The synthetic live-agent
+milestone below is verified; repository analysis remains separately gated.
 
-Milestone 1 is complete when one real Codex role successfully participates in a
+Milestone 1 completed when one real Codex role successfully participated in a
 full run from an ordinary PowerShell session.
 
 Acceptance criteria:

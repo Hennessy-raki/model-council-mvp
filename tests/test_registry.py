@@ -63,6 +63,14 @@ class RegistryTests(unittest.TestCase):
                         "locale": "zh-CN",
                         "nested": {
                             "access_token": "must-not-be-persisted",
+                            "access_tokens": ["must-not-be-persisted"],
+                            "tokenUsage": {
+                                "last": {
+                                    "inputTokens": 10,
+                                    "outputTokens": 5,
+                                    "totalTokens": 15,
+                                }
+                            },
                             "input_tokens": 123,
                             "token_sources": ["estimated"],
                         },
@@ -99,6 +107,16 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["access_token"],
                 "[REDACTED]",
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["access_tokens"],
+                "[REDACTED]",
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["tokenUsage"]["last"][
+                    "totalTokens"
+                ],
+                15,
             )
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["input_tokens"],

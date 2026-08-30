@@ -17,7 +17,16 @@
       "description": "Persistent Codex App Server session.",
       "capabilities": ["architecture", "implementation"],
       "boundaries": ["read-only", "reject interactive approvals"],
-      "command": ["codex", "app-server"],
+      "command": [
+        "codex",
+        "app-server",
+        "--disable",
+        "plugins",
+        "--disable",
+        "remote_plugin",
+        "--disable",
+        "apps"
+      ],
       "sandbox": "read-only",
       "approval_policy": "never",
       "outbound_context": {

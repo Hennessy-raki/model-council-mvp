@@ -284,6 +284,10 @@ class InteroperabilityTests(unittest.TestCase):
                 second.metadata["thread_id"],
                 "thread-persistent-1",
             )
+            self.assertEqual(first.metadata["usage"]["input_tokens"], 10)
+            self.assertEqual(first.metadata["usage"]["output_tokens"], 5)
+            self.assertEqual(first.metadata["usage"]["total_tokens"], 15)
+            self.assertEqual(first.metadata["usage_source"], "provider_reported")
             service = InteroperabilityService(config, store)
             sessions = service.sessions(agent_id="codex_app")
             self.assertEqual(len(sessions), 1)
@@ -298,6 +302,17 @@ class InteroperabilityTests(unittest.TestCase):
             self.assertEqual(
                 approvals[0]["action"],
                 "item/commandExecution/requestApproval",
+            )
+            usage_events = [
+                item
+                for item in service.events(sessions[0]["id"], limit=100)
+                if item["method"] == "thread/tokenUsage/updated"
+            ]
+            self.assertEqual(
+                usage_events[0]["payload"]["params"]["tokenUsage"]["last"][
+                    "inputTokens"
+                ],
+                10,
             )
 
     def _approved_request(self, adapter, agent: str) -> AgentRequest:
@@ -548,6 +563,10 @@ class InteroperabilityTests(unittest.TestCase):
                 ],
                 0,
             )
+            pilot_command = pilot_example.agents["codex_architect"]["command"]
+            self.assertIn("plugins", pilot_command)
+            self.assertIn("remote_plugin", pilot_command)
+            self.assertIn("apps", pilot_command)
 
     def test_codex_context_is_previewed_and_approved_once_before_startup(self):
         with TemporaryDirectory() as temp:

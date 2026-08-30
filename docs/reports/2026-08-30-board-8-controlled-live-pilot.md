@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: accepted offline control implementation; live invocation not executed
+Status: accepted; one live synthetic read-only Codex App Server pilot verified
 
 ## Objective
 
@@ -93,19 +93,57 @@ New offline coverage verifies:
 The full suite, Python compilation and JSON configuration parsing were run
 locally. Full-history privacy scanning remains required before push.
 
-## Live-pilot boundary
+## Live synthetic pilot evidence
 
-No real Codex App Server, model, A2A endpoint, MCP server or other external
-service was called for this board. `invoke_enabled` remains false in all
-committed examples.
+After the user reviewed and explicitly approved the exact prompt, one real
+Codex App Server architect participated in a complete run:
 
-Before a real synthetic pilot, the user must be shown the exact prompt for the
-new manifest and explicitly authorize that specific context. Repository content
-or derived private material remains excluded; it requires a separate explicit
-review and authorization rather than a reused Board 8 approval.
+- the outbound context was synthetic, 890 UTF-8 bytes, zero files and zero
+  Artifacts;
+- the approved SHA-256 manifest was consumed exactly once before process
+  startup;
+- the App Server used `sandbox: "read-only"` and `approval_policy: "never"`;
+- no command-execution or file-change approval request occurred;
+- one persistent Thread and one completed Turn were recorded;
+- the architect task completed with a non-empty UTF-8 Artifact;
+- the mock reviewer completed independent review;
+- the mock manager completed final synthesis;
+- the run had no failed or blocked task;
+- local protocol audit stored manifest ID, digest and byte count instead of the
+  outbound prompt body;
+- the ignored synthetic working directory remained empty and the tracked Git
+  worktree remained clean.
+
+No repository content, local path, credential, user identity, private-derived
+detail, A2A request or MCP request was sent.
+
+## Post-pilot findings and mitigations
+
+The live Turn succeeded, but two bounded findings were recorded:
+
+1. App Server startup attempted an unrelated featured-plugin catalog refresh
+   and received HTTP 401. The prompt was not part of that request. Public pilot
+   examples now explicitly disable `plugins`, `remote_plugin` and `apps`. The
+   installed CLI accepts those feature flags; no second live Turn was made.
+2. App Server emitted `thread/tokenUsage/updated`, but the generic sanitizer
+   redacted the `tokenUsage` container, so the live ledger used estimates. The
+   sanitizer now preserves an explicit allowlist of numeric token metrics while
+   continuing to redact credential-like token fields. The Adapter normalizes
+   the latest Turn breakdown into provider-reported ledger usage. Local fake
+   protocol and redaction tests verify the correction.
+
+These mitigations are offline-verified. The report does not claim that a second
+live Turn revalidated them.
+
+## Continuing live boundary
+
+Committed examples keep `invoke_enabled: false`. Every future live attempt
+requires a fresh exact context manifest and explicit user authorization.
+Repository content or derived private material remains excluded until a
+separate exact review and approval.
 
 ## Deferred
 
-Board 8 does not include worktrees, write permission, tests against a live
-endpoint, repair loops, merge approval, another real Agent family, A2A/MCP
-live verification, or product UI changes. Those remain later boards.
+Board 8 does not include worktrees, write permission, repository-context
+testing, repair loops, merge approval, another real Agent family, A2A/MCP live
+verification, or product UI changes. Those remain later boards.

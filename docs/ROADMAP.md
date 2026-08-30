@@ -99,8 +99,8 @@ Report:
 
 ## Productization Board 8: Controlled live-model pilot and outbound context approval
 
-Status: implementation complete; synthetic live invocation awaits an exact
-user-approved context manifest
+Status: complete; one exact-consent live synthetic Codex App Server pilot
+verified
 
 - require local preview and one-time approval for the exact App Server prompt;
 - bind approval to endpoint, SHA-256 and UTF-8 byte count;
@@ -110,6 +110,7 @@ user-approved context manifest
   credential/path patterns during the initial synthetic pilot;
 - retain local audit evidence while avoiding prompt duplication in protocol
   events.
+- keep repository-context, A2A and MCP live work behind separate approvals.
 
 Plan: `docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md`
 
@@ -131,7 +132,7 @@ Status: complete
 
 ## Milestone 1: One real Codex worker
 
-Status: in progress
+Status: complete for the synthetic read-only pilot
 
 - [x] resolve and launch the npm-installed Codex CLI from Python;
 - [x] add a no-invocation Adapter doctor check;
@@ -141,9 +142,9 @@ Status: in progress
 - [x] document Windows launch behavior;
 - [x] implement exact outbound-context preview and single-use approval for the
   App Server pilot;
-- [ ] obtain explicit authorization for one displayed synthetic prompt;
-- [ ] run one read-only Codex architect through the App Server;
-- [ ] verify Artifact, review, synthesis and database evidence from that
+- [x] obtain explicit authorization for one displayed synthetic prompt;
+- [x] run one read-only Codex architect through the App Server;
+- [x] verify Artifact, review, synthesis and database evidence from that
   authorized live run;
 - [x] keep all other roles on mocks during the pilot.
 

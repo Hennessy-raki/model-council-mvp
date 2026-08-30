@@ -52,7 +52,16 @@
         "reject interactive approvals",
         "single approved prompt only"
       ],
-      "command": ["codex", "app-server"],
+      "command": [
+        "codex",
+        "app-server",
+        "--disable",
+        "plugins",
+        "--disable",
+        "remote_plugin",
+        "--disable",
+        "apps"
+      ],
       "sandbox": "read-only",
       "approval_policy": "never",
       "outbound_context": {
