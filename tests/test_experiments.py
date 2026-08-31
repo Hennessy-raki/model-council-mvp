@@ -81,7 +81,13 @@ class ExperimentTests(unittest.TestCase):
             self.supervisor,
         )
 
-    def _fixture_real_spec(self, fixture_name, *, max_total_tokens=2000):
+    def _fixture_real_spec(
+        self,
+        fixture_name,
+        *,
+        fixture_arguments=None,
+        max_total_tokens=2000,
+    ):
         fixture = (
             Path(__file__).resolve().parent / "fixtures" / fixture_name
         )
@@ -95,6 +101,7 @@ class ExperimentTests(unittest.TestCase):
             "--disable",
             "apps",
         ]
+        command.extend(fixture_arguments or [])
         synthetic_cwd = r"C:\model-council-synthetic"
         self.registry.upsert_agent(
             "codex-manager",
@@ -464,6 +471,34 @@ class ExperimentTests(unittest.TestCase):
             )
         )
         with self.assertRaisesRegex(ExperimentError, "max_total_tokens"):
+            self.experiments.execute_start(start["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "failed",
+        )
+        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+
+    def test_total_or_completed_usage_is_accepted_without_relaxing_limits(self):
+        for usage_mode in ("total", "completed"):
+            with self.subTest(usage_mode=usage_mode):
+                _, start = self._approved_start(
+                    self._fixture_real_spec(
+                        "fake_codex_app_server_plan.py",
+                        fixture_arguments=["--usage-mode", usage_mode],
+                    )
+                )
+                completed = self.experiments.execute_start(start["id"])
+                evidence = completed["evidence"][0]["evidence"]
+                self.assertEqual(evidence["usage"]["total_tokens"], 15)
+
+    def test_absent_usage_still_fails_closed_without_response_evidence(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec(
+                "fake_codex_app_server_plan.py",
+                fixture_arguments=["--usage-mode", "absent"],
+            )
+        )
+        with self.assertRaisesRegex(ExperimentError, "usage is unavailable"):
             self.experiments.execute_start(start["id"])
         self.assertEqual(
             self.experiments.experiment(experiment["id"])["status"],

@@ -243,6 +243,8 @@ Status: in progress
   the candidate on every server-side approval request;
 - require a second SHA-256-bound approval before one controlled App Server
   startup and turn, then verify that path only with local fixtures;
+- accept only complete provider-reported usage from supported App Server
+  locations, while failing closed when usage is unavailable;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -264,6 +266,10 @@ and `docs/reports/2026-08-31-board-14-2-offline-app-server-execution.md`
 Board 14.3 plan and report:
 `docs/reports/2026-08-31-board-14-3-controlled-executor-plan.md`
 and `docs/reports/2026-08-31-board-14-3-controlled-executor.md`
+
+Board 14.4 plan and report:
+`docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md`
+and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

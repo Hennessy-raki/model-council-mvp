@@ -971,15 +971,9 @@ class ExperimentService:
                         messages.append(text)
             elif method == "thread/tokenUsage/updated":
                 token_usage = params.get("tokenUsage")
-                last = token_usage.get("last") if isinstance(token_usage, dict) else None
-                if isinstance(last, dict):
-                    mapped = {
-                        "input_tokens": last.get("inputTokens"),
-                        "output_tokens": last.get("outputTokens"),
-                        "total_tokens": last.get("totalTokens"),
-                    }
-                    if all(isinstance(value, int) and value >= 0 for value in mapped.values()):
-                        usage = mapped
+                normalized = self._normalized_usage(token_usage)
+                if normalized is not None:
+                    usage = normalized
             elif method == "turn/completed":
                 turn = params.get("turn")
                 if not isinstance(turn, dict) or turn.get("id") != turn_id:
@@ -988,7 +982,39 @@ class ExperimentService:
                     raise ExperimentError("Codex App Server turn did not complete")
                 if not messages:
                     raise ExperimentError("Codex App Server returned no agent message")
-                return messages[-1], usage
+                completed_usage = self._normalized_usage(turn.get("usage"))
+                return messages[-1], completed_usage or usage
+
+    @staticmethod
+    def _normalized_usage(value: Any) -> dict[str, int] | None:
+        if not isinstance(value, dict):
+            return None
+        nested = value.get("last")
+        if not isinstance(nested, dict):
+            nested = value.get("total")
+        if not isinstance(nested, dict):
+            nested = value
+        sources = {
+            "input_tokens": ("inputTokens", "input_tokens"),
+            "output_tokens": ("outputTokens", "output_tokens"),
+            "total_tokens": ("totalTokens", "total_tokens"),
+        }
+        normalized = {
+            target: next(
+                (
+                    nested[source]
+                    for source in options
+                    if isinstance(nested.get(source), int)
+                    and not isinstance(nested.get(source), bool)
+                    and nested[source] >= 0
+                ),
+                None,
+            )
+            for target, options in sources.items()
+        }
+        if any(value is None for value in normalized.values()):
+            return None
+        return normalized
 
     @staticmethod
     def _reject_server_request(

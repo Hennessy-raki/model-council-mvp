@@ -215,6 +215,8 @@ Status: in progress
   server-side approval request terminal for the public Codex candidate;
 - Board 14.3 adds a two-stage, one-time start authorization and verifies the
   controlled executor only against local fake App Server fixtures;
+- Board 14.4 repairs usage-shape compatibility while preserving fail-closed
+  limits and verifies it only with local fixtures;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
@@ -235,3 +237,7 @@ and `docs/reports/2026-08-31-board-14-2-offline-app-server-execution.md`
 Board 14.3 plan and report:
 `docs/reports/2026-08-31-board-14-3-controlled-executor-plan.md`
 and `docs/reports/2026-08-31-board-14-3-controlled-executor.md`
+
+Board 14.4 plan and report:
+`docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md`
+and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`

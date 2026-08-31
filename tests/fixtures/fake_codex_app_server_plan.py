@@ -6,6 +6,12 @@ def send(payload):
     print(json.dumps(payload), flush=True)
 
 
+usage_mode = "last"
+if "--usage-mode" in sys.argv:
+    index = sys.argv.index("--usage-mode")
+    usage_mode = sys.argv[index + 1]
+
+
 for line in sys.stdin:
     if not line.strip():
         continue
@@ -56,26 +62,29 @@ for line in sys.stdin:
                 },
             }
         )
-        send(
-            {
-                "method": "thread/tokenUsage/updated",
-                "params": {
-                    "turnId": "fixture-turn",
-                    "tokenUsage": {
-                        "last": {
-                            "inputTokens": 10,
-                            "outputTokens": 5,
-                            "totalTokens": 15,
-                        }
+        usage = {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15,
+        }
+        if usage_mode in {"last", "total"}:
+            send(
+                {
+                    "method": "thread/tokenUsage/updated",
+                    "params": {
+                        "turnId": "fixture-turn",
+                        "tokenUsage": {usage_mode: usage},
                     },
-                },
-            }
-        )
+                }
+            )
+        completed_turn = {"id": "fixture-turn", "status": "completed"}
+        if usage_mode == "completed":
+            completed_turn["usage"] = usage
         send(
             {
                 "method": "turn/completed",
                 "params": {
-                    "turn": {"id": "fixture-turn", "status": "completed"}
+                    "turn": completed_turn
                 },
             }
         )

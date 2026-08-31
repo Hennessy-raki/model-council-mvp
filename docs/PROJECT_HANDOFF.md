@@ -534,3 +534,9 @@ repository fake App Server fixtures.
 The next local action is to prepare a new strict candidate, display its
 experiment digest and stop at `pending`. Do not arm, start, or invoke it until
 the user has separately authorized the displayed experiment and start scopes.
+
+Board 14.4 repaired usage compatibility after the first real pilot failed
+closed. The parser accepts complete usage from `last`, `total`, or
+`turn/completed` and still rejects absent/incomplete usage. The failed
+experiment and consumed start approval are terminal; never retry them. Prepare
+a fresh candidate and repeat every approval gate before another one-turn pilot.
