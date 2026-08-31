@@ -203,3 +203,23 @@ Status: complete for local private incubation
 Plan: `docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md`
 
 Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
+
+### Board 14: Controlled local multi-Agent experiments
+
+Status: in progress
+
+- Board 14.0 offline experiment harness and fake Manager/two-Worker simulation
+  are implemented;
+- Board 14.1 Codex Manager candidate preparation is implemented;
+- exact team, identity, prompt, transport, permission, budget and stop-rule
+  scope is SHA-256-bound;
+- public Codex candidate remains `invoke_enabled: false`;
+- no real Codex, Reasonix, ZCode, Provider or network call has occurred;
+- Board 14 remains incomplete until one separately authorized exact 14.1 real
+  run is performed and reviewed.
+
+Plan:
+`docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md`
+
+Preparation report:
+`docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md`

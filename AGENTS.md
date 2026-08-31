@@ -94,6 +94,12 @@ only local synthetic CLI, ACP, A2A, MCP and HTTP observations. Missing machine
 evidence must remain `user_confirmation_required`; start approval is stale
 after team binding or readiness evidence drift.
 
+Board 14 is in progress. The offline experiment harness and disabled Codex
+Manager candidate are implemented. `real_codex` may be prepared and armed but
+has no executor. Do not add or call one without exact user authorization for
+the displayed team, model, command, working directory, prompt, limits and
+scope SHA-256.
+
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
 only. Every real App Server, A2A or MCP transport additionally requires

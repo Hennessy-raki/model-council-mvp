@@ -177,3 +177,17 @@ The first-stage Supervisor uses only synthetic local observations. It must not
 create an Adapter, start a real process, connect to a service or invoke a
 model. A future real readiness checker needs a separate scope, privacy review
 and explicit external-call authorization.
+
+## Controlled experiment boundary
+
+Board 14 experiment prompts, transport commands, resolved working directories,
+Agent/Model identities, cost/token limits, approvals, events and evidence are
+private runtime state.
+
+- tracked examples use only generic synthetic text and paths;
+- the initial scope permits zero files and zero Artifacts;
+- evidence stores hashes, byte counts and assertions, not response bodies;
+- private home paths and credential-shaped text are rejected;
+- a plan approval or armed candidate does not authorize a real call;
+- never copy a future Provider response or machine-specific diagnostic into a
+  tracked report.

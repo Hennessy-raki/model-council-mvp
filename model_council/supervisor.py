@@ -517,9 +517,14 @@ class SupervisorService:
             raise SupervisorError(f"team snapshot {snapshot_id!r} not found")
         return _decode_snapshot(row)
 
-    def request_start(self, snapshot_id: str) -> dict[str, Any]:
+    def validate_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Return one snapshot only when its bindings and evidence are current."""
         snapshot = self.snapshot_record(snapshot_id)
         self._require_current_snapshot(snapshot)
+        return snapshot
+
+    def request_start(self, snapshot_id: str) -> dict[str, Any]:
+        snapshot = self.validate_snapshot(snapshot_id)
         scope = {
             "version": 1,
             "action": "start_synthetic_team_task",

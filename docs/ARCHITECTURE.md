@@ -81,6 +81,29 @@ binding or evidence drift invalidates a pending or approved start request. A
 Supervisor authorization is not an Adapter invocation, workspace permission,
 Git action or real task execution.
 
+## Controlled multi-Agent experiments
+
+Board 14 binds one experiment to a current Board 13 team snapshot:
+
+```text
+current team snapshot
+  -> exact Manager + two fake Worker identities
+  -> exact synthetic prompt and transport
+  -> read-only permissions, budgets and stop rules
+  -> SHA-256 approval
+  -> revalidation
+  -> local simulation OR armed real candidate
+```
+
+Board 14.0 may run only the deterministic local simulator. It records task and
+fake-output hashes, byte counts and assertions, with zero Adapter and network
+calls.
+
+Board 14.1 may prepare and arm a `cli` or `codex_app_server` Manager candidate,
+but the repository contains no real experiment executor. `real_codex` cannot
+run through the simulator. Team-readiness, Agent/Model identity, prompt or
+scope drift makes the experiment stale.
+
 ## Usage, cost and balance ledger
 
 Every Adapter invocation creates one immutable `usage_events` record. Locally

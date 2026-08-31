@@ -11,6 +11,7 @@ from .comparison import RunComparisonService
 from .config import load_config
 from .discovery import DiscoveryService
 from .evaluation import EvaluationService
+from .experiments import ExperimentService
 from .interoperability import InteroperabilityService, MCPToolBroker
 from .outbound_context import OutboundContextService, validate_controlled_pilot
 from .repair import RepairPolicy, RepairService
@@ -870,6 +871,91 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_config_path()),
     )
 
+    experiment = subparsers.add_parser(
+        "experiment",
+        help="prepare and simulate controlled local multi-Agent experiments",
+    )
+    experiment_commands = experiment.add_subparsers(
+        dest="experiment_command",
+        required=True,
+    )
+    experiment_prepare = experiment_commands.add_parser(
+        "prepare",
+        help="prepare one exact Board 14 manifest without invoking an Agent",
+    )
+    experiment_prepare.add_argument("--spec-file", required=True)
+    experiment_prepare.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_list = experiment_commands.add_parser(
+        "list",
+        help="list controlled experiment manifests",
+    )
+    experiment_list.add_argument(
+        "--status",
+        choices=(
+            "pending",
+            "approved",
+            "rejected",
+            "armed",
+            "running",
+            "completed",
+            "failed",
+            "stale",
+            "stopped",
+        ),
+    )
+    experiment_list.add_argument("--config", default=str(default_config_path()))
+    experiment_show = experiment_commands.add_parser(
+        "show",
+        help="show one experiment, local events and bounded evidence",
+    )
+    experiment_show.add_argument("experiment_id")
+    experiment_show.add_argument("--show-prompt", action="store_true")
+    experiment_show.add_argument("--config", default=str(default_config_path()))
+    experiment_approve = experiment_commands.add_parser(
+        "approve",
+        help="approve one exact experiment scope",
+    )
+    experiment_approve.add_argument("experiment_id")
+    experiment_approve.add_argument("--scope-sha256", required=True)
+    experiment_approve.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_reject = experiment_commands.add_parser(
+        "reject",
+        help="reject one pending experiment",
+    )
+    experiment_reject.add_argument("experiment_id")
+    experiment_reject.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_arm = experiment_commands.add_parser(
+        "arm",
+        help="revalidate an approved experiment without invoking any Agent",
+    )
+    experiment_arm.add_argument("experiment_id")
+    experiment_arm.add_argument("--config", default=str(default_config_path()))
+    experiment_simulate = experiment_commands.add_parser(
+        "simulate",
+        help="run only the deterministic Board 14.0 local simulation",
+    )
+    experiment_simulate.add_argument("experiment_id")
+    experiment_simulate.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_stop = experiment_commands.add_parser(
+        "stop",
+        help="stop a pending, approved or armed experiment locally",
+    )
+    experiment_stop.add_argument("experiment_id")
+    experiment_stop.add_argument("--reason", required=True)
+    experiment_stop.add_argument("--config", default=str(default_config_path()))
+
     compare = subparsers.add_parser(
         "compare",
         help="summarize or compare persisted run evidence locally",
@@ -1414,6 +1500,41 @@ def main(argv: list[str] | None = None) -> None:
             elif args.supervisor_command == "start":
                 payload = supervisor.start(args.approval_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "experiment":
+            config = load_config(args.config)
+            experiments = _load_experiments(config)
+            if args.experiment_command == "prepare":
+                payload = experiments.prepare(
+                    _load_json_object(args.spec_file, "--spec-file")
+                )
+            elif args.experiment_command == "list":
+                payload = experiments.experiments(status=args.status)
+            elif args.experiment_command == "show":
+                payload = experiments.snapshot(
+                    args.experiment_id,
+                    include_prompt=args.show_prompt,
+                )
+            elif args.experiment_command == "approve":
+                payload = experiments.decide(
+                    args.experiment_id,
+                    approve=True,
+                    confirmation=args.scope_sha256,
+                )
+            elif args.experiment_command == "reject":
+                payload = experiments.decide(
+                    args.experiment_id,
+                    approve=False,
+                )
+            elif args.experiment_command == "arm":
+                payload = experiments.arm(args.experiment_id)
+            elif args.experiment_command == "simulate":
+                payload = experiments.simulate(args.experiment_id)
+            elif args.experiment_command == "stop":
+                payload = experiments.stop(
+                    args.experiment_id,
+                    reason=args.reason,
+                )
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "compare":
             config = load_config(args.config)
             registry = _load_registry(config)
@@ -1535,6 +1656,12 @@ def _load_interoperability(config) -> InteroperabilityService:
 def _load_supervisor(config) -> SupervisorService:
     registry = _load_registry(config)
     return SupervisorService(registry.store, registry)
+
+
+def _load_experiments(config) -> ExperimentService:
+    registry = _load_registry(config)
+    supervisor = SupervisorService(registry.store, registry)
+    return ExperimentService(registry.store, registry, supervisor)
 
 
 def _parse_setting_value(value: str):

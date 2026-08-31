@@ -507,6 +507,46 @@ The tracked example deliberately requires an explicit reviewer-connection
 confirmation; copy it to an untracked local file before replacing synthetic
 checks with future local experiments.
 
+## Controlled local experiments
+
+Board 14.0 adds an offline experiment harness. Board 14.1 prepares a disabled
+Codex Manager plus two fake Worker candidate and stops before invocation.
+
+Start with local copies of:
+
+```text
+config.board14.example.json
+config.board14.team.example.json
+config.experiment.board14-fake.example.json
+config.experiment.board14-codex.example.json
+```
+
+After creating and confirming a current Supervisor team snapshot, replace the
+placeholder snapshot ID in an untracked experiment spec:
+
+```powershell
+python -m model_council experiment prepare `
+  --spec-file <LOCAL_EXPERIMENT_JSON> --config <LOCAL_CONFIG>
+python -m model_council experiment show <EXPERIMENT_ID> `
+  --show-prompt --config <LOCAL_CONFIG>
+```
+
+Board 14.0 can be exactly approved, armed and simulated locally:
+
+```powershell
+python -m model_council experiment approve <EXPERIMENT_ID> `
+  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
+python -m model_council experiment arm <EXPERIMENT_ID> `
+  --config <LOCAL_CONFIG>
+python -m model_council experiment simulate <EXPERIMENT_ID> `
+  --config <LOCAL_CONFIG>
+```
+
+For `real_codex`, `arm` only revalidates the exact scope. There is no real
+executor in Board 14 preparation, and the fake simulator rejects that mode.
+Do not approve the real candidate until the user authorizes its exact local
+manifest.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：

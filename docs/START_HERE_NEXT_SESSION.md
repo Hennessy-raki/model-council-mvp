@@ -1,12 +1,16 @@
 # Start Here in the Next Session
 
-Use this document after the local-only Board 13 Supervisor commit.
+Use this document after the local-only Board 14 preparation commit.
 
 ## Current checkpoint
 
 Boards 1 through 12 remain the prepared public release candidate `0.2.0rc1`.
 Board 13 is complete only in the local private checkout. No Git tag, GitHub
 Release or push has been created for Board 13.
+
+Board 14.0 and the Board 14.1 preparation harness are implemented locally.
+Board 14 remains in progress because no new real Codex experiment has been
+authorized or run.
 
 The latest scope and completion reports are:
 
@@ -15,6 +19,8 @@ docs/reports/2026-08-31-board-12-product-release-plan.md
 docs/reports/2026-08-31-board-12-product-release.md
 docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md
 docs/reports/2026-08-31-board-13-supervisor-team-readiness.md
+docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md
+docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -26,6 +32,10 @@ Board 13 adds `model_council/supervisor.py`: an independent local team wizard,
 synthetic readiness reports, explicit confirmation state, SHA-256 team
 snapshots, stale-on-drift start approvals and a local fake Manager platform.
 It invokes no Adapter, process, network endpoint, model or task execution.
+
+Board 14 adds `model_council/experiments.py`. Its `synthetic_fake` mode can
+complete a zero-call simulation. Its `real_codex` mode can only prepare,
+approve and arm an exact candidate; there is no real executor.
 
 ## Required next-session sequence
 
@@ -56,6 +66,8 @@ context.
   private local runtime data.
 - Supervisor bindings, readiness reports, confirmations, snapshots, approvals
   and fake Manager events remain private local runtime data.
+- Experiment prompts, transport metadata, identities, budgets, approvals and
+  evidence remain private local runtime data.
 
 ## Repository orientation
 
@@ -69,6 +81,7 @@ context.
 - `model_council/workspaces.py`: Board 9 worktrees and merge/discard approvals
 - `model_council/outbound_context.py`: exact external-context manifests
 - `model_council/supervisor.py`: local team readiness and start approval
+- `model_council/experiments.py`: controlled experiment manifests and evidence
 - `docs/RELEASE.md`: release-candidate instructions
 - `docs/PRIVACY.md` and `docs/PRIVACY_ISSUES.md`: privacy gates and register
 
@@ -82,7 +95,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred tests after Board 13. The
-release verifier remains the Board 12 public-release gate and requires a clean
+The complete offline suite contains one hundred and ten tests after Board 14
+preparation. The release verifier remains the Board 12 public-release gate and
+requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
-unpublished local Board 13 commit is ahead of `origin/main`.
+unpublished local incubation branch is ahead of `origin/main`.

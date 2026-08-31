@@ -1,0 +1,79 @@
+{
+  "roles": {
+    "manager": {
+      "agent_id": "codex_manager",
+      "model_id": "codex-manager-model",
+      "launch_mode": "attach_or_spawn",
+      "transport": "cli",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "user_confirmation_required", "details": {}},
+          "login": {"status": "user_confirmation_required", "details": {}},
+          "model": {
+            "status": "user_confirmation_required",
+            "details": {}
+          },
+          "permission": {
+            "status": "passed",
+            "details": {"level": "read_only"}
+          },
+          "version": {"status": "user_confirmation_required", "details": {}},
+          "connection": {
+            "status": "user_confirmation_required",
+            "details": {}
+          }
+        }
+      }
+    },
+    "worker": {
+      "agent_id": "fake_worker_a",
+      "model_id": "mock-general",
+      "launch_mode": "attach",
+      "transport": "acp",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "passed", "details": {"fixture": "fake-acp"}},
+          "login": {"status": "not_applicable", "details": {}},
+          "model": {
+            "status": "passed",
+            "details": {"model_id": "mock-general"}
+          },
+          "permission": {
+            "status": "passed",
+            "details": {"level": "read_only"}
+          },
+          "version": {"status": "passed", "details": {"version": "fake-1"}},
+          "connection": {
+            "status": "passed",
+            "details": {"fixture": "fake-acp"}
+          }
+        }
+      }
+    },
+    "reviewer": {
+      "agent_id": "fake_reviewer",
+      "model_id": "mock-general",
+      "launch_mode": "manual",
+      "transport": "manual",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "not_applicable", "details": {}},
+          "login": {"status": "not_applicable", "details": {}},
+          "model": {
+            "status": "passed",
+            "details": {"model_id": "mock-general"}
+          },
+          "permission": {
+            "status": "passed",
+            "details": {"level": "read_only"}
+          },
+          "version": {"status": "passed", "details": {"version": "fake-1"}},
+          "connection": {
+            "status": "user_confirmation_required",
+            "details": {}
+          }
+        }
+      }
+    }
+  }
+}

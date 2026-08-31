@@ -233,6 +233,26 @@ Plan: `docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md`
 
 Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
 
+## Productization Board 14: Controlled local multi-Agent experiments
+
+Status: in progress
+
+- complete Board 14.0 with a fake Manager and two fake Workers;
+- prepare Board 14.1 with a disabled Codex Manager candidate;
+- bind the current team, identities, exact synthetic prompt, transport,
+  permissions, budgets and stop rules to one SHA-256;
+- retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
+  one future call, no retry and sequential execution;
+- stop before any real invocation until the user approves the exact local
+  manifest;
+- defer Reasonix, ZCode, real parallelism and the three-Agent experiment.
+
+Plan:
+`docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md`
+
+Preparation report:
+`docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md`
+
 ## Milestone 2: Persistent sessions and a second model family
 
 - implement `CodexAppServerAdapter`;

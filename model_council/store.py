@@ -540,6 +540,45 @@ class CouncilStore:
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS controlled_experiments (
+                    id TEXT PRIMARY KEY,
+                    phase TEXT NOT NULL,
+                    team_snapshot_id TEXT NOT NULL
+                        REFERENCES supervisor_team_snapshots(id),
+                    execution_mode TEXT NOT NULL,
+                    manager_agent_id TEXT NOT NULL
+                        REFERENCES agent_profiles(id),
+                    manager_model_id TEXT NOT NULL REFERENCES models(id),
+                    prompt_sha256 TEXT NOT NULL,
+                    prompt_bytes INTEGER NOT NULL,
+                    prompt_text TEXT NOT NULL,
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    armed_at TEXT,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    failure TEXT
+                );
+                CREATE TABLE IF NOT EXISTS controlled_experiment_events (
+                    id TEXT PRIMARY KEY,
+                    experiment_id TEXT NOT NULL
+                        REFERENCES controlled_experiments(id),
+                    event_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS controlled_experiment_evidence (
+                    id TEXT PRIMARY KEY,
+                    experiment_id TEXT NOT NULL
+                        REFERENCES controlled_experiments(id),
+                    kind TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -614,6 +653,12 @@ class CouncilStore:
                     ON supervisor_start_approvals(status, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_supervisor_events_manager
                     ON supervisor_platform_events(manager_agent_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_controlled_experiments_status
+                    ON controlled_experiments(status, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_controlled_experiment_events
+                    ON controlled_experiment_events(experiment_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_controlled_experiment_evidence
+                    ON controlled_experiment_evidence(experiment_id, created_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

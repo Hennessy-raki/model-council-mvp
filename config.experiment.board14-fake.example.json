@@ -1,0 +1,51 @@
+{
+  "phase": "14.0",
+  "execution_mode": "synthetic_fake",
+  "source": "synthetic",
+  "team_snapshot_id": "replace-with-local-team-snapshot-id",
+  "manager_agent_id": "manager",
+  "manager_model_id": "mock-general",
+  "prompt": "Create exactly two independent synthetic tasks for local fake workers. Return only the required JSON plan.",
+  "workers": [
+    {
+      "agent_id": "architect",
+      "model_id": "mock-general",
+      "role_key": "synthetic_analysis"
+    },
+    {
+      "agent_id": "implementer",
+      "model_id": "mock-general",
+      "role_key": "synthetic_risk_review"
+    }
+  ],
+  "transport": {
+    "host_type": "synthetic_fake",
+    "command": ["synthetic-fake-manager"],
+    "working_directory": "C:\\model-council-synthetic",
+    "model_id": "mock-general",
+    "sandbox": "read-only",
+    "approval_policy": "reject",
+    "features_disabled": []
+  },
+  "permissions": {
+    "sandbox": "read-only",
+    "tools_enabled": false,
+    "workspace_write": false,
+    "git_enabled": false,
+    "files": 0,
+    "artifacts": 0
+  },
+  "limits": {
+    "max_prompt_bytes": 4096,
+    "max_transport_bytes": 4096,
+    "max_total_bytes": 8192,
+    "max_response_bytes": 16384,
+    "max_calls": 1,
+    "max_retries": 0,
+    "parallelism": 1,
+    "timeout_seconds": 120
+  },
+  "expected_output": {
+    "schema": "manager_two_worker_plan_v1"
+  }
+}

@@ -336,3 +336,28 @@ evidence.
 - Residual risk: a local operator can intentionally enter identifying Agent
   labels or copy a local runtime report into a tracked file.
 - Blocks development: no
+
+### PRIV-017: Controlled experiment manifests retain exact local invocation scope
+
+- Date found: 2026-08-31
+- Channel: ignored local runtime SQLite and deliberate local CLI preview
+- Priority: medium
+- Data class: synthetic prompt, Agent/Model identities, command, working
+  directory, version/configuration hashes, budgets, approval and evidence
+- Status: mitigated for Board 14 preparation
+- Resolution:
+  - experiment state remains below the ignored runtime directory;
+  - public examples contain only generic synthetic identifiers and paths;
+  - personal home paths and credential-shaped text are rejected;
+  - the initial policy requires zero files, zero Artifacts, read-only, no
+    tools, no workspace writes and no Git;
+  - fake evidence stores hashes, byte counts and assertions instead of output;
+  - the real candidate has no executor and remains disabled.
+- Evidence: focused tests cover private-context rejection, disabled public
+  configuration, zero-call simulation and stale approval after identity/team
+  drift.
+- Residual risk: a future exact local manifest and Provider response may
+  contain operational or account-correlatable details. They must remain local
+  and require a new privacy review after the real run.
+- Blocks development: no for offline preparation; a real call remains blocked
+  pending exact authorization.

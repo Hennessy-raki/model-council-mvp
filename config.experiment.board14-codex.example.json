@@ -1,0 +1,63 @@
+{
+  "phase": "14.1",
+  "execution_mode": "real_codex",
+  "source": "synthetic",
+  "team_snapshot_id": "replace-with-local-team-snapshot-id",
+  "manager_agent_id": "codex_manager",
+  "manager_model_id": "codex-manager-model",
+  "prompt": "Create exactly two independent synthetic tasks for local fake workers. Return only the required JSON plan.",
+  "workers": [
+    {
+      "agent_id": "fake_worker_a",
+      "model_id": "mock-general",
+      "role_key": "synthetic_analysis"
+    },
+    {
+      "agent_id": "fake_worker_b",
+      "model_id": "mock-general",
+      "role_key": "synthetic_risk_review"
+    }
+  ],
+  "transport": {
+    "host_type": "codex_app_server",
+    "command": [
+      "codex",
+      "app-server",
+      "--disable",
+      "plugins",
+      "--disable",
+      "remote_plugin",
+      "--disable",
+      "apps"
+    ],
+    "working_directory": "C:\\model-council-synthetic",
+    "model_id": "codex-manager-model",
+    "sandbox": "read-only",
+    "approval_policy": "never",
+    "features_disabled": ["plugins", "remote_plugin", "apps"]
+  },
+  "permissions": {
+    "sandbox": "read-only",
+    "tools_enabled": false,
+    "workspace_write": false,
+    "git_enabled": false,
+    "files": 0,
+    "artifacts": 0
+  },
+  "limits": {
+    "max_prompt_bytes": 4096,
+    "max_transport_bytes": 4096,
+    "max_total_bytes": 8192,
+    "max_response_bytes": 16384,
+    "max_calls": 1,
+    "max_retries": 0,
+    "parallelism": 1,
+    "timeout_seconds": 120,
+    "max_total_tokens": 2000,
+    "max_total_cost": "0.25",
+    "cost_currency": "USD"
+  },
+  "expected_output": {
+    "schema": "manager_two_worker_plan_v1"
+  }
+}

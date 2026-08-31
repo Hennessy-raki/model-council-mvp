@@ -62,6 +62,18 @@ snapshots, exact start approvals and local fake Manager-platform events.
 Configuration or readiness drift stales approvals. Board 13 is not pushed and
 does not change the published `0.2.0rc1` release candidate.
 
+Board 14 preparation is implemented locally:
+
+```text
+docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md
+docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md
+```
+
+Board 14.0 completes a deterministic fake Manager plus two fake Worker
+simulation with zero Adapter/network calls. Board 14.1 can prepare and arm an
+exact disabled Codex Manager candidate but has no real executor. No exact live
+manifest has been approved and no new Codex call has occurred.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -212,6 +224,8 @@ Baseline history through 2026-08-31:
   candidate board;
 - all one hundred unit/integration tests passed after the local Supervisor
   readiness and start-approval board;
+- all one hundred and ten unit/integration tests passed after the Board 14
+  offline harness and disabled Codex candidate preparation;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -489,3 +503,14 @@ python -m model_council supervisor show --config config.example.json
 The Supervisor remains local and synthetic. Do not add a real readiness probe,
 Manager delivery or task execution path without a newly frozen board scope and
 exact external-call authorization.
+
+For Board 14 preparation state, use:
+
+```powershell
+python -m model_council experiment list --config <LOCAL_CONFIG>
+python -m model_council experiment show <EXPERIMENT_ID> `
+  --show-prompt --config <LOCAL_CONFIG>
+```
+
+The next action is to create and review one real 14.1 local manifest. Stop
+before approval until the user confirms the exact scope SHA-256.

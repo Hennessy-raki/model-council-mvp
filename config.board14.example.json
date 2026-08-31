@@ -1,0 +1,123 @@
+{
+  "project_name": "model-council-board14-local-experiment",
+  "state_dir": "runtime-board14",
+  "max_parallel": 1,
+  "manager": "codex_manager",
+  "reviewer": "fake_reviewer",
+  "providers": {
+    "mock-local": {
+      "kind": "mock",
+      "display_name": "Local offline mock provider",
+      "enabled": true
+    },
+    "codex-host": {
+      "kind": "codex_app_server",
+      "display_name": "Local Codex App Server host",
+      "enabled": true
+    }
+  },
+  "models": {
+    "mock-general": {
+      "provider": "mock-local",
+      "display_name": "Mock general model",
+      "capabilities": ["implementation", "analysis", "review"],
+      "enabled": true
+    },
+    "codex-manager-model": {
+      "provider": "codex-host",
+      "display_name": "Locally selected Codex Manager model",
+      "capabilities": ["planning", "routing"],
+      "enabled": true
+    }
+  },
+  "agents": {
+    "codex_manager": {
+      "type": "codex_app_server",
+      "provider": "codex-host",
+      "model": "codex-manager-model",
+      "role": "manager",
+      "description": "Board 14.1 candidate; remains disabled until exact approval.",
+      "capabilities": ["plan", "route"],
+      "boundaries": [
+        "synthetic context only",
+        "read-only",
+        "zero files",
+        "zero Artifacts",
+        "no tools",
+        "one call",
+        "no retry"
+      ],
+      "command": [
+        "codex",
+        "app-server",
+        "--disable",
+        "plugins",
+        "--disable",
+        "remote_plugin",
+        "--disable",
+        "apps"
+      ],
+      "cwd_env": "MODEL_COUNCIL_SYNTHETIC_CWD",
+      "sandbox": "read-only",
+      "approval_policy": "never",
+      "outbound_context": {
+        "source": "synthetic",
+        "allowed_sources": ["synthetic"],
+        "max_files": 0,
+        "max_total_bytes": 4096,
+        "max_artifacts": 0,
+        "max_artifact_bytes": 0
+      },
+      "invoke_enabled": false
+    },
+    "fake_worker_a": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "synthetic_analysis",
+      "description": "First deterministic local fake Worker.",
+      "capabilities": ["analysis"]
+    },
+    "fake_worker_b": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "synthetic_risk_review",
+      "description": "Second deterministic local fake Worker.",
+      "capabilities": ["review"]
+    },
+    "fake_reviewer": {
+      "type": "mock",
+      "provider": "mock-local",
+      "model": "mock-general",
+      "role": "reviewer",
+      "description": "Local fake readiness reviewer.",
+      "capabilities": ["review"]
+    }
+  },
+  "role_assignments": {
+    "decision_manager": {
+      "mode": "manual",
+      "agent": "codex_manager",
+      "model": "codex-manager-model",
+      "locked": true
+    },
+    "detail_executor": {
+      "mode": "manual",
+      "agent": "fake_worker_a",
+      "model": "mock-general",
+      "locked": true
+    },
+    "independent_reviewer": {
+      "mode": "manual",
+      "agent": "fake_reviewer",
+      "model": "mock-general",
+      "locked": true
+    }
+  },
+  "settings": {
+    "auto_discovery_on_start": false,
+    "artifact_provenance_display": "compact",
+    "usage_estimation_enabled": false
+  }
+}
