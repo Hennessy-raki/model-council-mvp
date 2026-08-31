@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +11,9 @@ from urllib.request import Request, urlopen
 import unittest
 
 from model_council.config import load_config
+from model_council.outbound_context import OutboundContextPolicy
+from model_council.store import utc_now
+from model_council.types import AgentRequest
 from model_council.web import LocalSettingsApplication, _handler_for
 
 
@@ -160,7 +164,10 @@ class LocalSettingsWebTests(unittest.TestCase):
                     "currency": None,
                 },
             )
-            self.assertEqual(state["project"]["external_calls"], "none")
+            self.assertEqual(
+                state["project"]["external_calls"],
+                "none on page refresh",
+            )
             capability = next(
                 item
                 for item in state["adapter_capabilities"]
@@ -190,6 +197,8 @@ class LocalSettingsWebTests(unittest.TestCase):
                 with urlopen(f"http://{host}:{port}/") as response:
                     page = response.read().decode("utf-8")
                     self.assertIn("Model Council local settings", page)
+                    self.assertIn("Approval center", page)
+                    self.assertIn("Local backup and restore", page)
                     self.assertIn(
                         "default-src 'self'",
                         response.headers["Content-Security-Policy"],
@@ -213,6 +222,188 @@ class LocalSettingsWebTests(unittest.TestCase):
                     state["registry"]["settings"]["locale"]["value"],
                     "zh-CN",
                 )
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_product_state_exact_approvals_and_backup_requests(self):
+        with TemporaryDirectory() as temp:
+            app = self._app(Path(temp))
+            request = AgentRequest(
+                run_id="run-local",
+                task_id="task-local",
+                mode="evaluation",
+                goal="Synthetic",
+                instruction="Return fixed text",
+                sender="local",
+                recipient="external",
+            )
+            manifest = app.outbound_context.prepare(
+                endpoint_id="agent:external",
+                agent_id="external",
+                request=request,
+                prompt="Fixed public synthetic prompt",
+                source="synthetic",
+                policy=OutboundContextPolicy(
+                    max_files=0,
+                    max_total_bytes=1024,
+                    max_artifacts=0,
+                    max_artifact_bytes=0,
+                    allowed_sources=("synthetic",),
+                    excluded_patterns=(),
+                ),
+                transport_context={"endpoint": "https://example.invalid"},
+            )
+            state = app.update(
+                "outbound-context-approvals",
+                manifest["id"],
+                {
+                    "id": manifest["id"],
+                    "decision": "approve",
+                    "scope_sha256": manifest["approval_sha256"],
+                },
+            )
+            outbound = next(
+                item
+                for item in state["approval_center"]
+                if item["id"] == manifest["id"]
+            )
+            self.assertEqual(outbound["status"], "approved")
+            self.assertEqual(
+                outbound["scope"]["prompt"],
+                "Fixed public synthetic prompt",
+            )
+
+            backup_state = app.update(
+                "backups",
+                "new",
+                {"id": "new", "include_artifacts": False},
+            )
+            backup = backup_state["backups"]["items"][0]
+            requested = app.update(
+                "backup-restore-requests",
+                backup["id"],
+                {"id": backup["id"]},
+            )
+            approval = requested["backups"]["restore_approvals"][0]
+            approved = app.update(
+                "backup-restore-approvals",
+                approval["id"],
+                {
+                    "id": approval["id"],
+                    "decision": "approve",
+                    "scope_sha256": approval["scope_sha256"],
+                },
+            )
+            restore_item = next(
+                item
+                for item in approved["approval_center"]
+                if item["id"] == approval["id"]
+            )
+            self.assertEqual(restore_item["status"], "approved")
+
+    def test_workspace_approval_uses_exact_existing_service_gate(self):
+        with TemporaryDirectory() as temp:
+            app = self._app(Path(temp))
+            lease_id = "lease-local"
+            approval_id = "approval-local"
+            scope = {"lease_id": lease_id, "action": "merge"}
+            scope_sha256 = sha256(
+                json.dumps(
+                    scope,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            now = utc_now()
+            with app.store.connect() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO worktree_leases(
+                        id, repository_root, target_branch, base_ref, base_sha,
+                        branch_name, worktree_path, agent_id, status,
+                        created_at, updated_at, completed_at
+                    ) VALUES (?, ?, 'main', 'HEAD', 'abc', 'branch', ?,
+                        'writer', 'active', ?, ?, NULL)
+                    """,
+                    (
+                        lease_id,
+                        str(Path(temp)),
+                        str(Path(temp) / "worktree"),
+                        now,
+                        now,
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO worktree_permissions(
+                        lease_id, read_enabled, write_enabled, test_enabled,
+                        merge_enabled, source, updated_at
+                    ) VALUES (?, 1, 1, 1, 1, 'user', ?)
+                    """,
+                    (lease_id, now),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO worktree_approvals(
+                        id, lease_id, action, scope_sha256, scope_json, status,
+                        requested_at, decided_at, consumed_at, failure
+                    ) VALUES (?, ?, 'merge', ?, ?, 'pending', ?, NULL, NULL, NULL)
+                    """,
+                    (
+                        approval_id,
+                        lease_id,
+                        scope_sha256,
+                        json.dumps(scope),
+                        now,
+                    ),
+                )
+            with self.assertRaisesRegex(RuntimeError, "exactly match"):
+                app.update(
+                    "workspace-approvals",
+                    approval_id,
+                    {
+                        "id": approval_id,
+                        "decision": "approve",
+                        "scope_sha256": "wrong",
+                    },
+                )
+            state = app.update(
+                "workspace-approvals",
+                approval_id,
+                {
+                    "id": approval_id,
+                    "decision": "approve",
+                    "scope_sha256": scope_sha256,
+                },
+            )
+            item = next(
+                item
+                for item in state["approval_center"]
+                if item["id"] == approval_id
+            )
+            self.assertEqual(item["status"], "approved")
+
+    def test_http_run_comparison_is_read_only(self):
+        with TemporaryDirectory() as temp:
+            app = self._app(Path(temp))
+            left = app.store.create_run("left")
+            right = app.store.create_run("right")
+            server = ThreadingHTTPServer(
+                ("127.0.0.1", 0),
+                _handler_for(app, "local-token"),
+            )
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                host, port = server.server_address[:2]
+                with urlopen(
+                    f"http://{host}:{port}/api/compare?left={left}&right={right}"
+                ) as response:
+                    comparison = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(comparison["left"]["run"]["id"], left)
+                self.assertEqual(comparison["right"]["run"]["id"], right)
             finally:
                 server.shutdown()
                 server.server_close()

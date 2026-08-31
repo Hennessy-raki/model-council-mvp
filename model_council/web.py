@@ -8,12 +8,18 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from .adapters import build_adapters
+from .backup import BackupService
+from .comparison import RunComparisonService
 from .config import CouncilConfig
+from .evaluation import EvaluationService
 from .ledger import UsageLedger
 from .interoperability import InteroperabilityService
+from .outbound_context import OutboundContextService
+from .repair import RepairService
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
+from .workspaces import WorkspaceService
 
 
 MAX_REQUEST_BYTES = 1_000_000
@@ -41,6 +47,16 @@ class LocalSettingsApplication:
             registry=self.registry,
             adapters={},
         )
+        self.outbound_context = OutboundContextService(self.store)
+        self.workspaces = WorkspaceService(self.store)
+        self.repairs = RepairService(self.store, self.workspaces)
+        self.evaluations = EvaluationService(config, self.store)
+        self.backups = BackupService(self.store)
+        self.comparison = RunComparisonService(
+            self.store,
+            self.ledger,
+            self.router,
+        )
 
     def state(self) -> dict[str, Any]:
         runs = self.store.list_runs(limit=20)
@@ -51,11 +67,19 @@ class LocalSettingsApplication:
                 display_mode=self.registry.provenance_display_mode(),
             ):
                 artifacts.append(artifact)
+        workspaces = self.workspaces.workspaces()
+        repairs = self.repairs.sessions()
+        evaluations = self.evaluations.evaluations()
+        comparison = (
+            self.comparison.compare(runs[1]["id"], runs[0]["id"])
+            if len(runs) >= 2
+            else None
+        )
         return {
             "project": {
                 "name": self.config.project_name,
                 "state": "local SQLite",
-                "external_calls": "none",
+                "external_calls": "none on page refresh",
             },
             "adapter_capabilities": [
                 {
@@ -80,7 +104,29 @@ class LocalSettingsApplication:
             "routing": self.router.decisions(),
             "runs": runs,
             "artifacts": artifacts,
+            "approval_center": self._approval_center(),
+            "workspaces": {
+                "leases": workspaces,
+                "evidence": self._workspace_evidence(),
+                "approvals": self.workspaces.approvals(),
+            },
+            "repairs": {
+                "sessions": repairs,
+                "details": [
+                    self.repairs.snapshot(item["id"])
+                    for item in repairs[:10]
+                ],
+            },
+            "evaluations": evaluations,
+            "run_comparison": comparison,
+            "backups": {
+                "items": self.backups.backups(),
+                "restore_approvals": self.backups.approvals(),
+            },
         }
+
+    def compare_runs(self, left_run_id: str, right_run_id: str) -> dict[str, Any]:
+        return self.comparison.compare(left_run_id, right_run_id)
 
     def update(
         self,
@@ -152,9 +198,143 @@ class LocalSettingsApplication:
                 resource_id,
                 approve=decision == "approve",
             )
+        elif resource == "outbound-context-approvals":
+            decision = _decision(payload)
+            self.outbound_context.decide(
+                resource_id,
+                approve=decision == "approve",
+                confirmation=_text(payload, "scope_sha256", "")
+                if decision == "approve"
+                else "",
+            )
+        elif resource == "workspace-approvals":
+            decision = _decision(payload)
+            self.workspaces.decide(
+                resource_id,
+                approve=decision == "approve",
+                confirmation=_text(payload, "scope_sha256", "")
+                if decision == "approve"
+                else "",
+            )
+        elif resource == "backups":
+            if resource_id != "new":
+                raise ValueError("backup creation resource id must be 'new'")
+            self.backups.create(
+                include_artifacts=_boolean(
+                    payload,
+                    "include_artifacts",
+                    False,
+                )
+            )
+        elif resource == "backup-restore-requests":
+            self.backups.request_restore(resource_id)
+        elif resource == "backup-restore-approvals":
+            decision = _decision(payload)
+            self.backups.decide(
+                resource_id,
+                approve=decision == "approve",
+                confirmation=_text(payload, "scope_sha256", "")
+                if decision == "approve"
+                else "",
+            )
+        elif resource == "backup-restores":
+            if _text(payload, "action") != "restore":
+                raise ValueError("backup restore action must be restore")
+            self.backups.restore(resource_id)
         else:
             raise ValueError(f"unsupported local resource {resource!r}")
         return self.state()
+
+    def _approval_center(self) -> list[dict[str, Any]]:
+        result = []
+        for item in self.interoperability.approvals():
+            result.append(
+                {
+                    "kind": "interoperability",
+                    "id": item["id"],
+                    "status": item["status"],
+                    "action": item["action"],
+                    "resource": item["resource"],
+                    "scope_sha256": None,
+                    "scope": item["arguments"],
+                    "requested_at": item["requested_at"],
+                    "decided_at": item["decided_at"],
+                    "consumed_at": item["consumed_at"],
+                }
+            )
+        for item in self.outbound_context.manifests():
+            detailed = self.outbound_context.manifest(
+                item["id"],
+                include_prompt=True,
+            )
+            outbound_scope = dict(item["manifest"])
+            outbound_scope["prompt"] = detailed["prompt"]
+            result.append(
+                {
+                    "kind": "outbound_context",
+                    "id": item["id"],
+                    "status": item["status"],
+                    "action": "external context",
+                    "resource": item["endpoint_id"],
+                    "scope_sha256": item["approval_sha256"],
+                    "scope": outbound_scope,
+                    "requested_at": item["requested_at"],
+                    "decided_at": item["decided_at"],
+                    "consumed_at": item["consumed_at"],
+                }
+            )
+        for item in self.workspaces.approvals():
+            result.append(
+                {
+                    "kind": "workspace",
+                    "id": item["id"],
+                    "status": item["status"],
+                    "action": item["action"],
+                    "resource": item["lease_id"],
+                    "scope_sha256": item["scope_sha256"],
+                    "scope": item["scope"],
+                    "requested_at": item["requested_at"],
+                    "decided_at": item["decided_at"],
+                    "consumed_at": item["consumed_at"],
+                }
+            )
+        for item in self.backups.approvals():
+            result.append(
+                {
+                    "kind": "backup_restore",
+                    "id": item["id"],
+                    "status": item["status"],
+                    "action": "restore",
+                    "resource": item["backup_id"],
+                    "scope_sha256": item["scope_sha256"],
+                    "scope": item["scope"],
+                    "requested_at": item["requested_at"],
+                    "decided_at": item["decided_at"],
+                    "consumed_at": item["consumed_at"],
+                }
+            )
+        return sorted(
+            result,
+            key=lambda item: (item["requested_at"], item["id"]),
+            reverse=True,
+        )
+
+    def _workspace_evidence(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM worktree_evidence
+                ORDER BY created_at DESC, id DESC
+                LIMIT 100
+                """
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["command"] = json.loads(item.pop("command_json"))
+            item["metadata"] = json.loads(item.pop("metadata_json"))
+            result.append(item)
+        return result
 
 
 def serve(config: CouncilConfig, *, host: str, port: int) -> None:
@@ -197,7 +377,8 @@ def _handler_for(
             if not self._trusted_host():
                 self._error(HTTPStatus.FORBIDDEN, "untrusted Host header")
                 return
-            path = urlsplit(self.path).path
+            parsed = urlsplit(self.path)
+            path = parsed.path
             if path == "/":
                 self._html(
                     INDEX_HTML.replace("__WRITE_TOKEN__", token).replace(
@@ -208,6 +389,25 @@ def _handler_for(
                 return
             if path == "/api/state":
                 self._json(HTTPStatus.OK, app.state())
+                return
+            if path == "/api/compare":
+                from urllib.parse import parse_qs
+
+                query = parse_qs(parsed.query)
+                left = query.get("left", [""])[0]
+                right = query.get("right", [""])[0]
+                if not left or not right:
+                    self._error(
+                        HTTPStatus.BAD_REQUEST,
+                        "left and right run ids are required",
+                    )
+                    return
+                try:
+                    payload = app.compare_runs(left, right)
+                except ValueError as exc:
+                    self._error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                self._json(HTTPStatus.OK, payload)
                 return
             self._error(HTTPStatus.NOT_FOUND, "unknown local endpoint")
 
@@ -226,7 +426,7 @@ def _handler_for(
             try:
                 payload = self._request_json()
                 state = app.update(parts[1], parts[2], payload)
-            except ValueError as exc:
+            except (ValueError, RuntimeError) as exc:
                 self._error(HTTPStatus.BAD_REQUEST, str(exc))
                 return
             self._json(HTTPStatus.OK, state)
@@ -387,6 +587,13 @@ def _object(payload: dict[str, Any], key: str) -> dict[str, Any]:
     return value
 
 
+def _decision(payload: dict[str, Any]) -> str:
+    decision = _text(payload, "decision")
+    if decision not in {"approve", "reject"}:
+        raise ValueError("decision must be approve or reject")
+    return decision
+
+
 INDEX_HTML = """<!doctype html>
 <html lang="en">
 <head>
@@ -518,6 +725,94 @@ INDEX_HTML = """<!doctype html>
           }
         });
       });
+      document.querySelectorAll(".center-approval-action").forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            const id = button.dataset.id;
+            const decision = button.dataset.decision;
+            const kind = button.dataset.kind;
+            const resources = {
+              interoperability: "interop-approvals",
+              outbound_context: "outbound-context-approvals",
+              workspace: "workspace-approvals",
+              backup_restore: "backup-restore-approvals"
+            };
+            const payload = {id, decision};
+            if (button.dataset.scope) payload.scope_sha256 = button.dataset.scope;
+            const state = await put(
+              `/api/${resources[kind]}/${encodeURIComponent(id)}`,
+              payload
+            );
+            render(state);
+            message.textContent = `${decision === "approve" ? "Approved" : "Rejected"} ${kind} request ${id}.`;
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      });
+      document.querySelectorAll(".backup-create").forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            const state = await put("/api/backups/new", {
+              id: "new",
+              include_artifacts: button.dataset.artifacts === "true"
+            });
+            render(state);
+            message.textContent = "Created a verified local backup.";
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      });
+      document.querySelectorAll(".backup-request").forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            const id = button.dataset.id;
+            const state = await put(
+              `/api/backup-restore-requests/${encodeURIComponent(id)}`,
+              {id}
+            );
+            render(state);
+            message.textContent = `Created an exact restore approval for backup ${id}.`;
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      });
+      document.querySelectorAll(".backup-restore").forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            const id = button.dataset.id;
+            const state = await put(
+              `/api/backup-restores/${encodeURIComponent(id)}`,
+              {id, action: "restore"}
+            );
+            render(state);
+            message.textContent = `Consumed restore approval ${id}.`;
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      });
+      const compareButton = document.querySelector("#compare-runs");
+      if (compareButton) {
+        compareButton.addEventListener("click", async () => {
+          try {
+            const left = document.querySelector("#compare-left").value;
+            const right = document.querySelector("#compare-right").value;
+            const response = await fetch(
+              `/api/compare?left=${encodeURIComponent(left)}&right=${encodeURIComponent(right)}`,
+              {cache: "no-store"}
+            );
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Run comparison failed");
+            document.querySelector("#comparison-result").innerHTML =
+              `<pre><code>${json(result)}</code></pre>`;
+          } catch (error) {
+            message.textContent = error.message;
+          }
+        });
+      }
     }
     function setField(formElement, name, value, asJson = false) {
       const field = formElement.elements[name];
@@ -562,6 +857,15 @@ INDEX_HTML = """<!doctype html>
       currentState = state;
       const r = state.registry, ledger = state.ledger;
       const interop = state.interoperability;
+      const approvalCenter = state.approval_center || [];
+      const centerTable = approvalCenter.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Requested</th><th>Kind</th><th>Action</th><th>Resource</th><th>Scope SHA-256</th><th>Scope</th><th>Status</th><th>Decision</th><th>Consume</th></tr></thead><tbody>${approvalCenter.map(item => `<tr><td>${escapeHtml(item.requested_at)}</td><td>${escapeHtml(item.kind)}</td><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.resource)}</td><td><code>${escapeHtml(item.scope_sha256)}</code></td><td><details><summary>Inspect local scope</summary><code>${json(item.scope)}</code></details></td><td>${escapeHtml(item.status)}</td><td>${item.status === "pending" ? `<button class="center-approval-action" type="button" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(item.id)}" data-scope="${escapeHtml(item.scope_sha256)}" data-decision="approve">Approve exact scope</button> <button class="center-approval-action" type="button" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(item.id)}" data-decision="reject">Reject</button>` : ""}</td><td>${item.kind === "backup_restore" && item.status === "approved" ? `<button class="backup-restore" type="button" data-id="${escapeHtml(item.id)}">Restore once</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+        : "<p class='small'>No approval records.</p>";
+      const backupItems = state.backups.items || [];
+      const backupTable = backupItems.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Created</th><th>Id</th><th>Reason</th><th>Database bytes</th><th>Artifacts</th><th>Database SHA-256</th><th>Restore</th></tr></thead><tbody>${backupItems.map(item => `<tr><td>${escapeHtml(item.created_at)}</td><td><code>${escapeHtml(item.id)}</code></td><td>${escapeHtml(item.manifest.reason)}</td><td>${escapeHtml(item.manifest.database.bytes)}</td><td>${escapeHtml(item.manifest.artifact_count)}</td><td><code>${escapeHtml(item.manifest.database.sha256)}</code></td><td><button class="backup-request" type="button" data-id="${escapeHtml(item.id)}">Request exact restore</button></td></tr>`).join("")}</tbody></table></div>`
+        : "<p class='small'>No local backups.</p>";
+      const runOptions = state.runs.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.created_at)} · ${escapeHtml(item.status)} · ${escapeHtml(item.goal)}</option>`).join("");
       const approvalTable = interop.approvals.length
         ? `<div class="table-wrap"><table><thead><tr><th>Requested</th><th>Endpoint</th><th>Action</th><th>Resource</th><th>Arguments</th><th>Status</th><th>Decision</th></tr></thead><tbody>${interop.approvals.map(item => `<tr><td>${escapeHtml(item.requested_at)}</td><td>${escapeHtml(item.endpoint_id)}</td><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.resource)}</td><td><code>${json(item.arguments)}</code></td><td>${escapeHtml(item.status)}</td><td>${item.status === "pending" ? `<button class="approval-action" type="button" data-id="${escapeHtml(item.id)}" data-decision="approve">Approve once</button> <button class="approval-action" type="button" data-id="${escapeHtml(item.id)}" data-decision="reject">Reject</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
         : "<p class='small'>No interoperability approvals.</p>";
@@ -572,6 +876,26 @@ INDEX_HTML = """<!doctype html>
           <section><h3>Usage total</h3><pre><code>${json(ledger.summary.total)}</code></pre></section>
           <section><h3>Persisted observations</h3><p>${r.discovery.length} discovery/health record(s), shown below. Refreshing this page does not rescan or probe.</p></section>
         </div>
+        <h2>Approval center</h2>
+        <p class="small">Approval and consumption remain separate. This page delegates to the same persisted single-use checks as the CLI and never invokes, merges, discards or restores merely by refreshing.</p>
+        ${centerTable}
+        <h2>Workspace evidence</h2>
+        <h3>Leases and permissions</h3>
+        ${table(state.workspaces.leases, [{key:"updated_at",label:"Updated"},{key:"id",label:"Lease"},{key:"agent_id",label:"Agent"},{key:"status",label:"Status"},{key:"target_branch",label:"Target"},{key:"base_sha",label:"Base SHA"},{key:"permissions",label:"Permissions",json:true}])}
+        <h3>Bounded workspace evidence</h3>
+        ${table(state.workspaces.evidence, [{key:"created_at",label:"Recorded"},{key:"lease_id",label:"Lease"},{key:"kind",label:"Kind"},{key:"status",label:"Status"},{key:"exit_code",label:"Exit"},{key:"duration_ms",label:"Duration ms"},{key:"stdout_bytes",label:"Stdout bytes"},{key:"stderr_bytes",label:"Stderr bytes"},{key:"stdout_text",label:"Bounded stdout"},{key:"stderr_text",label:"Bounded stderr"},{key:"metadata",label:"Metadata",json:true}])}
+        <h2>Repair evidence</h2>
+        ${table(state.repairs.sessions, [{key:"updated_at",label:"Updated"},{key:"id",label:"Session"},{key:"lease_id",label:"Lease"},{key:"writer_agent_id",label:"Writer"},{key:"reviewer_agent_id",label:"Reviewer"},{key:"status",label:"Status"},{key:"iteration_count",label:"Iterations"},{key:"policy",label:"Limits",json:true}])}
+        ${state.repairs.details.length ? `<details><summary>Inspect bounded iteration and event evidence</summary><pre><code>${json(state.repairs.details)}</code></pre></details>` : ""}
+        <h2>Objective evaluation evidence</h2>
+        ${table(state.evaluations, [{key:"created_at",label:"Created"},{key:"id",label:"Evaluation"},{key:"agent_family",label:"Family"},{key:"agent_id",label:"Agent"},{key:"case_id",label:"Case"},{key:"status",label:"Status"},{key:"case",label:"Assertions and hashes",json:true}])}
+        <h2>Run comparison</h2>
+        ${state.runs.length >= 2 ? `<div class="grid"><label>Left run<select id="compare-left">${runOptions}</select></label><label>Right run<select id="compare-right">${runOptions}</select></label></div><button id="compare-runs" type="button">Compare local evidence</button><div id="comparison-result">${state.run_comparison ? `<pre><code>${json(state.run_comparison)}</code></pre>` : ""}</div>` : "<p class='small'>At least two runs are required.</p>"}
+        <h2>Local backup and restore</h2>
+        <p class="small">Database-only is the privacy-safe default. Artifact inclusion is explicit. Worktrees, repositories, credentials and environment files are always excluded. Restore requires a separately approved exact digest and creates a pre-restore safety backup.</p>
+        <button class="backup-create" type="button" data-artifacts="false">Create database backup</button>
+        <button class="backup-create" type="button" data-artifacts="true">Create database + registered Artifacts backup</button>
+        ${backupTable}
         <h2>Providers</h2>
         ${table(r.providers, [{key:"id",label:"Id"},{key:"display_name",label:"Name"},{key:"kind",label:"Kind"},{key:"enabled",label:"Enabled"},{key:"source",label:"Source"},{key:"config",label:"Safe config",json:true}], "providers")}
         ${form("Add or edit Provider", "", formField("Display name", "display_name", "") + formField("Kind", "kind", "custom") + formField("Enabled", "enabled", true, "checkbox") + formField("Config JSON", "config", "{}", "textarea"), "providers")}

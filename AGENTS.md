@@ -67,17 +67,24 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 11 are complete. Board 12 is next: product UI,
-approval center, comparison, backup and release preparation. Read the Board 11
-plan/report and `docs/PRIVACY_ISSUES.md` before presenting external evaluation
-evidence or changing any approval boundary.
+Productization Boards 1 through 12 are complete. The current release candidate
+is `0.2.0rc1`. Read `docs/RELEASE.md`, the Board 12 plan/report and
+`docs/PRIVACY_ISSUES.md` before changing the product surface, backup format or
+any approval boundary.
 
 Board 11 is complete. The sole candidate is DeepSeek `deepseek-v4-flash` in
 the `synthetic_evaluator` role. One explicitly authorized synthetic manifest
 was consumed once with zero files and zero Artifacts. The endpoint returned a
 valid Responses result, but its 131-byte output failed the exact 16-byte token
-metric; no retry or fallback occurred. Board 12 is next, after the Board 11
-commit is pushed and independently verified on public `main`.
+metric; no retry or fallback occurred. That consumed approval authorizes no
+additional call.
+
+Board 12 adds the loopback-only product interface, unified approval center,
+workspace/repair/evaluation evidence views, deterministic run comparison,
+privacy-safe local backup/restore and repeatable release verification. SQLite
+remains authoritative. Page refresh performs no model, network, Git, test,
+merge, discard or restore action. No Git tag or GitHub Release is created
+without separate user direction.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references

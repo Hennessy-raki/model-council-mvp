@@ -1,6 +1,6 @@
 # Privacy Issue Register
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 Every privacy-related observation must be recorded here, even when it does not
 block development. Remediation effort is proportional to whether personal,
@@ -250,3 +250,67 @@ evidence.
   authorization.
 - Blocks development: no; the fixed live scope was explicitly authorized and
   consumed once.
+
+### PRIV-013: Local backups contain private runtime state
+
+- Date found: 2026-08-31
+- Channel: ignored `state_dir/backups/`
+- Priority: medium
+- Data class: SQLite prompts, Agent identities, absolute paths, local approval
+  records, bounded workspace/repair evidence and optional registered Artifacts
+- Status: mitigated and accepted
+- Resolution:
+  - backup destinations are generated only below the ignored state directory;
+  - database-only is the default and Artifact inclusion is explicit;
+  - only registered, hash-verified Artifact files below the Artifact store may
+    be copied;
+  - credentials, `.env`, repositories and worktrees are excluded;
+  - manifests use relative names, byte counts and SHA-256 values;
+  - restore requires an exact approval and creates a pre-restore safety backup.
+- Evidence: synthetic tests verify exclusions, Artifact recovery, stale-state
+  rejection, manifest/database tamper detection and safety-backup creation.
+- Residual risk: anyone with access to the local operating-system account may
+  read ignored backup contents. Host filesystem protection and retention remain
+  operator responsibilities.
+- Blocks development: no
+
+### PRIV-014: Approval center displays private evidence locally
+
+- Date found: 2026-08-31
+- Channel: loopback Web UI and local JSON API
+- Priority: medium
+- Data class: exact external prompts, workspace paths and bounded evidence,
+  repair goals/feedback, evaluation hashes and restore scopes
+- Status: mitigated and accepted
+- Resolution:
+  - the server binds only to `127.0.0.1` or `localhost`;
+  - trusted Host, same-origin writes, a per-process token, CSP, no-store and
+    browser capability restrictions remain enforced;
+  - page refresh is read-only;
+  - prompt display is deliberate so outbound approval covers the real text;
+  - approval delegates to existing deterministic service methods and remains
+    separate from invocation, merge, discard, MCP execution or restore.
+- Evidence: Web tests cover local binding/security headers, cross-origin and
+  missing-token rejection, exact outbound/workspace/restore approval, read-only
+  comparison and product-page sections.
+- Residual risk: local malware, an unlocked browser session or deliberate
+  screenshots can expose displayed evidence.
+- Blocks development: no
+
+### PRIV-015: Release-verifier diagnostics may contain local failure details
+
+- Date found: 2026-08-31
+- Channel: local terminal output
+- Priority: low
+- Data class: bounded command names and the last 4,000 characters of test,
+  compilation or privacy-scan diagnostics
+- Status: mitigated and accepted
+- Resolution: the verifier is local-only, uses argument arrays with
+  `shell=False`, bounds retained output and reports only the repository folder
+  name rather than its absolute path.
+- Evidence: release tests verify version and tracked-file policy; the final
+  release command is run only from the reviewed checkout.
+- Residual risk: a failing third-party test can print private content to the
+  local terminal. Do not paste failed verifier output into public reports
+  without review.
+- Blocks development: no

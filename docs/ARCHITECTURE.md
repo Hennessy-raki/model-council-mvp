@@ -309,16 +309,63 @@ routing. It cannot grant worktree permissions, request a merge, submit repair
 feedback or reuse a prior Board 8-10 approval. Loopback fake servers may
 exercise the same path with temporary test configuration.
 
-## 下一阶段边界
+## Local product and approval projection
 
-优先级顺序：
+Board 12 keeps SQLite authoritative and projects existing services into one
+loopback-only product state:
 
-1. preserve Board 8 external-context approval and Board 9 merge authority;
-2. finish the one DeepSeek Board 11 evaluation only after exact context
-   authorization;
-3. complete and publish Board 11 before starting Board 12 product UI and
-   release work;
-4. keep repair evidence local unless the user approves its exact disclosure.
+```text
+SQLite
+  +-- registry, routing, ledger and runs
+  +-- interoperability and outbound context approvals
+  +-- workspace leases, evidence and merge/discard approvals
+  +-- repair sessions, iterations and events
+  +-- objective evaluations
+  +-- local backups and restore approvals
+       |
+       +-- loopback Web UI / local CLI
+```
+
+The Web layer does not implement authorization rules. It calls the same
+`decide` methods as the CLI. Approval and consumption remain separate, and
+refreshing the page performs no external, Git, test or destructive operation.
+
+`RunComparisonService` computes pairwise local summaries from persisted run,
+task, Artifact, message, ledger, budget, routing and evaluation records. It
+emits exact deltas only for known values; unavailable cost evidence stays
+unavailable.
+
+## Local backup and exact restore
+
+`BackupService` uses SQLite's consistent backup operation and writes only below
+ignored runtime state. A manifest binds the database and optional registered
+Artifact inventory by bytes and SHA-256. It never traverses repositories or
+worktrees.
+
+Restore scope binds:
+
+- backup database hash and byte count;
+- optional Artifact inventory hash;
+- the logical current database state, excluding the restore audit tables;
+- the local state-directory identity;
+- the exact restore actions and exclusions.
+
+Approval changes do not invalidate their own scope. Any unrelated state change
+does. Before replacement, the service creates a safety backup. The SQLite file
+is restored atomically after integrity verification, and missing Artifacts are
+added only after hash and containment checks.
+
+## Release-candidate boundaries
+
+Boards 1 through 12 are complete. Release-candidate maintenance must:
+
+1. preserve Board 8 external-context approval and Board 9 merge/discard
+   authority;
+2. preserve Board 10 repair limits and explicit recovery;
+3. treat the consumed Board 11 synthetic approval as authorizing no new call;
+4. keep workspace, repair, evaluation and backup evidence local unless the
+   user approves an exact disclosure;
+5. run the clean-main release verifier before any tag or published release.
 
 The Board 6 interface is a loopback-only presentation and local mutation layer
 over SQLite. It does not move state into a remote service and cannot replace

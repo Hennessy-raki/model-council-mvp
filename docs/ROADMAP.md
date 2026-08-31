@@ -201,13 +201,18 @@ Report:
 
 ## Productization Board 12: Product interface and release preparation
 
-Status: queued after Board 11; implementation not started
+Status: complete
 
-- productize the local interface and approval center;
-- compare runs and evaluation evidence;
-- add local backup and restore safeguards;
-- complete privacy/security release review and public documentation;
-- prepare a release candidate without weakening existing approval gates.
+- productized the loopback-only interface and unified approval center;
+- added workspace, repair and objective-evaluation evidence views;
+- added deterministic run summaries and pairwise comparison;
+- added database-first backup plus exact approved restore with safety backup;
+- completed privacy/security release review and public documentation;
+- prepared `0.2.0rc1` without weakening existing approval gates.
+
+Plan: `docs/reports/2026-08-31-board-12-product-release-plan.md`
+
+Report: `docs/reports/2026-08-31-board-12-product-release.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

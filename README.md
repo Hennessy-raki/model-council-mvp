@@ -173,6 +173,13 @@ python -m model_council runs --config config.example.json
 python -m model_council status <RUN_ID> --config config.example.json
 ```
 
+## Release candidate status
+
+Productization Boards 1 through 12 are complete. The prepared release
+candidate is `0.2.0rc1`; it has not been tagged or published as a GitHub
+Release. Run `python scripts/release_verify.py` from a clean synchronized
+`main` checkout before creating any release artifact.
+
 ## Deterministic routing
 
 Board 5 resolves persisted roles before any Adapter invocation. Inspect the
@@ -415,6 +422,61 @@ provider-reported tokens, but the 131-byte response did not equal the required
 fallback. This outcome is retained as evidence rather than weakened into a
 pass.
 
+## Product interface and approval center
+
+Board 12 expands the loopback Web interface into the local product surface:
+
+```powershell
+python -m model_council web --config config.example.json
+```
+
+It displays the unified approval center, workspace permissions and bounded
+evidence, repair sessions and iterations, objective evaluations, pairwise run
+comparison and local backup/restore. Refresh remains read-only.
+
+Approving never consumes an action. External invocation, MCP execution,
+workspace merge/discard and restore still require their separate CLI or UI
+consumption step and the same service-level revalidation.
+
+## Local backup and restore
+
+Create the privacy-safe database-only default:
+
+```powershell
+python -m model_council backup create --config config.example.json
+```
+
+Include registered Artifacts explicitly:
+
+```powershell
+python -m model_council backup create --include-artifacts `
+  --config config.example.json
+```
+
+Restore is deliberately three-step:
+
+```powershell
+python -m model_council backup request-restore <BACKUP_ID> `
+  --config config.example.json
+python -m model_council backup approve <APPROVAL_ID> `
+  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config config.example.json
+python -m model_council backup restore <APPROVAL_ID> `
+  --config config.example.json
+```
+
+Backups stay below ignored runtime state. They never include credentials,
+environment files, repositories or worktrees. Restore creates a safety backup,
+rechecks the exact state and only adds missing hash-verified Artifacts.
+
+Compare two local runs:
+
+```powershell
+python -m model_council compare runs <LEFT_RUN_ID> <RIGHT_RUN_ID> `
+  --config config.example.json
+```
+
+Unknown cost remains unknown instead of becoming zero.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：
@@ -422,6 +484,7 @@ pass.
 ```powershell
 python -m unittest discover -s tests -v
 python scripts/privacy_scan.py --history
+python scripts/release_verify.py
 ```
 
 ## 接入 Codex

@@ -464,6 +464,25 @@ class CouncilStore:
                     completed_at TEXT,
                     UNIQUE(evaluation_id, case_id)
                 );
+                CREATE TABLE IF NOT EXISTS local_backups (
+                    id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    manifest_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS backup_restore_approvals (
+                    id TEXT PRIMARY KEY,
+                    backup_id TEXT NOT NULL,
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT,
+                    safety_backup_id TEXT,
+                    failure TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -522,6 +541,10 @@ class CouncilStore:
                     ON evaluation_runs(agent_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_evaluation_cases_evaluation
                     ON evaluation_cases(evaluation_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_local_backups_created
+                    ON local_backups(created_at);
+                CREATE INDEX IF NOT EXISTS idx_backup_restore_status
+                    ON backup_restore_approvals(status, requested_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

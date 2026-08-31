@@ -128,3 +128,39 @@ name.
 Never copy local manifests, provider responses, usage payloads or evaluation
 database rows into a public report. Any future repository-derived evaluation
 requires a new policy, new exact manifest and separate user authorization.
+
+## Product interface and approval-center boundary
+
+The Board 12 product interface remains loopback-only and may display private
+local evidence such as paths, bounded test/diff excerpts, repair goals and
+reviewer feedback. Its JSON API uses the same Host, origin, per-process token,
+CSP and no-store controls as the settings interface.
+
+- Refresh is read-only and does not invoke, probe, test, merge, discard or
+  restore.
+- Exact outbound prompts are shown locally so a human can review the real
+  disclosure before approval.
+- Approval and consumption remain separate operations.
+- Workspace merge/discard, MCP execution and backup restore still delegate to
+  their existing deterministic service methods.
+- Never expose this server on a non-loopback interface or copy its API response
+  into a public issue, report or screenshot.
+
+## Backup and restore boundary
+
+Backups are private runtime state below ignored `state_dir/backups/`.
+
+- Database-only backup is the default.
+- Artifact copying is explicit and limited to registered, hash-verified files
+  below the Artifact store.
+- Credentials, `.env`, repositories and Git worktrees are never included.
+- Manifests use relative file names and hashes; they do not publish the local
+  state path.
+- Restore requires an exact single-use SHA-256 approval, revalidates current
+  and backup state, and creates a pre-restore safety backup.
+- Artifact restore only adds missing verified files. It does not delete
+  unrelated local files or overwrite a hash conflict.
+
+Backups can still contain private prompts, evidence and local identities inside
+SQLite. Protect the host account and backup directory accordingly. Never commit
+or upload a backup as a release asset.

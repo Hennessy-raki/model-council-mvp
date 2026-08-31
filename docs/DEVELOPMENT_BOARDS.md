@@ -173,10 +173,14 @@ Report:
 
 ### Board 12: Product interface, backup and release preparation
 
-Status: queued after Board 11; implementation not started
+Status: complete
 
-- add the product approval center and repair/workspace views;
-- add run comparison and evaluation views;
-- add local backup/restore safeguards;
-- complete privacy, security and public-release verification;
-- prepare release documentation and a reviewable release candidate.
+- added the product approval center and repair/workspace evidence views;
+- added deterministic run comparison and objective-evaluation views;
+- added privacy-safe backup/restore with exact approval and safety backup;
+- completed privacy, security and public-release verification;
+- prepared release documentation and reviewable candidate `0.2.0rc1`.
+
+Plan: `docs/reports/2026-08-31-board-12-product-release-plan.md`
+
+Report: `docs/reports/2026-08-31-board-12-product-release.md`

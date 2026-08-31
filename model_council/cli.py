@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from .adapters import build_adapters
+from .backup import BackupService
+from .comparison import RunComparisonService
 from .config import load_config
 from .discovery import DiscoveryService
 from .evaluation import EvaluationService
@@ -15,6 +17,7 @@ from .repair import RepairPolicy, RepairService
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
 from .registry import RegistryService
+from .release import ReleaseVerifier
 from .routing import RoutingService
 from .store import CouncilStore
 from .workspaces import WorkspaceService
@@ -684,6 +687,105 @@ def build_parser() -> argparse.ArgumentParser:
     repair_merge.add_argument("session_id")
     repair_merge.add_argument("--config", default=str(default_config_path()))
 
+    backup = subparsers.add_parser(
+        "backup",
+        help="create and exactly approve privacy-safe local backup restores",
+    )
+    backup_commands = backup.add_subparsers(
+        dest="backup_command",
+        required=True,
+    )
+    backup_create = backup_commands.add_parser(
+        "create",
+        help="create a verified SQLite backup; Artifacts are opt-in",
+    )
+    backup_create.add_argument("--include-artifacts", action="store_true")
+    backup_create.add_argument("--config", default=str(default_config_path()))
+    backup_list = backup_commands.add_parser(
+        "list",
+        help="list verified local backup manifests",
+    )
+    backup_list.add_argument("--config", default=str(default_config_path()))
+    backup_show = backup_commands.add_parser(
+        "show",
+        help="show one local backup manifest",
+    )
+    backup_show.add_argument("backup_id")
+    backup_show.add_argument("--config", default=str(default_config_path()))
+    backup_request = backup_commands.add_parser(
+        "request-restore",
+        help="create an exact pending approval for one backup restore",
+    )
+    backup_request.add_argument("backup_id")
+    backup_request.add_argument("--config", default=str(default_config_path()))
+    backup_approvals = backup_commands.add_parser(
+        "approvals",
+        help="list backup restore approvals",
+    )
+    backup_approvals.add_argument(
+        "--status",
+        choices=("pending", "approved", "rejected", "consumed", "failed", "stale"),
+    )
+    backup_approvals.add_argument("--config", default=str(default_config_path()))
+    backup_approve = backup_commands.add_parser(
+        "approve",
+        help="approve one exact restore scope",
+    )
+    backup_approve.add_argument("approval_id")
+    backup_approve.add_argument("--scope-sha256", required=True)
+    backup_approve.add_argument("--config", default=str(default_config_path()))
+    backup_reject = backup_commands.add_parser(
+        "reject",
+        help="reject one pending restore",
+    )
+    backup_reject.add_argument("approval_id")
+    backup_reject.add_argument("--config", default=str(default_config_path()))
+    backup_restore = backup_commands.add_parser(
+        "restore",
+        help="consume one approved restore after revalidation and safety backup",
+    )
+    backup_restore.add_argument("approval_id")
+    backup_restore.add_argument("--config", default=str(default_config_path()))
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="summarize or compare persisted run evidence locally",
+    )
+    compare_commands = compare.add_subparsers(
+        dest="compare_command",
+        required=True,
+    )
+    compare_show = compare_commands.add_parser(
+        "show",
+        help="show one deterministic run summary",
+    )
+    compare_show.add_argument("run_id")
+    compare_show.add_argument("--config", default=str(default_config_path()))
+    compare_runs = compare_commands.add_parser(
+        "runs",
+        help="compare two runs and report exact numeric deltas",
+    )
+    compare_runs.add_argument("left_run_id")
+    compare_runs.add_argument("right_run_id")
+    compare_runs.add_argument("--config", default=str(default_config_path()))
+
+    release = subparsers.add_parser(
+        "release",
+        help="verify the local release candidate",
+    )
+    release_commands = release.add_subparsers(
+        dest="release_command",
+        required=True,
+    )
+    release_verify = release_commands.add_parser(
+        "verify",
+        help="run the complete clean-main release gate",
+    )
+    release_verify.add_argument(
+        "--repository",
+        default=str(Path(__file__).resolve().parent.parent),
+    )
+
     runs = subparsers.add_parser("runs", help="list recent runs")
     runs.add_argument("--config", default=str(default_config_path()))
     runs.add_argument("--limit", type=int, default=20)
@@ -1109,6 +1211,65 @@ def main(argv: list[str] | None = None) -> None:
             elif args.repair_command == "request-merge":
                 payload = repairs.request_merge(args.session_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "backup":
+            config = load_config(args.config)
+            backups = BackupService(
+                CouncilStore(config.state_dir / "council.db")
+            )
+            if args.backup_command == "create":
+                payload = backups.create(
+                    include_artifacts=args.include_artifacts
+                )
+            elif args.backup_command == "list":
+                payload = backups.backups()
+            elif args.backup_command == "show":
+                payload = backups.backup(args.backup_id)
+            elif args.backup_command == "request-restore":
+                payload = backups.request_restore(args.backup_id)
+            elif args.backup_command == "approvals":
+                payload = backups.approvals(args.status)
+            elif args.backup_command == "approve":
+                payload = backups.decide(
+                    args.approval_id,
+                    approve=True,
+                    confirmation=args.scope_sha256,
+                )
+            elif args.backup_command == "reject":
+                payload = backups.decide(
+                    args.approval_id,
+                    approve=False,
+                )
+            elif args.backup_command == "restore":
+                payload = backups.restore(args.approval_id)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "compare":
+            config = load_config(args.config)
+            registry = _load_registry(config)
+            ledger = UsageLedger(config, registry.store, registry)
+            routing = RoutingService(
+                config=config,
+                store=registry.store,
+                registry=registry,
+                adapters={},
+            )
+            comparison = RunComparisonService(
+                registry.store,
+                ledger,
+                routing,
+            )
+            if args.compare_command == "show":
+                payload = comparison.summarize(args.run_id)
+            else:
+                payload = comparison.compare(
+                    args.left_run_id,
+                    args.right_run_id,
+                )
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "release":
+            payload = ReleaseVerifier(args.repository).verify()
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            if payload["status"] != "passed":
+                raise SystemExit(2)
         elif args.command == "runs":
             config = load_config(args.config)
             orchestrator = Orchestrator(config)

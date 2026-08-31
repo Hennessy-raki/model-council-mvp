@@ -1,6 +1,6 @@
 # Project Handoff
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 The authoritative Board 7 completion report is:
 
@@ -32,12 +32,24 @@ zero files, zero Artifacts, exact single-use outbound approval and bounded
 request/response context. All eighty-one offline tests and the history privacy
 scan pass. One explicitly authorized live scope was consumed once. Transport,
 authentication and ledger recording succeeded, while the 131-byte response
-failed the exact 16-byte token metric. No retry or fallback occurred. Board 12
-is the next board after Board 11 is committed, pushed and remotely verified.
+failed the exact 16-byte token metric. No retry or fallback occurred.
 
-Board 8 remains the latest live-model milestone. It includes one functionally
-successful live synthetic Codex App Server run and deterministic privacy
-corrections. Its scope is:
+Board 12 is complete. Its frozen scope and completion report are:
+
+```text
+docs/reports/2026-08-31-board-12-product-release-plan.md
+docs/reports/2026-08-31-board-12-product-release.md
+```
+
+It adds the loopback product surface, unified approval center,
+workspace/repair/evaluation evidence views, run comparison, privacy-safe
+backup/restore and release-candidate verification. The prepared version is
+`0.2.0rc1`; no tag or GitHub Release was created.
+
+Board 8 remains the verified live Codex milestone. Board 11 later added the
+single authorized DeepSeek synthetic evaluation described above. Board 8
+includes one functionally successful live synthetic Codex App Server run and
+deterministic privacy corrections. Its scope is:
 
 ```text
 docs/reports/2026-08-30-board-8-controlled-live-pilot-plan.md
@@ -92,8 +104,8 @@ The local control plane now integrates:
 - a local Web control console.
 
 Isolated Git worktrees, merge/discard approval and bounded reviewer-writer
-repair/recovery are now implemented. The next session owns Board 11 real-Agent
-evaluation followed by Board 12 product/release work.
+repair/recovery, objective second-family evaluation and the Board 12 local
+product/release surface are now implemented.
 
 ## What is implemented
 
@@ -147,11 +159,16 @@ The repository currently contains:
 - exact single-use fast-forward merge and destructive-discard approvals;
 - bounded repair sessions, iterations, evidence bundles and explicit recovery;
 - deterministic iteration/time/file/diff/feedback and optional usage budgets;
-- seventy-three automated tests.
+- one exact-approved DeepSeek synthetic evaluator with objective assertions;
+- a unified local approval and evidence center;
+- deterministic run comparison;
+- privacy-safe backup/restore with safety backup;
+- repeatable `0.2.0rc1` release-candidate verification;
+- ninety-three automated tests.
 
 ## Verified state
 
-Baseline history through 2026-08-30:
+Baseline history through 2026-08-31:
 
 - Python version: 3.14.4
 - Node.js version: 24.16.0
@@ -173,6 +190,10 @@ Baseline history through 2026-08-30:
   workspace permissions;
 - all seventy-three unit/integration tests passed after bounded repair and
   recovery;
+- all eighty-one unit/integration tests passed after objective second-family
+  evaluation;
+- all ninety-three unit/integration tests passed after the product and release
+  candidate board;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -219,8 +240,13 @@ Board 7 adds a separate `CodexAppServerAdapter` and
 start/resume, Turn streaming and approval-rejection tests against a local fake
 server. Board 8 subsequently verified one real synthetic read-only App Server
 Turn under a one-time prompt approval. Post-run review found the unapproved
-`cwd` metadata gap, so this is functional evidence rather than complete privacy
-acceptance.
+`cwd` metadata gap; the deterministic pre-start combined-scope gate now blocks
+that path and Board 8 is accepted with local regression evidence.
+
+Board 11 verified one separately approved DeepSeek Responses request containing
+only the frozen synthetic task and transport metadata. It sent zero files and
+zero Artifacts. The valid 131-byte response failed the required exact 16-byte
+token assertion; no retry or fallback occurred.
 
 ## Provider caution
 
@@ -273,7 +299,7 @@ This information may become stale and should be reverified before provider work.
 
 ## Separate real-agent milestone
 
-Productization Boards 1 through 11 are complete. Board 12 is next.
+Productization Boards 1 through 12 are complete.
 Repository-context external analysis remains separately gated and is not
 authorized by the Board 11 synthetic evaluation.
 
@@ -400,6 +426,22 @@ discards automatically and exposes no built-in external reviewer path.
 docs/reports/2026-08-30-board-10-bounded-repair-recovery.md
 ```
 
+Board 11, the DeepSeek Responses synthetic evaluator, is complete. Its single
+authorized manifest was consumed once and the objective exact-token outcome
+remains failed without retry.
+
+```text
+docs/reports/2026-08-30-board-11-second-agent-evaluation.md
+```
+
+Board 12, the local product and release candidate, is complete. It keeps SQLite
+authoritative while adding approval/evidence views, deterministic comparison,
+privacy-safe backup/restore and the `0.2.0rc1` release verifier.
+
+```text
+docs/reports/2026-08-31-board-12-product-release.md
+```
+
 ## How to resume safely
 
 ```powershell
@@ -411,6 +453,8 @@ python -m model_council web --config config.example.json
 python -m model_council interop show --config config.interop.example.json
 python -m model_council workspace list --config config.example.json
 python -m model_council repair list --config config.example.json
+python -m model_council backup list --config config.example.json
+python scripts/release_verify.py
 ```
 
 Read the architecture invariants before changing Adapter or orchestration
