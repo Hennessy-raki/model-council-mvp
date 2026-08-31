@@ -11,6 +11,11 @@ if "--usage-mode" in sys.argv:
     index = sys.argv.index("--usage-mode")
     usage_mode = sys.argv[index + 1]
 
+plan_mode = "valid"
+if "--plan-mode" in sys.argv:
+    index = sys.argv.index("--plan-mode")
+    plan_mode = sys.argv[index + 1]
+
 
 for line in sys.stdin:
     if not line.strip():
@@ -50,6 +55,22 @@ for line in sys.stdin:
                 {"key": "work_2", "agent": "fake-worker-b"},
             ]
         }
+        if plan_mode == "invalid_json":
+            plan_text = "not-json"
+        else:
+            if plan_mode == "missing_tasks":
+                plan = {"plan": []}
+            elif plan_mode == "task_count":
+                plan = {"tasks": [plan["tasks"][0]]}
+            elif plan_mode == "agent_mismatch":
+                plan["tasks"][1]["agent"] = "unexpected-worker"
+            elif plan_mode == "duplicate_key":
+                plan["tasks"][1]["key"] = "work_1"
+            elif plan_mode == "dependent":
+                plan["tasks"][1]["depends_on"] = ["work_1"]
+            elif plan_mode == "unsafe_field":
+                plan["tasks"][0]["tools"] = ["shell"]
+            plan_text = json.dumps(plan, separators=(",", ":"))
         send(
             {
                 "method": "item/completed",
@@ -57,7 +78,7 @@ for line in sys.stdin:
                     "turnId": "fixture-turn",
                     "item": {
                         "type": "agentMessage",
-                        "text": json.dumps(plan, separators=(",", ":")),
+                        "text": plan_text,
                     },
                 },
             }

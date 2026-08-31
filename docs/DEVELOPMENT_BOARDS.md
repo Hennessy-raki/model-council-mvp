@@ -222,11 +222,13 @@ Status: in progress
 - Board 14.6 records privacy-safe local diagnostics that distinguish
   unavailable, incomplete and over-limit usage without retaining raw protocol
   or response content;
+- Board 14.7 validates the exact two-Worker Manager plan and records
+  privacy-safe output-contract diagnostics without retaining raw output;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
-- two separately authorized one-turn synthetic Codex Manager attempts consumed
-  their approvals and failed closed without retry; neither may be reused;
+- three separately authorized one-turn synthetic Codex Manager attempts consumed
+  their approvals and failed closed without retry; none may be reused;
 - Board 14 remains incomplete pending a separately authorized future candidate
   and one-turn review.
 
@@ -255,3 +257,7 @@ and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`
 Board 14.6 plan and report:
 `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md`
 and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
+
+Board 14.7 plan and report:
+`docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md`
+and `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md`

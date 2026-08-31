@@ -73,14 +73,16 @@ Board 14.0 completes a deterministic fake Manager plus two fake Worker
 simulation with zero Adapter/network calls. Board 14.1 prepares exact disabled
 Codex Manager candidates. Board 14.3 adds the controlled executor, Board 14.4
 adds supported App Server usage shapes, Board 14.5 binds executor integrity,
-and Board 14.6 adds privacy-safe usage-failure classification.
+and Board 14.6 adds privacy-safe usage-failure classification. Board 14.7
+adds privacy-safe Manager output-contract classification.
 
-Two separately authorized one-turn synthetic Codex Manager attempts were made
-after their exact approvals. Both start approvals were consumed and both
-attempts failed closed on the hard usage gate without retry. Neither experiment
-nor approval may be reused. Runtime evidence contains no response body; after
-Board 14.6, a future usage-gate failure records only unavailable, incomplete,
-or over-limit classification plus bounded numeric data only when required.
+Three separately authorized one-turn synthetic Codex Manager attempts were
+made after their exact approvals. All start approvals were consumed and all
+attempts failed closed without retry: the first two on the hard usage gate and
+the third on the frozen two-task output contract. Neither experiment nor
+approval may be reused. Runtime evidence contains no response body; after
+Boards 14.6 and 14.7, a future failure records only bounded usage or
+output-contract classification, hashes and byte counts when required.
 
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
@@ -557,6 +559,12 @@ the integrity records before requesting any second real execution.
 
 Board 14.6 preserves the hard usage gate and zero-retry policy while recording
 only privacy-safe failure classification for unavailable, incomplete, or
-over-limit usage. Do not retry either prior terminal experiment. A future
-candidate must be prepared after the Board 14.6 commit and repeat every
-approval gate.
+over-limit usage. Do not retry either usage-gate experiment. The subsequent
+output-contract experiment is likewise terminal. A future candidate must be
+prepared after the Board 14.7 commit and repeat every approval gate.
+
+Board 14.7 makes `manager_two_worker_plan_v1` explicit: exactly two independent
+tasks, each assigned once to the two bound mock Workers, with no task-carried
+control fields. It records only privacy-safe output diagnostics on failure.
+Do not retry any of the three terminal experiments. A future candidate must be
+prepared after the Board 14.7 commit and repeat every approval gate.

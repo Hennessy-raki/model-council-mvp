@@ -10,7 +10,11 @@ from unittest.mock import patch
 from model_council.cli import main
 from model_council.config import load_config
 import model_council.experiments as experiments_module
-from model_council.experiments import ExperimentError, ExperimentService
+from model_council.experiments import (
+    ExperimentError,
+    ExperimentService,
+    OutputContractError,
+)
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore
 from model_council.supervisor import SupervisorService
@@ -574,6 +578,49 @@ class ExperimentTests(unittest.TestCase):
         diagnostic = self.experiments.evidence(experiment["id"])[0]["evidence"]
         self.assertEqual(diagnostic["failure_class"], "unavailable")
         self.assertEqual(diagnostic["observed_sources"], [])
+
+    def test_output_contract_failures_record_privacy_safe_diagnostics(self):
+        cases = {
+            "invalid_json": "invalid_json",
+            "missing_tasks": "tasks_missing",
+            "task_count": "task_count_invalid",
+            "agent_mismatch": "task_agent_mismatch",
+            "duplicate_key": "task_key_duplicate",
+            "dependent": "tasks_not_independent",
+            "unsafe_field": "unsafe_task_field",
+        }
+        for plan_mode, expected_failure in cases.items():
+            with self.subTest(plan_mode=plan_mode):
+                experiment, start = self._approved_start(
+                    self._fixture_real_spec(
+                        "fake_codex_app_server_plan.py",
+                        fixture_arguments=["--plan-mode", plan_mode],
+                    )
+                )
+                with self.assertRaisesRegex(
+                    OutputContractError,
+                    expected_failure,
+                ):
+                    self.experiments.execute_start(start["id"])
+                evidence = self.experiments.evidence(experiment["id"])
+                self.assertEqual(len(evidence), 1)
+                self.assertEqual(
+                    evidence[0]["kind"],
+                    "codex_app_server_output_diagnostic",
+                )
+                diagnostic = evidence[0]["evidence"]
+                self.assertEqual(diagnostic["failure_class"], expected_failure)
+                self.assertEqual(
+                    diagnostic["expected_output_schema"],
+                    "manager_two_worker_plan_v1",
+                )
+                self.assertIsInstance(diagnostic["output_sha256"], str)
+                self.assertEqual(len(diagnostic["output_sha256"]), 64)
+                self.assertGreater(diagnostic["output_bytes"], 0)
+                self.assertFalse(diagnostic["output_text_stored"])
+                serialized = json.dumps(diagnostic, sort_keys=True)
+                self.assertNotIn('"output":', serialized)
+                self.assertNotIn("Create exactly two", serialized)
 
     def test_executor_integrity_drift_stales_start_approval_before_process(self):
         _, start = self._approved_start(

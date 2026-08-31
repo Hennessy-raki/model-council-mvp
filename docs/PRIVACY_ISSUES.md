@@ -385,3 +385,25 @@ evidence.
   operational data inside ignored runtime SQLite. Host account protection and
   runtime retention remain operator responsibilities.
 - Blocks development: no; no real retry is authorized.
+
+### PRIV-019: Failed Manager output contract lacked privacy-safe classification
+
+- Date found: 2026-08-31
+- Channel: ignored local Board 14 runtime SQLite evidence
+- Priority: medium
+- Data class: Provider output structure, output hash and byte count; raw output
+  could contain prompt-derived or operational content
+- Status: resolved before public commit
+- Resolution:
+  - validate the exact two-Worker plan contract locally;
+  - retain only a failure class, schema label, SHA-256 and byte count;
+  - do not retain raw JSONL, output text, prompt, task content, stderr,
+    stdout, transcript, credentials, paths, files or Artifacts.
+- Evidence: the third separately authorized real Board 14 attempt reached the
+  Manager output contract and failed because it did not contain exactly two
+  tasks. Its response body was deliberately not retained.
+- Residual risk: output hash and byte count remain operational local runtime
+  metadata. Host account protection and runtime retention remain operator
+  responsibilities.
+- Blocks development: no; the terminal experiment and consumed approval cannot
+  be retried.

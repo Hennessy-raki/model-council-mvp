@@ -249,6 +249,8 @@ Status: in progress
   one-turn start approval and stale it if either source changes;
 - record privacy-safe local failure classification for unavailable, incomplete
   or over-limit usage while retaining no raw protocol or response content;
+- validate the exact two-Worker Manager plan and retain only privacy-safe
+  output-contract failure classification, hash and byte count;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -282,6 +284,10 @@ and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`
 Board 14.6 plan and report:
 `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md`
 and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
+
+Board 14.7 plan and report:
+`docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md`
+and `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

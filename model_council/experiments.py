@@ -67,6 +67,12 @@ class ExperimentError(ValueError):
     pass
 
 
+class OutputContractError(ExperimentError):
+    def __init__(self, failure_class: str):
+        self.failure_class = failure_class
+        super().__init__(f"Manager output contract failed: {failure_class}")
+
+
 class ExperimentService:
     """Board 14 offline experiment manifests and one-time approvals."""
 
@@ -523,7 +529,16 @@ class ExperimentService:
             response, usage, usage_observations = self._execute_codex_app_server(
                 experiment
             )
-            self._validate_manager_response(response, scope)
+            try:
+                self._validate_manager_response(response, scope)
+            except OutputContractError as exc:
+                self._output_contract_evidence(
+                    experiment["id"],
+                    response=response,
+                    failure_class=exc.failure_class,
+                    expected_schema=scope["expected_output"]["schema"],
+                )
+                raise
             response_bytes = len(response.encode("utf-8"))
             if response_bytes > scope["limits"]["max_response_bytes"]:
                 raise ExperimentError("Manager response exceeded max_response_bytes")
@@ -1159,10 +1174,73 @@ class ExperimentService:
         try:
             payload = json.loads(response)
         except json.JSONDecodeError as exc:
-            raise ExperimentError("Manager response was not JSON") from exc
-        tasks = payload.get("tasks") if isinstance(payload, dict) else None
-        if not isinstance(tasks, list) or len(tasks) != scope["expected_output"]["task_count"]:
-            raise ExperimentError("Manager response did not contain exactly two tasks")
+            raise OutputContractError("invalid_json") from exc
+        if not isinstance(payload, dict):
+            raise OutputContractError("root_not_object")
+        tasks = payload.get("tasks")
+        if not isinstance(tasks, list):
+            raise OutputContractError("tasks_missing")
+        if len(tasks) != scope["expected_output"]["task_count"]:
+            raise OutputContractError("task_count_invalid")
+
+        expected_agents = {item["agent_id"] for item in scope["workers"]}
+        task_agents: set[str] = set()
+        task_keys: set[str] = set()
+        unsafe_fields = {
+            "artifacts",
+            "command",
+            "files",
+            "git",
+            "permissions",
+            "tools",
+            "workspace",
+        }
+        for task in tasks:
+            if not isinstance(task, dict):
+                raise OutputContractError("task_not_object")
+            if unsafe_fields & set(task):
+                raise OutputContractError("unsafe_task_field")
+            key = task.get("key")
+            if not isinstance(key, str) or not key.strip():
+                raise OutputContractError("task_key_invalid")
+            if key in task_keys:
+                raise OutputContractError("task_key_duplicate")
+            task_keys.add(key)
+            agent = task.get("agent")
+            if not isinstance(agent, str) or not agent.strip():
+                raise OutputContractError("task_agent_invalid")
+            if agent not in expected_agents:
+                raise OutputContractError("task_agent_mismatch")
+            if agent in task_agents:
+                raise OutputContractError("task_agent_duplicate")
+            task_agents.add(agent)
+            dependencies = task.get("depends_on", [])
+            if dependencies not in (None, []):
+                raise OutputContractError("tasks_not_independent")
+        if task_agents != expected_agents:
+            raise OutputContractError("task_agent_mismatch")
+
+    def _output_contract_evidence(
+        self,
+        experiment_id: str,
+        *,
+        response: str,
+        failure_class: str,
+        expected_schema: str,
+    ) -> None:
+        self._evidence(
+            experiment_id,
+            "codex_app_server_output_diagnostic",
+            "failed",
+            {
+                "version": 1,
+                "failure_class": failure_class,
+                "expected_output_schema": expected_schema,
+                "output_sha256": sha256(response.encode("utf-8")).hexdigest(),
+                "output_bytes": len(response.encode("utf-8")),
+                "output_text_stored": False,
+            },
+        )
 
     def _mark_stale(self, experiment_id: str, failure: str) -> None:
         with self.store.connect() as conn:
