@@ -361,3 +361,27 @@ evidence.
   and require a new privacy review after the real run.
 - Blocks development: no for offline preparation; a real call remains blocked
   pending exact authorization.
+
+### PRIV-018: Failed usage gates lacked a privacy-safe failure classification
+
+- Date found: 2026-08-31
+- Channel: ignored local Board 14 runtime SQLite evidence
+- Priority: medium
+- Data class: provider-reported numeric token counts and protocol-shape
+  metadata; raw protocol records could also contain prompts or response text
+- Status: resolved before public commit
+- Resolution:
+  - retain only fixed source labels, semantic field-presence booleans and,
+    only for complete over-limit usage, normalized non-negative numeric counts
+    plus the configured hard limit;
+  - never retain raw JSONL, prompt, response, task plan, stderr, stdout,
+    transcript, credentials or private paths;
+  - keep the fail-closed usage gate and zero-retry behavior unchanged.
+- Evidence: the second separately authorized real Board 14 attempt completed
+  the Manager plan validation and then failed at the usage gate, but its
+  pre-14.6 runtime state could not distinguish unavailable from incomplete or
+  over-limit usage.
+- Residual risk: local numeric usage and source-shape metadata remain
+  operational data inside ignored runtime SQLite. Host account protection and
+  runtime retention remain operator responsibilities.
+- Blocks development: no; no real retry is authorized.

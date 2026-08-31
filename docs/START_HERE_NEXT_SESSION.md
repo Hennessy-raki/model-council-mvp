@@ -9,10 +9,11 @@ Board 13 is complete only in the local private checkout. No Git tag, GitHub
 Release or push has been created for Board 13.
 
 Board 14.0, Board 14.1 preparation, Board 14.2 offline App Server verification,
-Board 14.3 controlled-executor verification and Board 14.4 usage compatibility
-repair, and Board 14.5 executor-integrity binding are implemented locally.
-Board 14 remains in progress because the first real pilot failed closed and no
-retry is authorized.
+Board 14.3 controlled-executor verification, Board 14.4 usage compatibility
+repair, Board 14.5 executor-integrity binding, and Board 14.6 privacy-safe
+usage-failure diagnostics are implemented locally. Board 14 remains in
+progress because two separately authorized real synthetic attempts failed
+closed and neither is eligible for retry.
 
 The latest scope and completion reports are:
 
@@ -31,6 +32,8 @@ docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md
 docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md
 docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md
 docs/reports/2026-08-31-board-14-5-executor-integrity.md
+docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md
+docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -44,8 +47,9 @@ snapshots, stale-on-drift start approvals and a local fake Manager platform.
 It invokes no Adapter, process, network endpoint, model or task execution.
 
 Board 14 adds `model_council/experiments.py`. Its `synthetic_fake` mode can
-complete a zero-call simulation. Its `real_codex` mode can only prepare,
-approve and arm an exact candidate; there is no real executor.
+complete a zero-call simulation. Its `real_codex` mode uses a separately
+approved one-time controlled executor after all experiment and start-approval
+gates have passed.
 
 Board 14.2 adds an opt-in `strict_no_approvals` App Server policy. The public
 Board 14 candidate enables it: a server-side interactive approval request is
@@ -62,6 +66,10 @@ response hashes and byte counts rather than response text.
 Board 14.5 binds the controlled-executor and JSON-lines transport source
 hashes into every new start approval. A source change after approval makes that
 approval stale before any process can start.
+
+Board 14.6 records an ignored local usage diagnostic when a completed Manager
+turn fails the hard usage gate. It distinguishes unavailable, incomplete and
+over-limit usage while retaining no raw JSONL, prompt, response or transcript.
 
 ## Required next-session sequence
 
@@ -121,8 +129,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and nineteen tests after Board
-14.5. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and twenty-one tests after
+Board 14.6. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.

@@ -916,6 +916,7 @@ def _is_sensitive_key(normalized: str) -> bool:
         "completiontokens",
         "total_tokens",
         "totaltokens",
+        "max_total_tokens",
         "cached_input_tokens",
         "cachedinputtokens",
         "reasoning_output_tokens",

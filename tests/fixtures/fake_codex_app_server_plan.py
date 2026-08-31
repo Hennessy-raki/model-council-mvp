@@ -67,6 +67,11 @@ for line in sys.stdin:
             "outputTokens": 5,
             "totalTokens": 15,
         }
+        if usage_mode == "incomplete":
+            usage = {
+                "inputTokens": 10,
+                "totalTokens": 15,
+            }
         if usage_mode in {"last", "total"}:
             send(
                 {
@@ -74,6 +79,26 @@ for line in sys.stdin:
                     "params": {
                         "turnId": "fixture-turn",
                         "tokenUsage": {usage_mode: usage},
+                    },
+                }
+            )
+        elif usage_mode == "direct":
+            send(
+                {
+                    "method": "thread/tokenUsage/updated",
+                    "params": {
+                        "turnId": "fixture-turn",
+                        "tokenUsage": usage,
+                    },
+                }
+            )
+        elif usage_mode == "incomplete":
+            send(
+                {
+                    "method": "thread/tokenUsage/updated",
+                    "params": {
+                        "turnId": "fixture-turn",
+                        "tokenUsage": {"last": usage},
                     },
                 }
             )

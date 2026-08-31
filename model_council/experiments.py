@@ -520,19 +520,34 @@ class ExperimentService:
         scope = experiment["scope"]
         try:
             self._start_running(experiment["id"])
-            response, usage = self._execute_codex_app_server(experiment)
+            response, usage, usage_observations = self._execute_codex_app_server(
+                experiment
+            )
             self._validate_manager_response(response, scope)
             response_bytes = len(response.encode("utf-8"))
             if response_bytes > scope["limits"]["max_response_bytes"]:
                 raise ExperimentError("Manager response exceeded max_response_bytes")
             total_tokens = usage.get("total_tokens") if usage else None
             token_limit = scope["limits"].get("max_total_tokens")
-            if token_limit is not None and (
-                total_tokens is None or total_tokens > token_limit
-            ):
-                raise ExperimentError(
-                    "Manager usage is unavailable or exceeded max_total_tokens"
+            if token_limit is not None and total_tokens is None:
+                failure_class = self._usage_failure_class(usage_observations)
+                self._usage_gate_evidence(
+                    experiment["id"],
+                    failure_class=failure_class,
+                    observations=usage_observations,
+                    usage=None,
+                    token_limit=token_limit,
                 )
+                raise ExperimentError(f"Manager usage is {failure_class}")
+            if token_limit is not None and total_tokens > token_limit:
+                self._usage_gate_evidence(
+                    experiment["id"],
+                    failure_class="exceeded_limit",
+                    observations=usage_observations,
+                    usage=usage,
+                    token_limit=token_limit,
+                )
+                raise ExperimentError("Manager usage exceeded max_total_tokens")
             evidence = {
                 "version": 1,
                 "kind": "codex_app_server_turn",
@@ -865,7 +880,7 @@ class ExperimentService:
     def _execute_codex_app_server(
         self,
         experiment: dict[str, Any],
-    ) -> tuple[str, dict[str, int] | None]:
+    ) -> tuple[str, dict[str, int] | None, list[dict[str, Any]]]:
         scope = experiment["scope"]
         manager_config = scope["manager"]["identity"]["agent"]["config"]
         transport_scope = scope["transport"]
@@ -966,9 +981,10 @@ class ExperimentService:
         *,
         turn_id: str,
         max_response_bytes: int,
-    ) -> tuple[str, dict[str, int] | None]:
+    ) -> tuple[str, dict[str, int] | None, list[dict[str, Any]]]:
         messages: list[str] = []
         usage: dict[str, int] | None = None
+        usage_observations: dict[str, dict[str, Any]] = {}
         while True:
             payload = transport.receive()
             if "method" in payload and "id" in payload:
@@ -989,7 +1005,22 @@ class ExperimentService:
                         messages.append(text)
             elif method == "thread/tokenUsage/updated":
                 token_usage = params.get("tokenUsage")
-                normalized = self._normalized_usage(token_usage)
+                normalized = None
+                if isinstance(token_usage, dict):
+                    for source, nested in (
+                        ("thread_token_usage_last", token_usage.get("last")),
+                        ("thread_token_usage_total", token_usage.get("total")),
+                    ):
+                        source_key = source.removeprefix("thread_token_usage_")
+                        if source_key not in token_usage:
+                            continue
+                        observation = self._usage_observation(source, nested)
+                        usage_observations[source] = observation
+                        if (
+                            normalized is None
+                            and observation["status"] == "complete"
+                        ):
+                            normalized = observation["usage"]
                 if normalized is not None:
                     usage = normalized
             elif method == "turn/completed":
@@ -1000,18 +1031,25 @@ class ExperimentService:
                     raise ExperimentError("Codex App Server turn did not complete")
                 if not messages:
                     raise ExperimentError("Codex App Server returned no agent message")
-                completed_usage = self._normalized_usage(turn.get("usage"))
-                return messages[-1], completed_usage or usage
+                completed_usage = None
+                if "usage" in turn:
+                    observation = self._usage_observation(
+                        "turn_completed_usage",
+                        turn.get("usage"),
+                    )
+                    usage_observations["turn_completed_usage"] = observation
+                    if observation["status"] == "complete":
+                        completed_usage = observation["usage"]
+                return (
+                    messages[-1],
+                    completed_usage or usage,
+                    list(usage_observations.values()),
+                )
 
     @staticmethod
     def _normalized_usage(value: Any) -> dict[str, int] | None:
         if not isinstance(value, dict):
             return None
-        nested = value.get("last")
-        if not isinstance(nested, dict):
-            nested = value.get("total")
-        if not isinstance(nested, dict):
-            nested = value
         sources = {
             "input_tokens": ("inputTokens", "input_tokens"),
             "output_tokens": ("outputTokens", "output_tokens"),
@@ -1020,11 +1058,11 @@ class ExperimentService:
         normalized = {
             target: next(
                 (
-                    nested[source]
+                    value[source]
                     for source in options
-                    if isinstance(nested.get(source), int)
-                    and not isinstance(nested.get(source), bool)
-                    and nested[source] >= 0
+                    if isinstance(value.get(source), int)
+                    and not isinstance(value.get(source), bool)
+                    and value[source] >= 0
                 ),
                 None,
             )
@@ -1033,6 +1071,72 @@ class ExperimentService:
         if any(value is None for value in normalized.values()):
             return None
         return normalized
+
+    @classmethod
+    def _usage_observation(cls, source: str, value: Any) -> dict[str, Any]:
+        fields = {
+            "input_tokens": ("inputTokens", "input_tokens"),
+            "output_tokens": ("outputTokens", "output_tokens"),
+            "total_tokens": ("totalTokens", "total_tokens"),
+        }
+        present = {
+            field: (
+                isinstance(value, dict)
+                and any(candidate in value for candidate in candidates)
+            )
+            for field, candidates in fields.items()
+        }
+        normalized = cls._normalized_usage(value)
+        result: dict[str, Any] = {
+            "source": source,
+            "status": "complete" if normalized is not None else "incomplete",
+            "fields_present": present,
+        }
+        if normalized is not None:
+            result["usage"] = normalized
+        return result
+
+    @staticmethod
+    def _usage_failure_class(observations: list[dict[str, Any]]) -> str:
+        if any(item["status"] == "incomplete" for item in observations):
+            return "incomplete"
+        return "unavailable"
+
+    def _usage_gate_evidence(
+        self,
+        experiment_id: str,
+        *,
+        failure_class: str,
+        observations: list[dict[str, Any]],
+        usage: dict[str, int] | None,
+        token_limit: int,
+    ) -> None:
+        if failure_class not in {"unavailable", "incomplete", "exceeded_limit"}:
+            raise ExperimentError("unsupported usage failure class")
+        diagnostic = {
+            "version": 1,
+            "failure_class": failure_class,
+            "observed_sources": [
+                {
+                    "source": item["source"],
+                    "status": item["status"],
+                    "fields_present": item["fields_present"],
+                }
+                for item in observations
+            ],
+            "response_text_stored": False,
+        }
+        if failure_class == "exceeded_limit":
+            if usage is None:
+                raise ExperimentError("over-limit usage diagnostic requires usage")
+            diagnostic["usage"] = usage
+            diagnostic["max_total_tokens"] = token_limit
+        self._evidence(
+            experiment_id,
+            "codex_app_server_usage_diagnostic",
+            "failed",
+            diagnostic,
+        )
 
     @staticmethod
     def _reject_server_request(

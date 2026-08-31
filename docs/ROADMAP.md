@@ -247,6 +247,8 @@ Status: in progress
   locations, while failing closed when usage is unavailable;
 - bind the executor and JSON-lines transport source hashes into every new
   one-turn start approval and stale it if either source changes;
+- record privacy-safe local failure classification for unavailable, incomplete
+  or over-limit usage while retaining no raw protocol or response content;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -276,6 +278,10 @@ and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`
 Board 14.5 plan and report:
 `docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md`
 and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`
+
+Board 14.6 plan and report:
+`docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md`
+and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

@@ -469,7 +469,7 @@ class ExperimentTests(unittest.TestCase):
         )
         self.assertEqual(self.experiments.evidence(experiment["id"]), [])
 
-    def test_fixture_usage_over_limit_fails_without_response_evidence(self):
+    def test_fixture_usage_over_limit_records_safe_numeric_diagnostic(self):
         experiment, start = self._approved_start(
             self._fixture_real_spec(
                 "fake_codex_app_server_plan.py",
@@ -482,7 +482,19 @@ class ExperimentTests(unittest.TestCase):
             self.experiments.experiment(experiment["id"])["status"],
             "failed",
         )
-        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+        evidence = self.experiments.evidence(experiment["id"])
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["kind"], "codex_app_server_usage_diagnostic")
+        diagnostic = evidence[0]["evidence"]
+        self.assertEqual(diagnostic["failure_class"], "exceeded_limit")
+        self.assertEqual(diagnostic["usage"]["total_tokens"], 15)
+        self.assertEqual(diagnostic["max_total_tokens"], 14)
+        self.assertEqual(
+            diagnostic["observed_sources"][0]["source"],
+            "thread_token_usage_last",
+        )
+        self.assertNotIn('"response":', json.dumps(diagnostic, sort_keys=True))
+        self.assertNotIn("Create exactly two", json.dumps(diagnostic, sort_keys=True))
 
     def test_total_or_completed_usage_is_accepted_without_relaxing_limits(self):
         for usage_mode in ("total", "completed"):
@@ -497,7 +509,7 @@ class ExperimentTests(unittest.TestCase):
                 evidence = completed["evidence"][0]["evidence"]
                 self.assertEqual(evidence["usage"]["total_tokens"], 15)
 
-    def test_absent_usage_still_fails_closed_without_response_evidence(self):
+    def test_absent_usage_records_unavailable_diagnostic_without_response(self):
         experiment, start = self._approved_start(
             self._fixture_real_spec(
                 "fake_codex_app_server_plan.py",
@@ -510,7 +522,58 @@ class ExperimentTests(unittest.TestCase):
             self.experiments.experiment(experiment["id"])["status"],
             "failed",
         )
-        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+        evidence = self.experiments.evidence(experiment["id"])
+        self.assertEqual(len(evidence), 1)
+        diagnostic = evidence[0]["evidence"]
+        self.assertEqual(diagnostic["failure_class"], "unavailable")
+        self.assertEqual(diagnostic["observed_sources"], [])
+        self.assertNotIn("usage", diagnostic)
+        self.assertNotIn('"response":', json.dumps(diagnostic, sort_keys=True))
+        self.assertNotIn("Create exactly two", json.dumps(diagnostic, sort_keys=True))
+
+    def test_incomplete_usage_records_shape_only_diagnostic(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec(
+                "fake_codex_app_server_plan.py",
+                fixture_arguments=["--usage-mode", "incomplete"],
+            )
+        )
+        with self.assertRaisesRegex(ExperimentError, "usage is incomplete"):
+            self.experiments.execute_start(start["id"])
+        evidence = self.experiments.evidence(experiment["id"])
+        self.assertEqual(len(evidence), 1)
+        diagnostic = evidence[0]["evidence"]
+        self.assertEqual(diagnostic["failure_class"], "incomplete")
+        self.assertEqual(
+            diagnostic["observed_sources"],
+            [
+                {
+                    "source": "thread_token_usage_last",
+                    "status": "incomplete",
+                    "fields_present": {
+                        "input_tokens": True,
+                        "output_tokens": False,
+                        "total_tokens": True,
+                    },
+                }
+            ],
+        )
+        serialized = json.dumps(diagnostic, sort_keys=True)
+        self.assertNotIn('"response":', serialized)
+        self.assertNotIn("Create exactly two", serialized)
+
+    def test_unapproved_direct_usage_location_is_not_accepted(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec(
+                "fake_codex_app_server_plan.py",
+                fixture_arguments=["--usage-mode", "direct"],
+            )
+        )
+        with self.assertRaisesRegex(ExperimentError, "usage is unavailable"):
+            self.experiments.execute_start(start["id"])
+        diagnostic = self.experiments.evidence(experiment["id"])[0]["evidence"]
+        self.assertEqual(diagnostic["failure_class"], "unavailable")
+        self.assertEqual(diagnostic["observed_sources"], [])
 
     def test_executor_integrity_drift_stales_start_approval_before_process(self):
         _, start = self._approved_start(

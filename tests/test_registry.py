@@ -72,6 +72,7 @@ class RegistryTests(unittest.TestCase):
                                 }
                             },
                             "input_tokens": 123,
+                            "max_total_tokens": 2000,
                             "token_sources": ["estimated"],
                         },
                         "artifact_provenance_display": "compact",
@@ -121,6 +122,10 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["input_tokens"],
                 123,
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["max_total_tokens"],
+                2000,
             )
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["token_sources"],

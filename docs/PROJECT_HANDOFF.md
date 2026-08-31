@@ -70,9 +70,17 @@ docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md
 ```
 
 Board 14.0 completes a deterministic fake Manager plus two fake Worker
-simulation with zero Adapter/network calls. Board 14.1 can prepare and arm an
-exact disabled Codex Manager candidate but has no real executor. No exact live
-manifest has been approved and no new Codex call has occurred.
+simulation with zero Adapter/network calls. Board 14.1 prepares exact disabled
+Codex Manager candidates. Board 14.3 adds the controlled executor, Board 14.4
+adds supported App Server usage shapes, Board 14.5 binds executor integrity,
+and Board 14.6 adds privacy-safe usage-failure classification.
+
+Two separately authorized one-turn synthetic Codex Manager attempts were made
+after their exact approvals. Both start approvals were consumed and both
+attempts failed closed on the hard usage gate without retry. Neither experiment
+nor approval may be reused. Runtime evidence contains no response body; after
+Board 14.6, a future usage-gate failure records only unavailable, incomplete,
+or over-limit classification plus bounded numeric data only when required.
 
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
@@ -546,3 +554,9 @@ transport helper into each fresh start approval. A source mismatch makes that
 approval stale before process creation. Do not create the next candidate until
 this 14.5 commit is the checked-out code; then display a new start scope with
 the integrity records before requesting any second real execution.
+
+Board 14.6 preserves the hard usage gate and zero-retry policy while recording
+only privacy-safe failure classification for unavailable, incomplete, or
+over-limit usage. Do not retry either prior terminal experiment. A future
+candidate must be prepared after the Board 14.6 commit and repeat every
+approval gate.

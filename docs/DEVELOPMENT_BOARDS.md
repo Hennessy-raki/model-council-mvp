@@ -219,12 +219,16 @@ Status: in progress
   limits and verifies it only with local fixtures;
 - Board 14.5 binds executor and transport source integrity into every new
   start approval and stales it on code drift;
+- Board 14.6 records privacy-safe local diagnostics that distinguish
+  unavailable, incomplete and over-limit usage without retaining raw protocol
+  or response content;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
-- no real Codex, Reasonix, ZCode, Provider or network call has occurred;
-- Board 14 remains incomplete until one separately authorized exact 14.1 real
-  run is performed and reviewed.
+- two separately authorized one-turn synthetic Codex Manager attempts consumed
+  their approvals and failed closed without retry; neither may be reused;
+- Board 14 remains incomplete pending a separately authorized future candidate
+  and one-turn review.
 
 Plan:
 `docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md`
@@ -247,3 +251,7 @@ and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`
 Board 14.5 plan and report:
 `docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md`
 and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`
+
+Board 14.6 plan and report:
+`docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md`
+and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
