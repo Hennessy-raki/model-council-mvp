@@ -523,3 +523,14 @@ authorize App Server startup or a model call, and it predates the strict policy.
 Do not arm it for a real pilot. Instead, freeze and display a fresh exact
 candidate that binds the final policy, then obtain separate user approval for
 arming and for one startup-plus-turn request.
+
+Board 14.3 implements that future path offline: an armed experiment creates a
+second SHA-256-bound start approval which can be consumed only once. The
+controlled executor revalidates it before process startup, sends only the exact
+synthetic prompt, rejects every server-side approval request, and retains only
+response hash/byte/usage evidence. It has been exercised exclusively with
+repository fake App Server fixtures.
+
+The next local action is to prepare a new strict candidate, display its
+experiment digest and stop at `pending`. Do not arm, start, or invoke it until
+the user has separately authorized the displayed experiment and start scopes.

@@ -939,6 +939,43 @@ def build_parser() -> argparse.ArgumentParser:
     )
     experiment_arm.add_argument("experiment_id")
     experiment_arm.add_argument("--config", default=str(default_config_path()))
+    experiment_request_start = experiment_commands.add_parser(
+        "request-start",
+        help="prepare one exact start-and-turn approval without starting a process",
+    )
+    experiment_request_start.add_argument("experiment_id")
+    experiment_request_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_show_start = experiment_commands.add_parser(
+        "show-start",
+        help="show one local start approval",
+    )
+    experiment_show_start.add_argument("start_approval_id")
+    experiment_show_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_approve_start = experiment_commands.add_parser(
+        "approve-start",
+        help="approve one exact start-and-turn scope",
+    )
+    experiment_approve_start.add_argument("start_approval_id")
+    experiment_approve_start.add_argument("--scope-sha256", required=True)
+    experiment_approve_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    experiment_execute_start = experiment_commands.add_parser(
+        "execute-start",
+        help="consume one approved start scope and execute its exact one-turn plan",
+    )
+    experiment_execute_start.add_argument("start_approval_id")
+    experiment_execute_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
     experiment_simulate = experiment_commands.add_parser(
         "simulate",
         help="run only the deterministic Board 14.0 local simulation",
@@ -1527,6 +1564,18 @@ def main(argv: list[str] | None = None) -> None:
                 )
             elif args.experiment_command == "arm":
                 payload = experiments.arm(args.experiment_id)
+            elif args.experiment_command == "request-start":
+                payload = experiments.request_start(args.experiment_id)
+            elif args.experiment_command == "show-start":
+                payload = experiments.start_approval(args.start_approval_id)
+            elif args.experiment_command == "approve-start":
+                payload = experiments.decide_start(
+                    args.start_approval_id,
+                    approve=True,
+                    confirmation=args.scope_sha256,
+                )
+            elif args.experiment_command == "execute-start":
+                payload = experiments.execute_start(args.start_approval_id)
             elif args.experiment_command == "simulate":
                 payload = experiments.simulate(args.experiment_id)
             elif args.experiment_command == "stop":

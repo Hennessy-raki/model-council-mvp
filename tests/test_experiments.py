@@ -2,6 +2,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -58,6 +59,7 @@ class ExperimentTests(unittest.TestCase):
                     "-",
                 ],
                 "sandbox": "read-only",
+                "strict_no_approvals": True,
             },
         )
         for agent_id, role in (
@@ -78,6 +80,68 @@ class ExperimentTests(unittest.TestCase):
             self.registry,
             self.supervisor,
         )
+
+    def _fixture_real_spec(self, fixture_name, *, max_total_tokens=2000):
+        fixture = (
+            Path(__file__).resolve().parent / "fixtures" / fixture_name
+        )
+        command = [
+            sys.executable,
+            str(fixture),
+            "--disable",
+            "plugins",
+            "--disable",
+            "remote_plugin",
+            "--disable",
+            "apps",
+        ]
+        synthetic_cwd = r"C:\model-council-synthetic"
+        self.registry.upsert_agent(
+            "codex-manager",
+            adapter_type="codex_app_server",
+            provider_id="local-fixture",
+            model_id="codex-model",
+            role="manager",
+            config={
+                "command": command,
+                "cwd": synthetic_cwd,
+                "sandbox": "read-only",
+                "approval_policy": "never",
+                "strict_no_approvals": True,
+                "invoke_enabled": False,
+            },
+        )
+        snapshot = self._snapshot(
+            manager_agent="codex-manager",
+            manager_model="codex-model",
+        )
+        spec = self._spec(
+            phase="14.1",
+            snapshot=snapshot,
+            manager_agent="codex-manager",
+            manager_model="codex-model",
+        )
+        spec["transport"]["host_type"] = "codex_app_server"
+        spec["transport"]["command"] = command
+        spec["transport"]["working_directory"] = synthetic_cwd
+        spec["limits"]["max_total_tokens"] = max_total_tokens
+        return spec
+
+    def _approved_start(self, spec):
+        experiment = self.experiments.prepare(spec)
+        self.experiments.decide(
+            experiment["id"],
+            approve=True,
+            confirmation=experiment["scope_sha256"],
+        )
+        self.experiments.arm(experiment["id"])
+        start = self.experiments.request_start(experiment["id"])
+        self.experiments.decide_start(
+            start["id"],
+            approve=True,
+            confirmation=start["scope_sha256"],
+        )
+        return experiment, start
 
     def _checks(self, model_id):
         return {
@@ -275,6 +339,136 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(armed["status"], "armed")
         with self.assertRaises(ExperimentError):
             self.experiments.simulate(experiment["id"])
+        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+
+    def test_real_codex_start_approval_requires_exact_second_digest(self):
+        snapshot = self._snapshot(
+            manager_agent="codex-manager",
+            manager_model="codex-model",
+        )
+        experiment = self.experiments.prepare(
+            self._spec(
+                phase="14.1",
+                snapshot=snapshot,
+                manager_agent="codex-manager",
+                manager_model="codex-model",
+            )
+        )
+        self.experiments.decide(
+            experiment["id"],
+            approve=True,
+            confirmation=experiment["scope_sha256"],
+        )
+        self.experiments.arm(experiment["id"])
+        start = self.experiments.request_start(experiment["id"])
+        self.assertEqual(start["status"], "pending")
+        self.assertEqual(
+            start["scope"]["action"],
+            "start_codex_app_server_and_one_turn",
+        )
+        with self.assertRaises(ExperimentError):
+            self.experiments.decide_start(
+                start["id"],
+                approve=True,
+                confirmation="wrong",
+            )
+        approved = self.experiments.decide_start(
+            start["id"],
+            approve=True,
+            confirmation=start["scope_sha256"],
+        )
+        self.assertEqual(approved["status"], "approved")
+        consumed = self.experiments.consume_start(start["id"])
+        self.assertEqual(consumed["status"], "consumed")
+        with self.assertRaises(ExperimentError):
+            self.experiments.consume_start(start["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "armed",
+        )
+        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+
+    def test_start_approval_requires_armed_experiment_and_fresh_snapshot(self):
+        snapshot = self._snapshot(
+            manager_agent="codex-manager",
+            manager_model="codex-model",
+        )
+        experiment = self.experiments.prepare(
+            self._spec(
+                phase="14.1",
+                snapshot=snapshot,
+                manager_agent="codex-manager",
+                manager_model="codex-model",
+            )
+        )
+        with self.assertRaises(ExperimentError):
+            self.experiments.request_start(experiment["id"])
+        self.experiments.decide(
+            experiment["id"],
+            approve=True,
+            confirmation=experiment["scope_sha256"],
+        )
+        self.experiments.arm(experiment["id"])
+        self.supervisor.check_team()
+        with self.assertRaises(ExperimentError):
+            self.experiments.request_start(experiment["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "stale",
+        )
+
+    def test_consumed_start_runs_only_exact_local_fixture_and_hashes_response(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec("fake_codex_app_server_plan.py")
+        )
+        completed = self.experiments.execute_start(start["id"])
+        self.assertEqual(completed["experiment"]["status"], "completed")
+        self.assertEqual(
+            self.experiments.start_approval(start["id"])["status"],
+            "consumed",
+        )
+        evidence = completed["evidence"][0]["evidence"]
+        self.assertEqual(evidence["process_invocation_count"], 1)
+        self.assertEqual(evidence["retry_count"], 0)
+        self.assertEqual(evidence["usage"]["total_tokens"], 15)
+        self.assertNotIn("tasks", evidence)
+        self.assertNotIn("response", evidence)
+        self.assertNotIn(
+            "Create exactly two",
+            json.dumps(completed, sort_keys=True),
+        )
+        with self.assertRaises(ExperimentError):
+            self.experiments.execute_start(start["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "completed",
+        )
+
+    def test_fixture_approval_request_stops_consumed_start(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec("fake_codex_app_server.py")
+        )
+        with self.assertRaisesRegex(ExperimentError, "interactive approval"):
+            self.experiments.execute_start(start["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "failed",
+        )
+        self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+
+    def test_fixture_usage_over_limit_fails_without_response_evidence(self):
+        experiment, start = self._approved_start(
+            self._fixture_real_spec(
+                "fake_codex_app_server_plan.py",
+                max_total_tokens=14,
+            )
+        )
+        with self.assertRaisesRegex(ExperimentError, "max_total_tokens"):
+            self.experiments.execute_start(start["id"])
+        self.assertEqual(
+            self.experiments.experiment(experiment["id"])["status"],
+            "failed",
+        )
         self.assertEqual(self.experiments.evidence(experiment["id"]), [])
 
     def test_board_14_0_simulation_completes_with_zero_external_calls(self):

@@ -8,9 +8,10 @@ Boards 1 through 12 remain the prepared public release candidate `0.2.0rc1`.
 Board 13 is complete only in the local private checkout. No Git tag, GitHub
 Release or push has been created for Board 13.
 
-Board 14.0, Board 14.1 preparation and Board 14.2 offline App Server
-verification are implemented locally. Board 14 remains in progress because no
-new real Codex experiment has been authorized or run.
+Board 14.0, Board 14.1 preparation, Board 14.2 offline App Server verification
+and Board 14.3 controlled-executor verification are implemented locally. Board
+14 remains in progress because no new real Codex experiment has been authorized
+or run.
 
 The latest scope and completion reports are:
 
@@ -23,6 +24,8 @@ docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md
 docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md
 docs/reports/2026-08-31-board-14-2-offline-app-server-execution-plan.md
 docs/reports/2026-08-31-board-14-2-offline-app-server-execution.md
+docs/reports/2026-08-31-board-14-3-controlled-executor-plan.md
+docs/reports/2026-08-31-board-14-3-controlled-executor.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -44,6 +47,11 @@ Board 14 candidate enables it: a server-side interactive approval request is
 declined and terminates the turn. The protocol was exercised only against the
 repository fake App Server. The local 14.1 manifest is approved but unarmed;
 do not arm it for a real pilot because it predates the strict policy.
+
+Board 14.3 adds a second SHA-256-bound start approval that is consumed once
+before the controlled executor can start a process. It was verified only
+against repository fake App Server fixtures. The executor stores response
+hashes and byte counts rather than response text.
 
 ## Required next-session sequence
 
@@ -103,8 +111,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and eleven tests after Board
-14.2. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and sixteen tests after Board
+14.3. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.

@@ -24,6 +24,7 @@ from model_council.evaluation import (
 
 
 class FakeResponsesHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     response_text = BOARD_11_EXPECTED_TEXT
     request_payload = None
     authorization = None

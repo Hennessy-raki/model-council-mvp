@@ -579,6 +579,18 @@ class CouncilStore:
                     evidence_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS controlled_experiment_start_approvals (
+                    id TEXT PRIMARY KEY,
+                    experiment_id TEXT NOT NULL
+                        REFERENCES controlled_experiments(id),
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT,
+                    failure TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -659,6 +671,10 @@ class CouncilStore:
                     ON controlled_experiment_events(experiment_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiment_evidence
                     ON controlled_experiment_evidence(experiment_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_controlled_experiment_start_approvals
+                    ON controlled_experiment_start_approvals(
+                        experiment_id, status, requested_at
+                    );
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

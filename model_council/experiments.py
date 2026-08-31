@@ -4,9 +4,11 @@ import json
 import re
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .interoperability import InteroperabilityError, JsonLineProcess
 from .registry import RegistryService, sanitize_for_storage
 from .store import CouncilStore, utc_now
 from .supervisor import SupervisorError, SupervisorService
@@ -365,6 +367,189 @@ class ExperimentService:
         )
         return self.experiment(experiment_id)
 
+    def request_start(self, experiment_id: str) -> dict[str, Any]:
+        experiment = self.experiment(experiment_id, include_prompt=True)
+        if experiment["execution_mode"] != "real_codex":
+            raise ExperimentError("only real_codex experiments require start approval")
+        if experiment["status"] != "armed":
+            raise ExperimentError(f"experiment {experiment_id!r} is not armed")
+        try:
+            self._revalidate(experiment)
+        except ExperimentError as exc:
+            self._mark_stale(experiment_id, str(exc))
+            raise
+        scope = experiment["scope"]
+        manager_config = scope["manager"]["identity"]["agent"]["config"]
+        if manager_config.get("strict_no_approvals") is not True:
+            raise ExperimentError("real execution requires strict_no_approvals")
+        start_scope = {
+            "version": 1,
+            "action": "start_codex_app_server_and_one_turn",
+            "experiment_id": experiment_id,
+            "experiment_scope_sha256": experiment["scope_sha256"],
+            "manager_identity_sha256": scope["manager"]["identity"][
+                "identity_sha256"
+            ],
+            "prompt_sha256": scope["prompt_sha256"],
+            "transport": scope["transport"],
+            "permissions": scope["permissions"],
+            "limits": scope["limits"],
+        }
+        approval_id = str(uuid4())
+        digest = _digest(start_scope)
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO controlled_experiment_start_approvals(
+                    id, experiment_id, scope_sha256, scope_json, status,
+                    requested_at, decided_at, consumed_at, failure
+                ) VALUES (?, ?, ?, ?, 'pending', ?, NULL, NULL, NULL)
+                """,
+                (approval_id, experiment_id, digest, _dump(start_scope), utc_now()),
+            )
+        self._event(
+            experiment_id,
+            "experiment_start_requested",
+            {"start_approval_id": approval_id, "scope_sha256": digest},
+        )
+        return self.start_approval(approval_id)
+
+    def start_approval(self, approval_id: str) -> dict[str, Any]:
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM controlled_experiment_start_approvals WHERE id = ?",
+                (approval_id,),
+            ).fetchone()
+        if row is None:
+            raise ExperimentError(f"start approval {approval_id!r} does not exist")
+        result = dict(row)
+        result["scope"] = json.loads(result.pop("scope_json"))
+        return result
+
+    def decide_start(
+        self, approval_id: str, *, approve: bool, confirmation: str = ""
+    ) -> dict[str, Any]:
+        approval = self.start_approval(approval_id)
+        if approval["status"] != "pending":
+            raise ExperimentError(f"start approval {approval_id!r} is not pending")
+        if approve and confirmation != approval["scope_sha256"]:
+            raise ExperimentError(
+                "start confirmation must exactly match scope_sha256"
+            )
+        status = "approved" if approve else "rejected"
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                UPDATE controlled_experiment_start_approvals
+                SET status = ?, decided_at = ?
+                WHERE id = ? AND status = 'pending'
+                """,
+                (status, utc_now(), approval_id),
+            )
+        self._event(
+            approval["experiment_id"],
+            f"experiment_start_{status}",
+            {"start_approval_id": approval_id, "scope_sha256": approval["scope_sha256"]},
+        )
+        return self.start_approval(approval_id)
+
+    def consume_start(self, approval_id: str) -> dict[str, Any]:
+        approval = self.start_approval(approval_id)
+        if approval["status"] != "approved":
+            raise ExperimentError(
+                f"start approval {approval_id!r} is not approved"
+            )
+        experiment = self.experiment(approval["experiment_id"], include_prompt=True)
+        if experiment["status"] != "armed":
+            raise ExperimentError(
+                f"experiment {experiment['id']!r} is not armed"
+            )
+        try:
+            self._revalidate(experiment)
+        except ExperimentError as exc:
+            self._mark_stale(experiment["id"], str(exc))
+            with self.store.connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE controlled_experiment_start_approvals
+                    SET status = 'stale', failure = ?
+                    WHERE id = ? AND status = 'approved'
+                    """,
+                    (_bounded_text(str(exc), 500, "failure"), approval_id),
+                )
+            raise
+        with self.store.connect() as conn:
+            updated = conn.execute(
+                """
+                UPDATE controlled_experiment_start_approvals
+                SET status = 'consumed', consumed_at = ?
+                WHERE id = ? AND status = 'approved'
+                """,
+                (utc_now(), approval_id),
+            ).rowcount
+        if not updated:
+            raise ExperimentError("start approval changed before consumption")
+        self._event(
+            experiment["id"],
+            "experiment_start_consumed",
+            {"start_approval_id": approval_id, "external_invocation": False},
+        )
+        return self.start_approval(approval_id)
+
+    def execute_start(self, approval_id: str) -> dict[str, Any]:
+        approval = self.consume_start(approval_id)
+        experiment = self.experiment(approval["experiment_id"], include_prompt=True)
+        scope = experiment["scope"]
+        try:
+            self._start_running(experiment["id"])
+            response, usage = self._execute_codex_app_server(experiment)
+            self._validate_manager_response(response, scope)
+            response_bytes = len(response.encode("utf-8"))
+            if response_bytes > scope["limits"]["max_response_bytes"]:
+                raise ExperimentError("Manager response exceeded max_response_bytes")
+            total_tokens = usage.get("total_tokens") if usage else None
+            token_limit = scope["limits"].get("max_total_tokens")
+            if token_limit is not None and (
+                total_tokens is None or total_tokens > token_limit
+            ):
+                raise ExperimentError(
+                    "Manager usage is unavailable or exceeded max_total_tokens"
+                )
+            evidence = {
+                "version": 1,
+                "kind": "codex_app_server_turn",
+                "response_sha256": sha256(response.encode("utf-8")).hexdigest(),
+                "response_bytes": response_bytes,
+                "response_text_stored": False,
+                "usage": usage,
+                "process_invocation_count": 1,
+                "retry_count": 0,
+                "expected_output_schema": scope["expected_output"]["schema"],
+            }
+            self._evidence(experiment["id"], "codex_app_server_turn", "passed", evidence)
+            with self.store.connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE controlled_experiments
+                    SET status = 'completed', completed_at = ?
+                    WHERE id = ? AND status = 'running'
+                    """,
+                    (utc_now(), experiment["id"]),
+                )
+            self._event(
+                experiment["id"],
+                "experiment_completed",
+                {
+                    "start_approval_id": approval["id"],
+                    "process_invocation_count": 1,
+                    "response_sha256": evidence["response_sha256"],
+                },
+            )
+        except Exception as exc:
+            self._fail(experiment["id"], str(exc))
+            raise
+        return self.snapshot(experiment["id"], include_prompt=False)
+
     def simulate(self, experiment_id: str) -> dict[str, Any]:
         experiment = self.experiment(experiment_id, include_prompt=True)
         if experiment["execution_mode"] != "synthetic_fake":
@@ -645,6 +830,191 @@ class ExperimentService:
                 )
         if _digest(scope) != experiment["scope_sha256"]:
             raise ExperimentError("experiment scope changed after preparation")
+
+    def _start_running(self, experiment_id: str) -> None:
+        with self.store.connect() as conn:
+            updated = conn.execute(
+                """
+                UPDATE controlled_experiments
+                SET status = 'running', started_at = ?
+                WHERE id = ? AND status = 'armed'
+                """,
+                (utc_now(), experiment_id),
+            ).rowcount
+        if not updated:
+            raise ExperimentError("experiment changed before execution")
+
+    def _execute_codex_app_server(
+        self,
+        experiment: dict[str, Any],
+    ) -> tuple[str, dict[str, int] | None]:
+        scope = experiment["scope"]
+        manager_config = scope["manager"]["identity"]["agent"]["config"]
+        transport_scope = scope["transport"]
+        if (
+            manager_config.get("strict_no_approvals") is not True
+            or manager_config.get("invoke_enabled") is not False
+        ):
+            raise ExperimentError("Manager is not a disabled strict candidate")
+        if transport_scope["host_type"] != "codex_app_server":
+            raise ExperimentError("real execution requires codex_app_server transport")
+        command = transport_scope["command"]
+        cwd = Path(transport_scope["working_directory"])
+        if not cwd.is_dir():
+            raise ExperimentError("approved working directory is unavailable")
+        transport = JsonLineProcess(
+            command,
+            cwd=cwd,
+            timeout_seconds=scope["limits"]["timeout_seconds"],
+        )
+        try:
+            self._exchange(
+                transport,
+                1,
+                "initialize",
+                {"clientInfo": {"name": "model-council", "version": "0.2.0rc1"}},
+            )
+            transport.send({"method": "initialized", "params": {}})
+            thread = self._exchange(
+                transport,
+                2,
+                "thread/start",
+                {
+                    "cwd": str(cwd),
+                    "approvalPolicy": "never",
+                    "sandbox": "read-only",
+                    "experimentalRawEvents": False,
+                    "persistExtendedHistory": False,
+                    "model": transport_scope["model_id"],
+                },
+            )
+            thread_id = self._result_id(thread, "thread")
+            turn = self._exchange(
+                transport,
+                3,
+                "turn/start",
+                {
+                    "threadId": thread_id,
+                    "input": [{"type": "text", "text": experiment["prompt"]}],
+                },
+            )
+            turn_id = self._result_id(turn, "turn")
+            return self._read_turn(
+                transport,
+                turn_id=turn_id,
+                max_response_bytes=scope["limits"]["max_response_bytes"],
+            )
+        except InteroperabilityError as exc:
+            raise ExperimentError(str(exc)) from exc
+        finally:
+            transport.close()
+
+    @staticmethod
+    def _result_id(result: dict[str, Any], key: str) -> str:
+        item = result.get(key)
+        value = item.get("id") if isinstance(item, dict) else None
+        if not isinstance(value, str) or not value:
+            raise ExperimentError(f"Codex App Server {key}/start result lacks id")
+        return value
+
+    def _exchange(
+        self,
+        transport: JsonLineProcess,
+        request_id: int,
+        method: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        transport.send({"id": request_id, "method": method, "params": params})
+        while True:
+            payload = transport.receive()
+            if "method" in payload and "id" in payload:
+                self._reject_server_request(transport, payload)
+            if payload.get("id") != request_id:
+                continue
+            if "error" in payload:
+                raise ExperimentError(
+                    f"Codex App Server {method} failed: {payload['error']}"
+                )
+            result = payload.get("result")
+            if not isinstance(result, dict):
+                raise ExperimentError(
+                    f"Codex App Server {method} result must be an object"
+                )
+            return result
+
+    def _read_turn(
+        self,
+        transport: JsonLineProcess,
+        *,
+        turn_id: str,
+        max_response_bytes: int,
+    ) -> tuple[str, dict[str, int] | None]:
+        messages: list[str] = []
+        usage: dict[str, int] | None = None
+        while True:
+            payload = transport.receive()
+            if "method" in payload and "id" in payload:
+                self._reject_server_request(transport, payload)
+            method = payload.get("method")
+            params = payload.get("params")
+            if not isinstance(params, dict):
+                params = {}
+            if method == "item/completed":
+                item = params.get("item")
+                if isinstance(item, dict) and item.get("type") == "agentMessage":
+                    text = item.get("text")
+                    if isinstance(text, str) and text:
+                        if len(text.encode("utf-8")) > max_response_bytes:
+                            raise ExperimentError(
+                                "Manager response exceeded max_response_bytes"
+                            )
+                        messages.append(text)
+            elif method == "thread/tokenUsage/updated":
+                token_usage = params.get("tokenUsage")
+                last = token_usage.get("last") if isinstance(token_usage, dict) else None
+                if isinstance(last, dict):
+                    mapped = {
+                        "input_tokens": last.get("inputTokens"),
+                        "output_tokens": last.get("outputTokens"),
+                        "total_tokens": last.get("totalTokens"),
+                    }
+                    if all(isinstance(value, int) and value >= 0 for value in mapped.values()):
+                        usage = mapped
+            elif method == "turn/completed":
+                turn = params.get("turn")
+                if not isinstance(turn, dict) or turn.get("id") != turn_id:
+                    continue
+                if turn.get("status") not in {"completed", "complete"}:
+                    raise ExperimentError("Codex App Server turn did not complete")
+                if not messages:
+                    raise ExperimentError("Codex App Server returned no agent message")
+                return messages[-1], usage
+
+    @staticmethod
+    def _reject_server_request(
+        transport: JsonLineProcess,
+        payload: dict[str, Any],
+    ) -> None:
+        request_id = payload.get("id")
+        if not isinstance(request_id, int):
+            raise ExperimentError("Codex App Server approval request lacks id")
+        transport.send(
+            {
+                "id": request_id,
+                "result": {"decision": "decline"},
+            }
+        )
+        raise ExperimentError("Codex App Server requested interactive approval")
+
+    @staticmethod
+    def _validate_manager_response(response: str, scope: dict[str, Any]) -> None:
+        try:
+            payload = json.loads(response)
+        except json.JSONDecodeError as exc:
+            raise ExperimentError("Manager response was not JSON") from exc
+        tasks = payload.get("tasks") if isinstance(payload, dict) else None
+        if not isinstance(tasks, list) or len(tasks) != scope["expected_output"]["task_count"]:
+            raise ExperimentError("Manager response did not contain exactly two tasks")
 
     def _mark_stale(self, experiment_id: str, failure: str) -> None:
         with self.store.connect() as conn:
