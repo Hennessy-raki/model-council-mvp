@@ -540,3 +540,9 @@ closed. The parser accepts complete usage from `last`, `total`, or
 `turn/completed` and still rejects absent/incomplete usage. The failed
 experiment and consumed start approval are terminal; never retry them. Prepare
 a fresh candidate and repeat every approval gate before another one-turn pilot.
+
+Board 14.5 binds SHA-256 hashes of the controlled executor and its JSON-lines
+transport helper into each fresh start approval. A source mismatch makes that
+approval stale before process creation. Do not create the next candidate until
+this 14.5 commit is the checked-out code; then display a new start scope with
+the integrity records before requesting any second real execution.

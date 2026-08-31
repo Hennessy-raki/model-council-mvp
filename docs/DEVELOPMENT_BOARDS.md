@@ -217,6 +217,8 @@ Status: in progress
   controlled executor only against local fake App Server fixtures;
 - Board 14.4 repairs usage-shape compatibility while preserving fail-closed
   limits and verifies it only with local fixtures;
+- Board 14.5 binds executor and transport source integrity into every new
+  start approval and stales it on code drift;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
@@ -241,3 +243,7 @@ and `docs/reports/2026-08-31-board-14-3-controlled-executor.md`
 Board 14.4 plan and report:
 `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md`
 and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`
+
+Board 14.5 plan and report:
+`docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md`
+and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`

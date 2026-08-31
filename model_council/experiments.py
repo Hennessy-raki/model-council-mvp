@@ -394,6 +394,7 @@ class ExperimentService:
             "transport": scope["transport"],
             "permissions": scope["permissions"],
             "limits": scope["limits"],
+            "executor_integrity": _executor_integrity(),
         }
         approval_id = str(uuid4())
         digest = _digest(start_scope)
@@ -464,6 +465,23 @@ class ExperimentService:
             raise ExperimentError(
                 f"experiment {experiment['id']!r} is not armed"
             )
+        if approval["scope"].get("executor_integrity") != _executor_integrity():
+            failure = "controlled executor integrity changed after start approval"
+            with self.store.connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE controlled_experiment_start_approvals
+                    SET status = 'stale', failure = ?
+                    WHERE id = ? AND status = 'approved'
+                    """,
+                    (failure, approval_id),
+                )
+            self._event(
+                experiment["id"],
+                "experiment_start_stale",
+                {"start_approval_id": approval_id, "failure": failure},
+            )
+            raise ExperimentError(failure)
         try:
             self._revalidate(experiment)
         except ExperimentError as exc:
@@ -1119,6 +1137,18 @@ class ExperimentService:
                     utc_now(),
                 ),
             )
+
+
+def _executor_integrity() -> dict[str, str]:
+    package_root = Path(__file__).resolve().parent
+    modules = (
+        ("controlled_executor", package_root / "experiments.py"),
+        ("json_line_transport", package_root / "interoperability.py"),
+    )
+    return {
+        label: sha256(path.read_bytes()).hexdigest()
+        for label, path in modules
+    }
 
 
 def _validate_permissions(value: Any) -> dict[str, Any]:

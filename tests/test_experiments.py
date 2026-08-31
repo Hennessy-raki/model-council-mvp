@@ -5,9 +5,11 @@ from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from model_council.cli import main
 from model_council.config import load_config
+import model_council.experiments as experiments_module
 from model_council.experiments import ExperimentError, ExperimentService
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore
@@ -373,6 +375,10 @@ class ExperimentTests(unittest.TestCase):
             start["scope"]["action"],
             "start_codex_app_server_and_one_turn",
         )
+        self.assertEqual(
+            set(start["scope"]["executor_integrity"]),
+            {"controlled_executor", "json_line_transport"},
+        )
         with self.assertRaises(ExperimentError):
             self.experiments.decide_start(
                 start["id"],
@@ -505,6 +511,24 @@ class ExperimentTests(unittest.TestCase):
             "failed",
         )
         self.assertEqual(self.experiments.evidence(experiment["id"]), [])
+
+    def test_executor_integrity_drift_stales_start_approval_before_process(self):
+        _, start = self._approved_start(
+            self._fixture_real_spec("fake_codex_app_server_plan.py")
+        )
+        with patch.object(
+            experiments_module,
+            "_executor_integrity",
+            return_value={
+                "controlled_executor": "changed",
+                "json_line_transport": "changed",
+            },
+        ):
+            with self.assertRaisesRegex(ExperimentError, "integrity changed"):
+                self.experiments.execute_start(start["id"])
+        stale = self.experiments.start_approval(start["id"])
+        self.assertEqual(stale["status"], "stale")
+        self.assertIn("integrity changed", stale["failure"])
 
     def test_board_14_0_simulation_completes_with_zero_external_calls(self):
         snapshot = self._snapshot(

@@ -10,8 +10,9 @@ Release or push has been created for Board 13.
 
 Board 14.0, Board 14.1 preparation, Board 14.2 offline App Server verification,
 Board 14.3 controlled-executor verification and Board 14.4 usage compatibility
-repair are implemented locally. Board 14 remains in progress because the first
-real pilot failed closed and no retry is authorized.
+repair, and Board 14.5 executor-integrity binding are implemented locally.
+Board 14 remains in progress because the first real pilot failed closed and no
+retry is authorized.
 
 The latest scope and completion reports are:
 
@@ -28,6 +29,8 @@ docs/reports/2026-08-31-board-14-3-controlled-executor-plan.md
 docs/reports/2026-08-31-board-14-3-controlled-executor.md
 docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md
 docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md
+docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md
+docs/reports/2026-08-31-board-14-5-executor-integrity.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -55,6 +58,10 @@ before the controlled executor can start a process. Board 14.4 adds
 fail-closed usage compatibility for supported App Server locations. Both were
 verified only against repository fake App Server fixtures. The executor stores
 response hashes and byte counts rather than response text.
+
+Board 14.5 binds the controlled-executor and JSON-lines transport source
+hashes into every new start approval. A source change after approval makes that
+approval stale before any process can start.
 
 ## Required next-session sequence
 
@@ -114,8 +121,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and eighteen tests after Board
-14.4. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and nineteen tests after Board
+14.5. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.

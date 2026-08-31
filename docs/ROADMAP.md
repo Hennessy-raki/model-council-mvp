@@ -245,6 +245,8 @@ Status: in progress
   startup and turn, then verify that path only with local fixtures;
 - accept only complete provider-reported usage from supported App Server
   locations, while failing closed when usage is unavailable;
+- bind the executor and JSON-lines transport source hashes into every new
+  one-turn start approval and stale it if either source changes;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -270,6 +272,10 @@ and `docs/reports/2026-08-31-board-14-3-controlled-executor.md`
 Board 14.4 plan and report:
 `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair-plan.md`
 and `docs/reports/2026-08-31-board-14-4-usage-compatibility-repair.md`
+
+Board 14.5 plan and report:
+`docs/reports/2026-08-31-board-14-5-executor-integrity-plan.md`
+and `docs/reports/2026-08-31-board-14-5-executor-integrity.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 
