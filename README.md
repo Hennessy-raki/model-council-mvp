@@ -477,6 +477,36 @@ python -m model_council compare runs <LEFT_RUN_ID> <RIGHT_RUN_ID> `
 
 Unknown cost remains unknown instead of becoming zero.
 
+## Local team Supervisor
+
+Board 13 adds a local-only Supervisor that binds one Manager, Worker and
+Reviewer Agent+Model team. The wizard imports a local JSON file containing
+only synthetic readiness checks; it does not invoke an Adapter or contact a
+service.
+
+```powershell
+python -m model_council supervisor wizard `
+  --team-file config.supervisor.team.example.json `
+  --config config.example.json
+python -m model_council supervisor check --config <LOCAL_CONFIG>
+python -m model_council supervisor snapshot --config <LOCAL_CONFIG>
+python -m model_council supervisor request-start <SNAPSHOT_ID> `
+  --config <LOCAL_CONFIG>
+python -m model_council supervisor approve <APPROVAL_ID> `
+  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
+python -m model_council supervisor start <APPROVAL_ID> --config <LOCAL_CONFIG>
+```
+
+Readiness covers process, login, Model, permission, version and connection.
+Unavailable machine evidence is `user_confirmation_required`, never ready by
+assumption. A snapshot requires all three roles ready. Configuration or
+readiness evidence drift makes the SHA-256-bound start approval stale. In this
+first local phase, `start` writes only a synthetic local Manager-platform audit
+event; it does not start a real task, process, network connection or model.
+The tracked example deliberately requires an explicit reviewer-connection
+confirmation; copy it to an untracked local file before replacing synthetic
+checks with future local experiments.
+
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 
 运行测试：

@@ -52,6 +52,35 @@ GUI-only Agents can be registered manually. Their registry and discovery
 records are user-owned and cannot be overwritten by later config sync or local
 command scanning.
 
+## Supervisor team readiness
+
+Board 13 adds a separate local Supervisor above startup discovery. Discovery
+records observations; the Supervisor alone decides whether a configured
+Manager, Worker and Reviewer team has enough current evidence to request a
+synthetic start.
+
+```text
+team wizard binding
+  -> local synthetic readiness checks
+  -> user_confirmation_required when evidence is unavailable
+  -> all required roles ready
+  -> immutable team snapshot + SHA-256
+  -> local Manager-platform team_ready / task_start_requested
+  -> exact human approval
+  -> task_start_authorized event
+```
+
+Each role binds one registered Agent and Model, launch mode and declared
+transport. `spawn`, `attach`, `attach_or_spawn`, `remote` and `manual` are
+configuration choices; Board 13 does not launch real processes or transports.
+The first-stage inspector only reads fake local CLI, ACP, A2A, MCP and HTTP
+observations. It never constructs an Adapter or opens a network connection.
+
+The team snapshot includes the binding and readiness evidence digest. Any
+binding or evidence drift invalidates a pending or approved start request. A
+Supervisor authorization is not an Adapter invocation, workspace permission,
+Git action or real task execution.
+
 ## Usage, cost and balance ledger
 
 Every Adapter invocation creates one immutable `usage_events` record. Locally

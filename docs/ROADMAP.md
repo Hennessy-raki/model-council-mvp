@@ -214,6 +214,25 @@ Plan: `docs/reports/2026-08-31-board-12-product-release-plan.md`
 
 Report: `docs/reports/2026-08-31-board-12-product-release.md`
 
+## Productization Board 13: Supervisor, team readiness and start approval
+
+Status: complete for local private incubation
+
+- configure persistent Manager, Worker and Reviewer Agent+Model bindings;
+- support `spawn`, `attach`, `attach_or_spawn`, `remote` and `manual` modes;
+- record synthetic local process, login, Model, permission, version and
+  connection evidence;
+- require `user_confirmation_required` instead of inferring readiness where
+  machine evidence is unavailable;
+- create SHA-256-bound team snapshots and one-time start approvals;
+- stale start approval after configuration or readiness drift;
+- send only local fake Manager-platform readiness and start events;
+- retain a no-Adapter, no-network, no-task-execution boundary.
+
+Plan: `docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md`
+
+Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
+
 ## Milestone 2: Persistent sessions and a second model family
 
 - implement `CodexAppServerAdapter`;

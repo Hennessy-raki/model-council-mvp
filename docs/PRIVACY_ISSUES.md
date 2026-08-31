@@ -314,3 +314,25 @@ evidence.
   local terminal. Do not paste failed verifier output into public reports
   without review.
 - Blocks development: no
+
+### PRIV-016: Supervisor readiness and fake Manager events retain local setup evidence
+
+- Date found: 2026-08-31
+- Channel: ignored local runtime SQLite and local CLI output
+- Priority: medium
+- Data class: Agent labels, selected Model identifiers, local version and
+  readiness diagnostics, confirmation notes, snapshot and approval hashes
+- Status: mitigated and accepted
+- Resolution:
+  - Supervisor state is stored only in the existing ignored runtime database;
+  - check details pass through the existing sensitive-value sanitizer;
+  - confirmation notes are bounded;
+  - tracked reports describe only generic synthetic behavior, never runtime
+    records or machine-specific endpoints;
+  - the first-stage inspector cannot create an Adapter, process or network
+    connection.
+- Evidence: Supervisor tests use temporary SQLite state and fake observation
+  profiles; current-tree and reachable-history privacy scans remain required.
+- Residual risk: a local operator can intentionally enter identifying Agent
+  labels or copy a local runtime report into a tracked file.
+- Blocks development: no

@@ -46,6 +46,22 @@ workspace/repair/evaluation evidence views, run comparison, privacy-safe
 backup/restore and release-candidate verification. The prepared version is
 `0.2.0rc1`; no tag or GitHub Release was created.
 
+Board 13 is complete for local private incubation. Its frozen scope and
+completion report are:
+
+```text
+docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md
+docs/reports/2026-08-31-board-13-supervisor-team-readiness.md
+```
+
+It adds an independent local Supervisor for a Manager, Worker and Reviewer
+Agent+Model team. The Supervisor consumes only fake local CLI, ACP, A2A, MCP
+and HTTP readiness observations; no Adapter, process, socket or model call is
+created. It records explicit confirmation requirements, current team
+snapshots, exact start approvals and local fake Manager-platform events.
+Configuration or readiness drift stales approvals. Board 13 is not pushed and
+does not change the published `0.2.0rc1` release candidate.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -194,6 +210,8 @@ Baseline history through 2026-08-31:
   evaluation;
 - all ninety-three unit/integration tests passed after the product and release
   candidate board;
+- all one hundred unit/integration tests passed after the local Supervisor
+  readiness and start-approval board;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -461,3 +479,13 @@ Read the architecture invariants before changing Adapter or orchestration
 boundaries. Preserve the mock-only baseline even after real models are added.
 Do not set `invoke_enabled: true` or send repository context to a live endpoint
 without explicit user authorization for that exact pilot.
+
+For local Board 13 inspection, use:
+
+```powershell
+python -m model_council supervisor show --config config.example.json
+```
+
+The Supervisor remains local and synthetic. Do not add a real readiness probe,
+Manager delivery or task execution path without a newly frozen board scope and
+exact external-call authorization.

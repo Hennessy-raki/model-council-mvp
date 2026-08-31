@@ -67,10 +67,12 @@ Do not commit:
 
 ## Current priority
 
-Productization Boards 1 through 12 are complete. The current release candidate
-is `0.2.0rc1`. Read `docs/RELEASE.md`, the Board 12 plan/report and
-`docs/PRIVACY_ISSUES.md` before changing the product surface, backup format or
-any approval boundary.
+Productization Boards 1 through 12 are complete as the public `0.2.0rc1`
+release candidate. Board 13 is complete for local private incubation only:
+it adds a separate Supervisor, team-readiness evidence, SHA-256-bound start
+approval and a local fake Manager platform. Read the Board 13 plan/report and
+`docs/PRIVACY_ISSUES.md` before changing a readiness, approval or start
+boundary.
 
 Board 11 is complete. The sole candidate is DeepSeek `deepseek-v4-flash` in
 the `synthetic_evaluator` role. One explicitly authorized synthetic manifest
@@ -85,6 +87,12 @@ privacy-safe local backup/restore and repeatable release verification. SQLite
 remains authoritative. Page refresh performs no model, network, Git, test,
 merge, discard or restore action. No Git tag or GitHub Release is created
 without separate user direction.
+
+Board 13 does not launch a real process, create an Adapter, connect to a
+service, invoke a model or execute a task. Its first-stage checker consumes
+only local synthetic CLI, ACP, A2A, MCP and HTTP observations. Missing machine
+evidence must remain `user_confirmation_required`; start approval is stale
+after team binding or readiness evidence drift.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references

@@ -1,0 +1,55 @@
+{
+  "roles": {
+    "manager": {
+      "agent_id": "manager",
+      "model_id": "mock-general",
+      "launch_mode": "spawn",
+      "transport": "cli",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "passed", "details": {"fixture": "fake-cli"}},
+          "login": {"status": "passed", "details": {"fixture": "fake-cli"}},
+          "model": {"status": "passed", "details": {"model_id": "mock-general"}},
+          "permission": {"status": "passed", "details": {"level": "read_only"}},
+          "version": {"status": "passed", "details": {"version": "fake-1"}},
+          "connection": {"status": "passed", "details": {"fixture": "fake-cli"}}
+        }
+      }
+    },
+    "worker": {
+      "agent_id": "implementer",
+      "model_id": "mock-general",
+      "launch_mode": "attach_or_spawn",
+      "transport": "acp",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "passed", "details": {"fixture": "fake-acp"}},
+          "login": {"status": "passed", "details": {"fixture": "fake-acp"}},
+          "model": {"status": "passed", "details": {"model_id": "mock-general"}},
+          "permission": {"status": "passed", "details": {"level": "read_only"}},
+          "version": {"status": "passed", "details": {"version": "fake-1"}},
+          "connection": {"status": "passed", "details": {"fixture": "fake-acp"}}
+        }
+      }
+    },
+    "reviewer": {
+      "agent_id": "reviewer",
+      "model_id": "mock-general",
+      "launch_mode": "manual",
+      "transport": "manual",
+      "check_profile": {
+        "synthetic_checks": {
+          "process": {"status": "not_applicable", "details": {}},
+          "login": {"status": "passed", "details": {"fixture": "fake-mcp"}},
+          "model": {"status": "passed", "details": {"model_id": "mock-general"}},
+          "permission": {"status": "passed", "details": {"level": "read_only"}},
+          "version": {"status": "passed", "details": {"version": "fake-1"}},
+          "connection": {
+            "status": "user_confirmation_required",
+            "details": {"fixture": "fake-mcp"}
+          }
+        }
+      }
+    }
+  }
+}

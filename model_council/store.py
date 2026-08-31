@@ -483,6 +483,63 @@ class CouncilStore:
                     safety_backup_id TEXT,
                     failure TEXT
                 );
+                CREATE TABLE IF NOT EXISTS supervisor_team_bindings (
+                    role_key TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+                    model_id TEXT NOT NULL REFERENCES models(id),
+                    launch_mode TEXT NOT NULL,
+                    transport TEXT NOT NULL,
+                    check_profile_json TEXT NOT NULL,
+                    binding_sha256 TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_readiness_reports (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL,
+                    binding_sha256 TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    report_json TEXT NOT NULL,
+                    checked_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_user_confirmations (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL,
+                    binding_sha256 TEXT NOT NULL,
+                    check_name TEXT NOT NULL,
+                    note TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_team_snapshots (
+                    id TEXT PRIMARY KEY,
+                    snapshot_sha256 TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_start_approvals (
+                    id TEXT PRIMARY KEY,
+                    snapshot_id TEXT NOT NULL
+                        REFERENCES supervisor_team_snapshots(id),
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    consumed_at TEXT,
+                    failure TEXT
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_platform_events (
+                    id TEXT PRIMARY KEY,
+                    event_type TEXT NOT NULL,
+                    manager_agent_id TEXT NOT NULL
+                        REFERENCES agent_profiles(id),
+                    snapshot_id TEXT REFERENCES supervisor_team_snapshots(id),
+                    approval_id TEXT REFERENCES supervisor_start_approvals(id),
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
                 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
                 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
@@ -545,6 +602,18 @@ class CouncilStore:
                     ON local_backups(created_at);
                 CREATE INDEX IF NOT EXISTS idx_backup_restore_status
                     ON backup_restore_approvals(status, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_supervisor_readiness_role
+                    ON supervisor_readiness_reports(
+                        role_key, binding_sha256, checked_at
+                    );
+                CREATE INDEX IF NOT EXISTS idx_supervisor_confirmations_role
+                    ON supervisor_user_confirmations(
+                        role_key, binding_sha256, check_name, created_at
+                    );
+                CREATE INDEX IF NOT EXISTS idx_supervisor_approvals_status
+                    ON supervisor_start_approvals(status, requested_at);
+                CREATE INDEX IF NOT EXISTS idx_supervisor_events_manager
+                    ON supervisor_platform_events(manager_agent_id, created_at);
                 """
             )
             self._ensure_column(conn, "artifacts", "producer_agent_id", "TEXT")

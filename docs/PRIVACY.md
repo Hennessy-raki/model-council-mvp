@@ -164,3 +164,16 @@ Backups are private runtime state below ignored `state_dir/backups/`.
 Backups can still contain private prompts, evidence and local identities inside
 SQLite. Protect the host account and backup directory accordingly. Never commit
 or upload a backup as a release asset.
+
+## Supervisor readiness boundary
+
+Board 13 Supervisor bindings, readiness reports, user confirmations, team
+snapshots, start approvals and fake Manager-platform events are local runtime
+SQLite state. They can include local Agent labels, versions and diagnostics.
+Keep them below the ignored state directory and never paste their values into
+tracked configuration, reports or public issues.
+
+The first-stage Supervisor uses only synthetic local observations. It must not
+create an Adapter, start a real process, connect to a service or invoke a
+model. A future real readiness checker needs a separate scope, privacy review
+and explicit external-call authorization.

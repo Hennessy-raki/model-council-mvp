@@ -20,6 +20,7 @@ from .registry import RegistryService
 from .release import ReleaseVerifier
 from .routing import RoutingService
 from .store import CouncilStore
+from .supervisor import SupervisorService
 from .workspaces import WorkspaceService
 
 
@@ -747,6 +748,128 @@ def build_parser() -> argparse.ArgumentParser:
     backup_restore.add_argument("approval_id")
     backup_restore.add_argument("--config", default=str(default_config_path()))
 
+    supervisor = subparsers.add_parser(
+        "supervisor",
+        help="configure and gate a local Manager, Worker and Reviewer team",
+    )
+    supervisor_commands = supervisor.add_subparsers(
+        dest="supervisor_command",
+        required=True,
+    )
+    supervisor_wizard = supervisor_commands.add_parser(
+        "wizard",
+        help="apply a local three-role team-wizard JSON file",
+    )
+    supervisor_wizard.add_argument(
+        "--team-file",
+        required=True,
+        help="local JSON with exactly manager, worker and reviewer bindings",
+    )
+    supervisor_wizard.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_show = supervisor_commands.add_parser(
+        "show",
+        help="show local team bindings, checks, snapshots, approvals and events",
+    )
+    supervisor_show.add_argument("--config", default=str(default_config_path()))
+    supervisor_check = supervisor_commands.add_parser(
+        "check",
+        help="run local synthetic readiness checks without invoking an Adapter",
+    )
+    supervisor_check.add_argument(
+        "--role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_check.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_confirm = supervisor_commands.add_parser(
+        "confirm",
+        help="record explicit confirmation only for unmachine-verifiable checks",
+    )
+    supervisor_confirm.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_confirm.add_argument(
+        "--check",
+        action="append",
+        required=True,
+        choices=(
+            "process",
+            "login",
+            "model",
+            "permission",
+            "version",
+            "connection",
+        ),
+    )
+    supervisor_confirm.add_argument("--note", default="")
+    supervisor_confirm.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_snapshot = supervisor_commands.add_parser(
+        "snapshot",
+        help="create a team snapshot only after all required Agents are ready",
+    )
+    supervisor_snapshot.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_request = supervisor_commands.add_parser(
+        "request-start",
+        help="queue an exact local Manager-platform start request",
+    )
+    supervisor_request.add_argument("snapshot_id")
+    supervisor_request.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_approvals = supervisor_commands.add_parser(
+        "approvals",
+        help="list SHA-256-bound local team-start approvals",
+    )
+    supervisor_approvals.add_argument(
+        "--status",
+        choices=("pending", "approved", "rejected", "stale", "consumed"),
+    )
+    supervisor_approvals.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_approve = supervisor_commands.add_parser(
+        "approve",
+        help="approve one exact team-start scope",
+    )
+    supervisor_approve.add_argument("approval_id")
+    supervisor_approve.add_argument("--scope-sha256", required=True)
+    supervisor_approve.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_reject = supervisor_commands.add_parser(
+        "reject",
+        help="reject one pending team-start request",
+    )
+    supervisor_reject.add_argument("approval_id")
+    supervisor_reject.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_start = supervisor_commands.add_parser(
+        "start",
+        help="consume an approved scope and authorize only the local fake platform",
+    )
+    supervisor_start.add_argument("approval_id")
+    supervisor_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
     compare = subparsers.add_parser(
         "compare",
         help="summarize or compare persisted run evidence locally",
@@ -1242,6 +1365,55 @@ def main(argv: list[str] | None = None) -> None:
             elif args.backup_command == "restore":
                 payload = backups.restore(args.approval_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "supervisor":
+            config = load_config(args.config)
+            supervisor = _load_supervisor(config)
+            if args.supervisor_command == "wizard":
+                payload = {
+                    "bindings": supervisor.apply_wizard(
+                        _load_json_object(args.team_file, "--team-file")
+                    )
+                }
+            elif args.supervisor_command == "show":
+                payload = {
+                    "team": supervisor.check_team(),
+                    "bindings": supervisor.bindings(),
+                    "snapshots": supervisor.snapshots(),
+                    "approvals": supervisor.approvals(),
+                    "manager_platform_events": supervisor.events(),
+                }
+            elif args.supervisor_command == "check":
+                payload = (
+                    supervisor.check_role(args.role)
+                    if args.role
+                    else supervisor.check_team()
+                )
+            elif args.supervisor_command == "confirm":
+                payload = supervisor.confirm(
+                    role_key=args.role,
+                    check_names=args.check,
+                    note=args.note,
+                )
+            elif args.supervisor_command == "snapshot":
+                payload = supervisor.snapshot()
+            elif args.supervisor_command == "request-start":
+                payload = supervisor.request_start(args.snapshot_id)
+            elif args.supervisor_command == "approvals":
+                payload = supervisor.approvals(args.status)
+            elif args.supervisor_command == "approve":
+                payload = supervisor.decide_start(
+                    args.approval_id,
+                    approve=True,
+                    confirmation=args.scope_sha256,
+                )
+            elif args.supervisor_command == "reject":
+                payload = supervisor.decide_start(
+                    args.approval_id,
+                    approve=False,
+                )
+            elif args.supervisor_command == "start":
+                payload = supervisor.start(args.approval_id)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "compare":
             config = load_config(args.config)
             registry = _load_registry(config)
@@ -1360,6 +1532,11 @@ def _load_interoperability(config) -> InteroperabilityService:
     return InteroperabilityService(config, store)
 
 
+def _load_supervisor(config) -> SupervisorService:
+    registry = _load_registry(config)
+    return SupervisorService(registry.store, registry)
+
+
 def _parse_setting_value(value: str):
     try:
         return json.loads(value)
@@ -1378,6 +1555,18 @@ def _parse_json_object(value: str, label: str) -> dict:
         raise ValueError(f"{label} must be valid JSON") from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{label} must be a JSON object")
+    return parsed
+
+
+def _load_json_object(path: str, label: str) -> dict:
+    try:
+        parsed = json.loads(Path(path).read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"{label} could not be read") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} must contain valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{label} must contain a JSON object")
     return parsed
 
 

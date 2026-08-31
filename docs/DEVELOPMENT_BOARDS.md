@@ -184,3 +184,22 @@ Status: complete
 Plan: `docs/reports/2026-08-31-board-12-product-release-plan.md`
 
 Report: `docs/reports/2026-08-31-board-12-product-release.md`
+
+### Board 13: Supervisor, team readiness and start approval
+
+Status: complete for local private incubation
+
+- independent local Supervisor with Manager, Worker and Reviewer bindings;
+- `spawn`, `attach`, `attach_or_spawn`, `remote` and `manual` launch modes;
+- local fake CLI, ACP, A2A, MCP and HTTP readiness-observation profiles;
+- process, login, Model, permission, version and connection checks;
+- explicit `user_confirmation_required` state and per-Agent remediation;
+- immutable SHA-256-bound team snapshots and start approvals;
+- stale approval on binding or readiness evidence drift;
+- local fake Manager-platform `team_ready`, start-request and start-authorized
+  audit events;
+- no real external invocation, task execution, Git publishing, tag or release.
+
+Plan: `docs/reports/2026-08-31-board-13-supervisor-team-readiness-plan.md`
+
+Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
