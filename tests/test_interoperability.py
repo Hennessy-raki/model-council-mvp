@@ -189,6 +189,7 @@ class InteroperabilityTests(unittest.TestCase):
         *,
         a2a_endpoint: str = "http://127.0.0.1:1/a2a",
         invoke_enabled: bool = True,
+        strict_no_approvals: bool = False,
     ) -> Path:
         path = root / "config.json"
         path.write_text(
@@ -213,6 +214,7 @@ class InteroperabilityTests(unittest.TestCase):
                             "cwd": str(root),
                             "sandbox": "read-only",
                             "approval_policy": "never",
+                            "strict_no_approvals": strict_no_approvals,
                             "outbound_context": {
                                 "source": "synthetic",
                                 "allowed_sources": ["synthetic"],
@@ -320,6 +322,39 @@ class InteroperabilityTests(unittest.TestCase):
                 ],
                 10,
             )
+
+    def test_codex_app_server_strict_policy_stops_after_approval_request(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = load_config(
+                self._write_config(root, strict_no_approvals=True)
+            )
+            store = CouncilStore(config.state_dir / "council.db")
+            adapters = build_adapters(config, store)
+            adapter = adapters["codex_app"]
+            request = self._approved_request(adapter, "codex_app")
+
+            with self.assertRaisesRegex(
+                InteroperabilityError,
+                "strict_no_approvals",
+            ):
+                adapter.invoke(request)
+
+            service = InteroperabilityService(config, store)
+            sessions = service.sessions(agent_id="codex_app")
+            self.assertEqual(len(sessions), 1)
+            self.assertEqual(sessions[0]["status"], "failed")
+            approvals = service.approvals("rejected")
+            self.assertEqual(len(approvals), 1)
+            self.assertEqual(
+                approvals[0]["action"],
+                "item/commandExecution/requestApproval",
+            )
+            methods = {
+                item["method"]
+                for item in service.events(sessions[0]["id"], limit=100)
+            }
+            self.assertNotIn("item/agentMessage/delta", methods)
 
     def _approved_request(self, adapter, agent: str) -> AgentRequest:
         request = self._request(agent)
@@ -533,7 +568,7 @@ class InteroperabilityTests(unittest.TestCase):
             string_gate = json.loads(
                 self._write_config(root).read_text(encoding="utf-8")
             )
-            string_gate["agents"]["remote_a2a"]["invoke_enabled"] = "false"
+            string_gate["agents"]["codex_app"]["strict_no_approvals"] = "false"
             string_gate_path = root / "string-gate.json"
             string_gate_path.write_text(
                 json.dumps(string_gate),

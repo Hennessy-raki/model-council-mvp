@@ -60,6 +60,7 @@
       "cwd_env": "MODEL_COUNCIL_SYNTHETIC_CWD",
       "sandbox": "read-only",
       "approval_policy": "never",
+      "strict_no_approvals": true,
       "outbound_context": {
         "source": "synthetic",
         "allowed_sources": ["synthetic"],

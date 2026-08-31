@@ -512,5 +512,14 @@ python -m model_council experiment show <EXPERIMENT_ID> `
   --show-prompt --config <LOCAL_CONFIG>
 ```
 
-The next action is to create and review one real 14.1 local manifest. Stop
-before approval until the user confirms the exact scope SHA-256.
+Board 14.2 added the opt-in `strict_no_approvals` App Server policy and
+verified it only with the repository fake App Server. A server-side command or
+file approval request is declined and then terminates the local turn. The
+public Board 14 candidate enables this policy but remains
+`invoke_enabled: false`.
+
+The existing local Board 14.1 manifest is approved but unarmed. It does not
+authorize App Server startup or a model call, and it predates the strict policy.
+Do not arm it for a real pilot. Instead, freeze and display a fresh exact
+candidate that binds the final policy, then obtain separate user approval for
+arming and for one startup-plus-turn request.

@@ -545,6 +545,7 @@ class ExperimentTests(unittest.TestCase):
         config = load_config(repository / "config.board14.example.json")
         manager = config.agents["codex_manager"]
         self.assertFalse(manager["invoke_enabled"])
+        self.assertTrue(manager["strict_no_approvals"])
         self.assertEqual(manager["sandbox"], "read-only")
         self.assertEqual(manager["outbound_context"]["source"], "synthetic")
         self.assertEqual(manager["outbound_context"]["max_files"], 0)

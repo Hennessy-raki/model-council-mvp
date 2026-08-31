@@ -211,6 +211,8 @@ Status: in progress
 - Board 14.0 offline experiment harness and fake Manager/two-Worker simulation
   are implemented;
 - Board 14.1 Codex Manager candidate preparation is implemented;
+- Board 14.2 verifies the local fake App Server protocol and makes any
+  server-side approval request terminal for the public Codex candidate;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
@@ -223,3 +225,7 @@ Plan:
 
 Preparation report:
 `docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md`
+
+Board 14.2 plan and report:
+`docs/reports/2026-08-31-board-14-2-offline-app-server-execution-plan.md`
+and `docs/reports/2026-08-31-board-14-2-offline-app-server-execution.md`

@@ -71,6 +71,9 @@ class CodexAppServerAdapter(AgentAdapter):
             raise ValueError(
                 "Codex App Server approval_policy must be never or on-request"
             )
+        self.strict_no_approvals = bool(
+            settings.get("strict_no_approvals", False)
+        )
         self.model = _optional_text(settings.get("model"))
         self.outbound_policy = OutboundContextPolicy.from_settings(
             dict(settings["outbound_context"])
@@ -280,6 +283,7 @@ class CodexAppServerAdapter(AgentAdapter):
             "cwd_exists": self.cwd.is_dir(),
             "sandbox": self.sandbox,
             "approval_policy": self.approval_policy,
+            "strict_no_approvals": self.strict_no_approvals,
             "invoke_enabled": bool(self.settings.get("invoke_enabled", False)),
         }
 
@@ -502,6 +506,11 @@ class CodexAppServerAdapter(AgentAdapter):
             payload=response,
             status="rejected",
         )
+        if self.strict_no_approvals:
+            raise InteroperabilityError(
+                "Codex App Server requested interactive approval under "
+                "strict_no_approvals"
+            )
 
     def _record_inbound(
         self,

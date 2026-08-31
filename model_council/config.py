@@ -341,7 +341,7 @@ def _reject_plaintext_auth(value: dict[str, Any], label: str) -> None:
 
 
 def _validate_interop_flags(value: dict[str, Any], label: str) -> None:
-    for key in ("enabled", "invoke_enabled"):
+    for key in ("enabled", "invoke_enabled", "strict_no_approvals"):
         if key in value and not isinstance(value[key], bool):
             raise ValueError(f"{label} {key} must be true or false")
     if "auth_env" in value and (

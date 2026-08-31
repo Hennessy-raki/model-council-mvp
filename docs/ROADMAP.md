@@ -239,6 +239,8 @@ Status: in progress
 
 - complete Board 14.0 with a fake Manager and two fake Workers;
 - prepare Board 14.1 with a disabled Codex Manager candidate;
+- verify the Codex App Server protocol only against a local fixture, and stop
+  the candidate on every server-side approval request;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -252,6 +254,10 @@ Plan:
 
 Preparation report:
 `docs/reports/2026-08-31-board-14-local-multi-agent-experiment-preparation.md`
+
+Board 14.2 plan and report:
+`docs/reports/2026-08-31-board-14-2-offline-app-server-execution-plan.md`
+and `docs/reports/2026-08-31-board-14-2-offline-app-server-execution.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 
