@@ -224,10 +224,12 @@ Status: in progress
   or response content;
 - Board 14.7 validates the exact two-Worker Manager plan and records
   privacy-safe output-contract diagnostics without retaining raw output;
+- Board 14.8 binds the complete v2 output contract into the exact synthetic
+  prompt and scope, rejecting generic prompts and extra JSON fields;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
-- three separately authorized one-turn synthetic Codex Manager attempts consumed
+- four separately authorized one-turn synthetic Codex Manager attempts consumed
   their approvals and failed closed without retry; none may be reused;
 - Board 14 remains incomplete pending a separately authorized future candidate
   and one-turn review.
@@ -261,3 +263,7 @@ and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
 Board 14.7 plan and report:
 `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md`
 and `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md`
+
+Board 14.8 plan and report:
+`docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt-plan.md`
+and `docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md`

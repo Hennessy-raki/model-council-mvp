@@ -99,10 +99,21 @@ Board 14.0 may run only the deterministic local simulator. It records task and
 fake-output hashes, byte counts and assertions, with zero Adapter and network
 calls.
 
-Board 14.1 may prepare and arm a `cli` or `codex_app_server` Manager candidate,
-but the repository contains no real experiment executor. `real_codex` cannot
-run through the simulator. Team-readiness, Agent/Model identity, prompt or
-scope drift makes the experiment stale.
+Board 14.1 may prepare and arm a `cli` or `codex_app_server` Manager candidate.
+The separately approved controlled executor consumes a second one-time start
+approval before it may create one App Server process and one turn. It binds
+executor and JSON-lines transport hashes, rejects server-side approvals, and
+fails closed on usage or output-contract defects. `real_codex` cannot run
+through the simulator.
+
+The exact synthetic Manager request is generated locally from the two bound
+mock Worker identities. `manager_two_worker_plan_v2` requires JSON with only a
+two-item `tasks` array; each task has exactly `key`, `agent`, and
+`depends_on: []`, uses each bound Worker once, and contains no control fields.
+The prompt, v2 shape and all transport/permission/limit evidence are included
+in the experiment scope SHA-256. Team-readiness, Agent/Model identity, prompt,
+transport or source-integrity drift makes the experiment or start approval
+stale before process startup.
 
 ## Usage, cost and balance ledger
 

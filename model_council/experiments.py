@@ -53,6 +53,8 @@ STOP_RULES = (
     "redirect, additional endpoint or auxiliary network request was observed",
     "call, retry, timeout, response-byte, token or cost limit was exceeded",
 )
+MANAGER_TWO_WORKER_OUTPUT_SCHEMA = "manager_two_worker_plan_v2"
+MANAGER_TWO_WORKER_TASK_FIELDS = frozenset({"key", "agent", "depends_on"})
 EXCLUDED_PATTERNS = (
     re.compile(
         r"(?i)(api[_-]?key|authorization|bearer|password|secret|token)\s*[:=]"
@@ -71,6 +73,27 @@ class OutputContractError(ExperimentError):
     def __init__(self, failure_class: str):
         self.failure_class = failure_class
         super().__init__(f"Manager output contract failed: {failure_class}")
+
+
+def build_manager_two_worker_prompt(worker_agent_ids: list[str] | tuple[str, str]) -> str:
+    """Return the canonical prompt bound to the two expected Worker identities."""
+    if len(worker_agent_ids) != 2:
+        raise ExperimentError("canonical Manager prompt requires exactly two Workers")
+    first, second = (_required_text(item, "Worker Agent id") for item in worker_agent_ids)
+    if first == second:
+        raise ExperimentError("canonical Manager prompt requires distinct Workers")
+    return (
+        "You are a local synthetic Manager. Return only one JSON object; "
+        "do not return Markdown, commentary, or code fences. The top-level "
+        'object must contain exactly one property, "tasks". "tasks" must be '
+        "an array of exactly two task objects. Use each Worker Agent exactly "
+        f'once: "{first}" and "{second}". Each task object must contain exactly '
+        'the properties "key", "agent", and "depends_on"; "key" must be a '
+        "non-empty unique string; \"agent\" must be one of the two Worker "
+        'IDs above; and "depends_on" must be exactly []. Do not add '
+        "permissions, tools, workspace, files, Artifacts, Git, command, or "
+        "any other control field."
+    )
 
 
 class ExperimentService:
@@ -193,6 +216,15 @@ class ExperimentService:
                 }
             )
 
+        canonical_prompt = build_manager_two_worker_prompt(
+            [item["agent_id"] for item in workers]
+        )
+        if prompt != canonical_prompt:
+            raise ExperimentError(
+                "synthetic prompt must exactly match the canonical "
+                "manager_two_worker_plan_v2 contract"
+            )
+
         transport = _validate_transport(
             spec.get("transport", {}),
             execution_mode=execution_mode,
@@ -228,11 +260,11 @@ class ExperimentService:
         if not isinstance(expected_output, dict):
             raise ExperimentError("expected_output must be an object")
         output_schema = str(
-            expected_output.get("schema", "manager_two_worker_plan_v1")
+            expected_output.get("schema", MANAGER_TWO_WORKER_OUTPUT_SCHEMA)
         )
-        if output_schema != "manager_two_worker_plan_v1":
+        if output_schema != MANAGER_TWO_WORKER_OUTPUT_SCHEMA:
             raise ExperimentError(
-                "Board 14.0/14.1 requires manager_two_worker_plan_v1"
+                "Board 14.0/14.1 requires manager_two_worker_plan_v2"
             )
 
         scope = {
@@ -256,7 +288,14 @@ class ExperimentService:
             "transport": transport,
             "permissions": permissions,
             "limits": limits,
-            "expected_output": {"schema": output_schema, "task_count": 2},
+            "expected_output": {
+                "schema": output_schema,
+                "task_count": 2,
+                "top_level_fields": ["tasks"],
+                "task_fields": sorted(MANAGER_TWO_WORKER_TASK_FIELDS),
+                "worker_agent_ids": sorted(worker_ids),
+                "dependencies": "exactly_empty_list",
+            },
             "stop_rules": list(STOP_RULES),
             "actions": [
                 (
@@ -1180,6 +1219,8 @@ class ExperimentService:
         tasks = payload.get("tasks")
         if not isinstance(tasks, list):
             raise OutputContractError("tasks_missing")
+        if set(payload) != {"tasks"}:
+            raise OutputContractError("root_fields_invalid")
         if len(tasks) != scope["expected_output"]["task_count"]:
             raise OutputContractError("task_count_invalid")
 
@@ -1214,9 +1255,10 @@ class ExperimentService:
             if agent in task_agents:
                 raise OutputContractError("task_agent_duplicate")
             task_agents.add(agent)
-            dependencies = task.get("depends_on", [])
-            if dependencies not in (None, []):
+            if task.get("depends_on") != []:
                 raise OutputContractError("tasks_not_independent")
+            if set(task) != MANAGER_TWO_WORKER_TASK_FIELDS:
+                raise OutputContractError("task_fields_invalid")
         if task_agents != expected_agents:
             raise OutputContractError("task_agent_mismatch")
 

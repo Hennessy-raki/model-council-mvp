@@ -407,3 +407,28 @@ evidence.
   responsibilities.
 - Blocks development: no; the terminal experiment and consumed approval cannot
   be retried.
+
+### PRIV-020: Synthetic Manager prompt underspecified the enforced output contract
+
+- Date found: 2026-08-31
+- Channel: a separately approved synthetic external prompt and ignored local
+  Board 14 runtime diagnostic
+- Priority: medium
+- Data class: public synthetic task-format instructions and bounded Provider
+  output structure; a raw response could contain prompt-derived content
+- Status: resolved before public commit
+- Resolution:
+  - the fourth output-contract failure was retained only as a failure class,
+    SHA-256 and byte count; its response text was not reconstructed or stored;
+  - Board 14.8 generates the exact v2 JSON contract prompt from the bound mock
+    Worker IDs and rejects generic or edited prompts at local preparation;
+  - the scope binds the expected top-level/task fields, Worker set and exact
+    empty-dependency rule;
+  - failure diagnostics remain hash/count/class only and do not store output,
+    prompt, JSONL, transcript, credentials, paths, files or Artifacts.
+- Evidence: offline fake-App-Server tests assert the exact prompt, valid v2
+  output, generic-prompt rejection and fail-closed extra-field diagnostics.
+- Residual risk: a future Provider may still disregard the contract. The
+  executor then fails closed without retry and records only bounded local
+  diagnostic metadata.
+- Blocks development: no; any future candidate remains separately gated.

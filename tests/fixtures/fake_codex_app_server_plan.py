@@ -38,8 +38,16 @@ for line in sys.stdin:
     elif method == "turn/start":
         prompt = params["input"][0]["text"]
         expected = (
-            "Create exactly two independent synthetic tasks for local fake "
-            "workers. Return only the required JSON plan."
+            "You are a local synthetic Manager. Return only one JSON object; "
+            "do not return Markdown, commentary, or code fences. The top-level "
+            'object must contain exactly one property, "tasks". "tasks" must be '
+            "an array of exactly two task objects. Use each Worker Agent exactly "
+            'once: "fake-worker-a" and "fake-worker-b". Each task object must '
+            'contain exactly the properties "key", "agent", and "depends_on"; '
+            '"key" must be a non-empty unique string; "agent" must be one of '
+            'the two Worker IDs above; and "depends_on" must be exactly []. Do '
+            "not add permissions, tools, workspace, files, Artifacts, Git, "
+            "command, or any other control field."
         )
         if prompt != expected:
             raise SystemExit("unexpected prompt")
@@ -51,8 +59,16 @@ for line in sys.stdin:
         )
         plan = {
             "tasks": [
-                {"key": "work_1", "agent": "fake-worker-a"},
-                {"key": "work_2", "agent": "fake-worker-b"},
+                {
+                    "key": "work_1",
+                    "agent": "fake-worker-a",
+                    "depends_on": [],
+                },
+                {
+                    "key": "work_2",
+                    "agent": "fake-worker-b",
+                    "depends_on": [],
+                },
             ]
         }
         if plan_mode == "invalid_json":
@@ -68,8 +84,14 @@ for line in sys.stdin:
                 plan["tasks"][1]["key"] = "work_1"
             elif plan_mode == "dependent":
                 plan["tasks"][1]["depends_on"] = ["work_1"]
+            elif plan_mode == "null_dependency":
+                plan["tasks"][1]["depends_on"] = None
             elif plan_mode == "unsafe_field":
                 plan["tasks"][0]["tools"] = ["shell"]
+            elif plan_mode == "root_fields":
+                plan["summary"] = "not allowed"
+            elif plan_mode == "task_fields":
+                plan["tasks"][0]["title"] = "not allowed"
             plan_text = json.dumps(plan, separators=(",", ":"))
         send(
             {

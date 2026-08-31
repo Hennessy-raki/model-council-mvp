@@ -14,6 +14,7 @@ from model_council.experiments import (
     ExperimentError,
     ExperimentService,
     OutputContractError,
+    build_manager_two_worker_prompt,
 )
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore
@@ -226,9 +227,8 @@ class ExperimentTests(unittest.TestCase):
             "team_snapshot_id": snapshot["id"],
             "manager_agent_id": manager_agent,
             "manager_model_id": manager_model,
-            "prompt": (
-                "Create exactly two independent synthetic tasks for local fake "
-                "workers. Return only the required JSON plan."
+            "prompt": build_manager_two_worker_prompt(
+                ["fake-worker-a", "fake-worker-b"]
             ),
             "workers": [
                 {
@@ -289,7 +289,7 @@ class ExperimentTests(unittest.TestCase):
                 "max_total_cost": "0.25",
                 "cost_currency": "USD",
             },
-            "expected_output": {"schema": "manager_two_worker_plan_v1"},
+            "expected_output": {"schema": "manager_two_worker_plan_v2"},
         }
 
     def test_prepare_real_codex_candidate_stops_at_pending_exact_scope(self):
@@ -322,6 +322,47 @@ class ExperimentTests(unittest.TestCase):
                 "external_invocation"
             ],
             False,
+        )
+
+    def test_canonical_prompt_is_identity_bound_and_rejects_generic_prompt(self):
+        prompt = build_manager_two_worker_prompt(
+            ["fake-worker-a", "fake-worker-b"]
+        )
+        self.assertIn('"fake-worker-a"', prompt)
+        self.assertIn('"fake-worker-b"', prompt)
+        self.assertIn('"depends_on" must be exactly []', prompt)
+        self.assertIn("exactly one property", prompt)
+        snapshot = self._snapshot(
+            manager_agent="fake-manager",
+            manager_model="fake-model",
+        )
+        spec = self._spec(
+            phase="14.0",
+            snapshot=snapshot,
+            manager_agent="fake-manager",
+            manager_model="fake-model",
+        )
+        spec["prompt"] = "Create exactly two independent synthetic tasks."
+        with self.assertRaisesRegex(ExperimentError, "canonical"):
+            self.experiments.prepare(spec)
+        valid = self.experiments.prepare(
+            self._spec(
+                phase="14.0",
+                snapshot=snapshot,
+                manager_agent="fake-manager",
+                manager_model="fake-model",
+            )
+        )
+        self.assertEqual(
+            valid["scope"]["expected_output"],
+            {
+                "schema": "manager_two_worker_plan_v2",
+                "task_count": 2,
+                "top_level_fields": ["tasks"],
+                "task_fields": ["agent", "depends_on", "key"],
+                "worker_agent_ids": ["fake-worker-a", "fake-worker-b"],
+                "dependencies": "exactly_empty_list",
+            },
         )
 
     def test_real_codex_candidate_can_arm_but_cannot_use_fake_runner(self):
@@ -587,7 +628,10 @@ class ExperimentTests(unittest.TestCase):
             "agent_mismatch": "task_agent_mismatch",
             "duplicate_key": "task_key_duplicate",
             "dependent": "tasks_not_independent",
+            "null_dependency": "tasks_not_independent",
             "unsafe_field": "unsafe_task_field",
+            "root_fields": "root_fields_invalid",
+            "task_fields": "task_fields_invalid",
         }
         for plan_mode, expected_failure in cases.items():
             with self.subTest(plan_mode=plan_mode):
@@ -612,7 +656,7 @@ class ExperimentTests(unittest.TestCase):
                 self.assertEqual(diagnostic["failure_class"], expected_failure)
                 self.assertEqual(
                     diagnostic["expected_output_schema"],
-                    "manager_two_worker_plan_v1",
+                    "manager_two_worker_plan_v2",
                 )
                 self.assertIsInstance(diagnostic["output_sha256"], str)
                 self.assertEqual(len(diagnostic["output_sha256"]), 64)

@@ -12,9 +12,10 @@ Board 14.0, Board 14.1 preparation, Board 14.2 offline App Server verification,
 Board 14.3 controlled-executor verification, Board 14.4 usage compatibility
 repair, Board 14.5 executor-integrity binding, and Board 14.6 privacy-safe
 usage-failure diagnostics, and Board 14.7 privacy-safe Manager output-contract
-diagnostics are implemented locally. Board 14 remains in progress because
-three separately authorized real synthetic attempts failed closed and none is
-eligible for retry.
+diagnostics, and Board 14.8 contract-bound synthetic prompt repair are
+implemented locally. Board 14 remains in progress because four separately
+authorized real synthetic attempts failed closed and none is eligible for
+retry.
 
 The latest scope and completion reports are:
 
@@ -37,6 +38,8 @@ docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics-plan.md
 docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md
 docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md
 docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md
+docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt-plan.md
+docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -77,6 +80,12 @@ over-limit usage while retaining no raw JSONL, prompt, response or transcript.
 Board 14.7 validates the frozen two-Worker Manager plan and records only
 output-contract failure class, output SHA-256 and byte count when the plan is
 invalid. It does not retain the output text.
+
+Board 14.8 resolves the fourth attempt's actionable product cause: the
+canonical `manager_two_worker_plan_v2` prompt is generated from the two bound
+mock Worker IDs and states the exact JSON shape already enforced locally.
+Generic or edited prompts cannot prepare an experiment. It creates no new
+candidate and grants no App Server or model-call authority.
 
 ## Required next-session sequence
 
@@ -136,8 +145,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and twenty-two tests after
-Board 14.7. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and twenty-three tests after
+Board 14.8. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.

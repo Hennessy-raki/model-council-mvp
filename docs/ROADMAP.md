@@ -251,6 +251,8 @@ Status: in progress
   or over-limit usage while retaining no raw protocol or response content;
 - validate the exact two-Worker Manager plan and retain only privacy-safe
   output-contract failure classification, hash and byte count;
+- generate the exact v2 two-Worker JSON contract prompt from the bound Worker
+  identities and reject generic or drifted prompts before approval;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -288,6 +290,10 @@ and `docs/reports/2026-08-31-board-14-6-usage-failure-diagnostics.md`
 Board 14.7 plan and report:
 `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md`
 and `docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md`
+
+Board 14.8 plan and report:
+`docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt-plan.md`
+and `docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 
