@@ -1,6 +1,6 @@
 # Project Handoff
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 The authoritative Board 7 completion report is:
 
@@ -96,6 +96,16 @@ under the v2 output contract and the explicit token/cost controls. No response
 body, JSONL stream, prompt instance, exact usage record or runtime identifier
 is included in tracked documentation. Every Board 14 attempt and approval is
 terminal and cannot be replayed.
+
+Board 15 is complete. It reconciles the project-status entry points with the
+completed Board 14 state, rebaselines the deferred roadmap and adds
+documentation regression coverage. It does not authorize a real endpoint,
+workspace action, Git publish, tag or Release.
+
+```text
+docs/reports/2026-09-01-board-15-project-rebaseline-plan.md
+docs/reports/2026-09-01-board-15-project-rebaseline.md
+```
 
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8

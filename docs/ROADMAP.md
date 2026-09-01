@@ -314,41 +314,69 @@ and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
 Board 14.11 closeout report:
 `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`
 
-## Milestone 2: Persistent sessions and a second model family
+## Productization Board 15: Project rebaseline and documentation consistency
 
-- implement `CodexAppServerAdapter`;
-- add request IDs, event streaming, cancellation and thread persistence;
-- select one second real provider or CLI;
-- add capability-based routing;
-- introduce context-size limits and summarization;
-- compare declared capability with observed task performance.
+Status: complete
+
+- added a public-safe project-status page;
+- reconciled Board 13/14 terminal state across the authoritative entry
+  documents;
+- reclassified Milestones 2 through 5 into delivered core controls and
+  genuinely deferred expansion;
+- added deterministic offline regression coverage for Board 14 terminal
+  wording;
+- did not change any external-call, workspace, runtime or publishing boundary.
+
+Plan: `docs/reports/2026-09-01-board-15-project-rebaseline-plan.md`
+
+Report: `docs/reports/2026-09-01-board-15-project-rebaseline.md`
+
+## Milestone 2: Persistent sessions and additional model families
+
+Status: core controls complete; further qualification deferred
+
+- [x] Codex App Server sessions, request IDs, event handling and thread
+  persistence;
+- [x] one additional Responses-family integration with objective synthetic
+  evaluation and a single-use outbound approval;
+- [x] capability-based routing and explicit context/byte limits;
+- [ ] qualify another model family or any non-synthetic scope only under a new
+  explicit authorization;
+- [ ] add generic context summarization only with a separately reviewed
+  retention and disclosure policy.
 
 ## Milestone 3: Real coding projects
 
-- create one Git worktree per writing agent;
-- define read, write, test and merge permissions;
-- collect diffs, test output and evidence bundles;
-- add writer-reviewer repair loops;
-- require human approval before merge or destructive action;
-- add failure recovery and resumable checkpoints.
+Status: offline control plane complete; real writing-Agent validation deferred
+
+- [x] one isolated Git worktree per writing Agent;
+- [x] explicit read, write, test and merge permissions;
+- [x] diffs, test evidence, repair loops, recovery and resumable checkpoints;
+- [x] human approval before merge or destructive action;
+- [ ] authorize a real writing/reviewing Agent only through a new workspace and
+  outbound-context scope.
 
 ## Milestone 4: Interoperability
 
-- expose agent cards and task endpoints through A2A;
-- add an MCP tool broker;
-- support remote agent nodes;
-- sign or authenticate messages;
-- add Artifact size, media-type and retention policies.
+Status: local protocol clients complete; remote validation and policy expansion
+deferred
+
+- [x] A2A agent-card/task controls and MCP tool-broker approvals;
+- [x] environment-only credentials, non-loopback HTTPS enforcement and
+  persisted endpoint identity/session evidence;
+- [ ] validate a live third-party A2A or MCP endpoint under a separate scope;
+- [ ] define remote-node authentication/signing and Artifact retention policy.
 
 ## Milestone 5: Product interface
 
-- local web control console;
-- live task graph and model status;
-- message and Artifact browser;
-- approvals and permission templates;
-- token, time and cost budget configuration and visualization;
-- run comparison and evaluation dashboards;
-- optional Electron packaging.
+Status: local web product surface complete; packaging and operator expansion
+deferred
+
+- [x] loopback control console, approval/evidence views and message/Artifact
+  browsing;
+- [x] token, time and cost budgets, run comparison, evaluation views and
+  privacy-safe backup/restore;
+- [ ] optional Electron packaging and broader operator workflows.
 
 ## Questions intentionally left open
 

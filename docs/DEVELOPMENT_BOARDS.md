@@ -285,3 +285,19 @@ and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
 
 Board 14.11 closeout report:
 `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`
+
+### Board 15: Project rebaseline and documentation consistency
+
+Status: complete
+
+- establish one public-safe project-status page;
+- reconcile authoritative entry documents with Board 13/14 terminal state;
+- distinguish delivered control-plane capabilities from deferred expansion;
+- add deterministic offline regression coverage for Board 14 status wording;
+- do not change any external-call, workspace, runtime or publishing boundary.
+
+Plan:
+`docs/reports/2026-09-01-board-15-project-rebaseline-plan.md`
+
+Report:
+`docs/reports/2026-09-01-board-15-project-rebaseline.md`

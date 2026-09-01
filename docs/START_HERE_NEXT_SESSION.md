@@ -16,6 +16,10 @@ approvals are terminal and cannot be reused. Board 14 is complete only in the
 local private checkout and does not alter the public `0.2.0rc1` release
 candidate.
 
+Board 15 is complete. It adds a public-safe project-status page, aligns the
+authoritative Board 13/14 state and protects it with deterministic regression
+coverage. It creates no external-call authority.
+
 The latest scope and completion reports are:
 
 ```text
@@ -45,6 +49,8 @@ docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md
 docs/reports/2026-09-01-board-14-10-cost-feasibility.md
 docs/reports/2026-09-01-board-14-next-session-handoff.md
 docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md
+docs/reports/2026-09-01-board-15-project-rebaseline-plan.md
+docs/reports/2026-09-01-board-15-project-rebaseline.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

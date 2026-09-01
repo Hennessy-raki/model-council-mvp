@@ -94,11 +94,17 @@ only local synthetic CLI, ACP, A2A, MCP and HTTP observations. Missing machine
 evidence must remain `user_confirmation_required`; start approval is stale
 after team binding or readiness evidence drift.
 
-Board 14 is in progress. The offline experiment harness and disabled Codex
-Manager candidate are implemented. `real_codex` may be prepared and armed but
-has no executor. Do not add or call one without exact user authorization for
-the displayed team, model, command, working directory, prompt, limits and
-scope SHA-256.
+Board 14 is complete only for one local-private, read-only synthetic Manager
+execution. Its experiment and consumed start approval are terminal and cannot
+be replayed. The public candidate remains disabled. Do not create or call a
+new real candidate without a distinct frozen board scope and exact user
+authorization for the displayed team, model, command, working directory,
+prompt, limits and scope SHA-256.
+
+Board 15 is complete: it reconciles the authoritative project status and adds
+deterministic documentation regression coverage. There is no active expansion
+board. Freeze Board 16 or later before changing a Provider, App Server, A2A,
+MCP, workspace, Git or model boundary.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
@@ -126,7 +132,7 @@ uses local callbacks only; it does not authorize or implement external review.
 
 ## Codex pilot boundary
 
-The next milestone is a narrow Codex pilot:
+The historical narrow Codex pilot was intentionally limited:
 
 1. Keep the manager and reviewer on `mock`.
 2. Replace only the architect with the existing read-only `cli` Adapter.
@@ -140,4 +146,5 @@ The next milestone is a narrow Codex pilot:
 7. The persistent Codex App Server Adapter is implemented and verified against
    a local fake server; a live pilot still requires separate authorization.
 
-Do not connect every configured model in one change.
+Do not connect every configured model in one change. Board 14’s one terminal
+local-private Manager execution does not authorize a repeat or broader scope.
