@@ -583,3 +583,16 @@ caps, total token and cost caps, and a currency-matching declared price
 schedule are required. The maximum permitted token envelope must fit the
 declared cost cap before preparation. A future candidate must be prepared
 after the Board 14.10 commit and repeat every approval gate.
+
+## Latest continuation handoff
+
+The current Board 14 continuation checkpoint and exact next-session
+authorization ladder are recorded in:
+
+```text
+docs/reports/2026-09-01-board-14-next-session-handoff.md
+```
+
+It deliberately omits local experiment identifiers and runtime state. The
+local-only supplement is stored below ignored `runtime-board14/` and must never
+be committed or transmitted to an external model.

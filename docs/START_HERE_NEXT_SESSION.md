@@ -45,6 +45,7 @@ docs/reports/2026-09-01-board-14-9-provider-input-budget-plan.md
 docs/reports/2026-09-01-board-14-9-provider-input-budget.md
 docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md
 docs/reports/2026-09-01-board-14-10-cost-feasibility.md
+docs/reports/2026-09-01-board-14-next-session-handoff.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -101,6 +102,10 @@ Provider context is treated as free or inferred from prompt bytes.
 Board 14.10 requires a future high-input scope to bind a declared
 currency-matching price schedule and prove the maximum token envelope fits the
 cost cap before it can be prepared.
+
+The current handoff is `docs/reports/2026-09-01-board-14-next-session-handoff.md`.
+Its ignored local supplement records runtime-only identifiers and must never be
+committed or transmitted to an external model.
 
 ## Required next-session sequence
 
