@@ -134,6 +134,17 @@ remediation and confirmation-required states. Lifecycle evidence is bound into
 Supervisor snapshots and project-run stale-on-drift checks. It adds no real
 Agent, Provider, network, repository, worktree, Git or Artifact-purge authority.
 
+Board 18 is complete for one explicit local fake subprocess fixture:
+
+```text
+docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md
+docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md
+```
+
+It uses argument-array `shell=False` process control and stores only bounded
+process markers, exit codes, reason codes and hashes. It does not qualify a
+real Agent or authorize a new model call.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -653,13 +664,13 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 17B development handoff is:
+The latest post-Board 18 development handoff is:
 
 ```text
-docs/reports/2026-09-01-board-17b-next-session-handoff.md
+docs/reports/2026-09-01-board-18-next-session-handoff.md
 ```
 
-It records the current local commit, completed Board 17B scope, remaining
+It records the current local commit, completed Board 18 scope, remaining
 goal-alignment gaps, the recommended next board and the safe opening sequence.
 It does not authorize a new board, external call, runtime mutation or Artifact
 purge.

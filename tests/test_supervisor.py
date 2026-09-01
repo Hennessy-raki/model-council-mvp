@@ -2,13 +2,18 @@ from contextlib import redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 import unittest
 
 from model_council.cli import main
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore
-from model_council.supervisor import SupervisorError, SupervisorService
+from model_council.supervisor import (
+    SubprocessAgentLifecycleFixture,
+    SupervisorError,
+    SupervisorService,
+)
 
 
 class ScriptedInspector:
@@ -428,6 +433,45 @@ class SupervisorTests(unittest.TestCase):
         with self.assertRaises(SupervisorError):
             service.start_project_run(approval["id"], "Frozen lifecycle goal")
         self.assertEqual(service.approval(approval["id"])["status"], "stale")
+
+    def test_local_subprocess_fixture_uses_argument_array_and_stops_cleanly(self):
+        service = self._service()
+        fixture = SubprocessAgentLifecycleFixture(
+            default_command=[
+                sys.executable,
+                str(Path(__file__).parent / "fixtures" / "fake_lifecycle_agent.py"),
+            ]
+        )
+        service.lifecycle = fixture
+        service.configure_role(
+            role_key="manager",
+            agent_id="manager-agent",
+            model_id="manager-model",
+            launch_mode="spawn",
+            transport="cli",
+            check_profile={
+                "lifecycle": {
+                    "checks": {
+                        "actual_model": {
+                            "status": "passed",
+                            "details": {"model_id": "manager-model"},
+                        },
+                        "protocol": {"status": "passed"},
+                    }
+                }
+            },
+        )
+        self.assertEqual(service.start_agent("manager")["session"]["state"], "started")
+        duplicate = service.start_agent("manager")
+        self.assertEqual(duplicate["session"]["state"], "failed")
+        self.assertEqual(duplicate["session"]["failure"], "process_already_running")
+        self.assertEqual(service.stop_agent("manager")["session"]["state"], "stopped")
+        self.assertEqual(service.start_agent("manager")["session"]["state"], "started")
+        self.assertEqual(service.connect_agent("manager")["session"]["state"], "connected")
+        self.assertEqual(service.attach_agent("manager")["session"]["state"], "attached")
+        self.assertEqual(service.detach_agent("manager")["session"]["state"], "detached")
+        self.assertEqual(service.stop_agent("manager")["session"]["state"], "stopped")
+        self.assertEqual(service.lifecycle_session("manager")["evidence"]["code"], "fixture_process_stopped")
 
     def test_all_launch_modes_and_first_stage_transports_validate(self):
         service = self._service()

@@ -341,3 +341,18 @@ Plan:
 
 Report:
 `docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md`
+
+### Board 18: Local fake subprocess Agent lifecycle
+
+Status: complete for the local subprocess fixture slice
+
+- explicit command-array subprocess control with `shell=False`;
+- bounded process marker, exit and transition evidence;
+- duplicate-start failure and clean stop/restart handling;
+- no Provider, network, repository, worktree, Git or Artifact-purge authority.
+
+Plan:
+`docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md`
+
+Report:
+`docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md`

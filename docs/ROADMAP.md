@@ -373,6 +373,23 @@ Plan:
 Report:
 `docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md`
 
+## Productization Board 18: Local fake subprocess Agent lifecycle
+
+Status: complete for the local subprocess fixture slice
+
+- execute one explicit local fixture command array with `shell=False`;
+- record bounded process markers, exit codes and lifecycle evidence;
+- preserve Board 17B snapshot and project-run stale-on-drift controls;
+- reject duplicate starts and cleanly stop/restart the fixture;
+- keep real Agent, Provider, network, repository and Artifact-purge work
+  separately scoped.
+
+Plan:
+`docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md`
+
+Report:
+`docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

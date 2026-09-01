@@ -21,6 +21,9 @@ multi-model execution service.
   execution. Its terminal experiment and consumed approval cannot be replayed.
 - Board 17B is complete only for deterministic local Agent lifecycle fixtures;
   it does not qualify a real Agent or authorize a new model call.
+- Board 18 is complete only for one explicitly configured local fake
+  subprocess fixture; it does not qualify a real Agent or authorize a new
+  model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -38,6 +41,7 @@ multi-model execution service.
 | Controlled real execution | Exact experiment and start approvals, integrity binding, strict no-approval handling, output/usage/token/cost gates and one terminal synthetic Manager success are implemented. | No repeat, repository context, tools, writes, Git, parallelism or new Provider call is authorized. |
 | Project-run authorization | Normal CLI `run` requires a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | Low-level library callers retain a compatibility path; real Agent lifecycle verification is deferred. |
 | Agent lifecycle verification | Deterministic local fixture transitions and bounded lifecycle evidence are persisted and projected through CLI/Web. | Real Agent start/connect/attach, remote validation and external model calls remain separately scoped. |
+| Local subprocess fixture | One explicit local command-array fixture can be started, observed, attached, detached and stopped with bounded evidence. | No real Agent, Provider, network or repository qualification. |
 
 ## Board sequence after Board 15
 
@@ -75,6 +79,14 @@ Board 17B plan and acceptance report:
 ```text
 docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md
 docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md
+```
+
+Board 18 plan, report and handoff:
+
+```text
+docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md
+docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md
+docs/reports/2026-09-01-board-18-next-session-handoff.md
 ```
 
 ## Current quality gate

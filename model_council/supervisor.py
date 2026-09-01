@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
+import sys
 from hashlib import sha256
 from typing import Any, Protocol
 from uuid import uuid4
@@ -117,6 +119,144 @@ class StaticAgentLifecycleFixture:
                 else {}
             ),
         }
+
+
+class SubprocessAgentLifecycleFixture:
+    """Run one explicitly configured local fake process per role.
+
+    This fixture is intentionally opt-in through dependency injection. It
+    never uses a shell, never captures process output, and persists no process
+    handle or machine-specific path.
+    """
+
+    def __init__(self, *, default_command: list[str] | None = None):
+        self.default_command = list(default_command or [])
+        self._processes: dict[str, subprocess.Popen] = {}
+        self._attached: set[str] = set()
+
+    def transition(
+        self,
+        binding: dict[str, Any],
+        operation: str,
+        current_state: str,
+    ) -> dict[str, Any]:
+        role_key = binding["role_key"]
+        process = self._processes.get(role_key)
+        if operation == "start":
+            if process is not None and process.poll() is None:
+                return {
+                    "status": "failed",
+                    "code": "process_already_running",
+                    "details": {},
+                }
+            command = self._command(binding)
+            if not command:
+                return {
+                    "status": "failed",
+                    "code": "fixture_command_missing",
+                    "details": {},
+                }
+            try:
+                process = subprocess.Popen(
+                    command,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    shell=False,
+                )
+            except (OSError, ValueError):
+                return {
+                    "status": "failed",
+                    "code": "fixture_process_start_failed",
+                    "details": {},
+                }
+            self._processes[role_key] = process
+            marker = sha256(
+                f"{role_key}:{process.pid}".encode("utf-8")
+            ).hexdigest()
+            return {
+                "status": "passed",
+                "code": "fixture_process_started",
+                "details": {"process_marker": marker},
+            }
+        if operation in {"connect", "attach"}:
+            if process is None:
+                return {
+                    "status": "failed",
+                    "code": "fixture_process_missing",
+                    "details": {},
+                }
+            if process.poll() is not None:
+                return {
+                    "status": "failed",
+                    "code": "fixture_process_exited",
+                    "details": {},
+                }
+            if operation == "attach":
+                self._attached.add(role_key)
+            return {
+                "status": "passed",
+                "code": f"fixture_{operation}_verified",
+                "details": {"attached": role_key in self._attached},
+            }
+        if operation == "detach":
+            if process is None or process.poll() is not None:
+                return {
+                    "status": "failed",
+                    "code": "fixture_process_missing",
+                    "details": {},
+                }
+            self._attached.discard(role_key)
+            return {
+                "status": "passed",
+                "code": "fixture_detached",
+                "details": {"attached": False},
+            }
+        if operation == "stop":
+            if process is None:
+                return {
+                    "status": "failed",
+                    "code": "fixture_process_missing",
+                    "details": {},
+                }
+            if process.poll() is None:
+                try:
+                    process.terminate()
+                    process.wait(timeout=2)
+                except (OSError, subprocess.TimeoutExpired):
+                    try:
+                        process.kill()
+                        process.wait(timeout=2)
+                    except (OSError, subprocess.TimeoutExpired):
+                        return {
+                            "status": "failed",
+                            "code": "fixture_process_stop_failed",
+                            "details": {},
+                        }
+            self._attached.discard(role_key)
+            self._processes.pop(role_key, None)
+            return {
+                "status": "passed",
+                "code": "fixture_process_stopped",
+                "details": {"exit_code": process.returncode},
+            }
+        return {
+            "status": "failed",
+            "code": "unsupported_lifecycle_operation",
+            "details": {},
+        }
+
+    def _command(self, binding: dict[str, Any]) -> list[str]:
+        profile = binding.get("check_profile", {})
+        lifecycle = profile.get("lifecycle", {}) if isinstance(profile, dict) else {}
+        command = lifecycle.get("command") if isinstance(lifecycle, dict) else None
+        if command is None:
+            command = self.default_command
+        if not isinstance(command, list) or not command:
+            return []
+        if any(not isinstance(item, str) or not item for item in command):
+            return []
+        return list(command)
 
 
 class StaticReadinessInspector:
@@ -1425,6 +1565,8 @@ def _next_lifecycle_state(
         ("stop", "connected"): "stopped",
         ("stop", "attached"): "stopped",
         ("stop", "stopped"): "stopped",
+        ("stop", "failed"): "stopped",
+        ("stop", "user_confirmation_required"): "stopped",
     }
     if launch_mode in {"remote", "manual"} and operation == "start":
         return None

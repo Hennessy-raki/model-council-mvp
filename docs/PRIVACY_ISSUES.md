@@ -527,3 +527,20 @@ evidence.
   operational proof. Any real-Agent qualification requires a new frozen scope,
   privacy review and exact authorization.
 - Blocks development: no; real Agent validation remains separately scoped.
+
+### PRIV-025: Local subprocess lifecycle could retain machine-specific evidence
+
+- Date found: 2026-09-01
+- Channel: local Board 18 fake subprocess fixture
+- Priority: medium
+- Data class: process lifecycle state, synthetic process marker and exit code
+- Status: mitigated and accepted for the local fixture slice
+- Resolution:
+  - commands are explicit argument arrays executed with `shell=False`;
+  - stdout/stderr, credentials, cwd and raw process handles are not retained;
+  - only bounded reason codes, exit codes, hashes and synthetic markers enter
+    ignored runtime state;
+  - tracked fixtures use generic synthetic paths and labels.
+- Residual risk: a future real-Agent adapter may expose more machine context.
+  That work requires a new privacy review and exact authorization.
+- Blocks development: no; real Agent qualification remains separately scoped.
