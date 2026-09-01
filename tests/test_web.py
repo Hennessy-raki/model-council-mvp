@@ -141,6 +141,10 @@ class LocalSettingsWebTests(unittest.TestCase):
                 state["registry"]["settings"]["locale"]["source"],
                 "user",
             )
+            self.assertEqual(
+                state["supervisor"]["team"]["status"],
+                "not_ready",
+            )
             role = next(
                 item
                 for item in state["registry"]["roles"]

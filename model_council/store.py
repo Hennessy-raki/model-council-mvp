@@ -57,7 +57,10 @@ class CouncilStore:
                     created_at TEXT NOT NULL,
                     completed_at TEXT,
                     final_artifact_id TEXT,
-                    error TEXT
+                    error TEXT,
+                    team_snapshot_id TEXT,
+                    start_approval_id TEXT,
+                    start_scope_sha256 TEXT
                 );
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY,
@@ -686,6 +689,9 @@ class CouncilStore:
                 "observations_json",
                 "TEXT NOT NULL DEFAULT '{}'",
             )
+            self._ensure_column(conn, "runs", "team_snapshot_id", "TEXT")
+            self._ensure_column(conn, "runs", "start_approval_id", "TEXT")
+            self._ensure_column(conn, "runs", "start_scope_sha256", "TEXT")
 
     @staticmethod
     def _ensure_column(
@@ -701,12 +707,32 @@ class CouncilStore:
         if column not in columns:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
-    def create_run(self, goal: str) -> str:
+    def create_run(
+        self,
+        goal: str,
+        *,
+        team_snapshot_id: str | None = None,
+        start_approval_id: str | None = None,
+        start_scope_sha256: str | None = None,
+    ) -> str:
         run_id = str(uuid4())
         with self.connect() as conn:
             conn.execute(
-                "INSERT INTO runs(id, goal, status, created_at) VALUES (?, ?, ?, ?)",
-                (run_id, goal, RunStatus.RUNNING, utc_now()),
+                """
+                INSERT INTO runs(
+                    id, goal, status, created_at, team_snapshot_id,
+                    start_approval_id, start_scope_sha256
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    goal,
+                    RunStatus.RUNNING,
+                    utc_now(),
+                    team_snapshot_id,
+                    start_approval_id,
+                    start_scope_sha256,
+                ),
             )
         return run_id
 

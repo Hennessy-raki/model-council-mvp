@@ -53,6 +53,14 @@ def build_parser() -> argparse.ArgumentParser:
             "synthetic Codex architect prompt"
         ),
     )
+    run.add_argument(
+        "--start-approval",
+        required=True,
+        help=(
+            "consume one approved Supervisor project-run scope; create it with "
+            "supervisor request-run"
+        ),
+    )
 
     agents = subparsers.add_parser("agents", help="list configured agents")
     agents.add_argument("--config", default=str(default_config_path()))
@@ -830,6 +838,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         default=str(default_config_path()),
     )
+    supervisor_request_run = supervisor_commands.add_parser(
+        "request-run",
+        help="queue an exact project-run approval bound to the current team snapshot",
+    )
+    supervisor_request_run.add_argument("snapshot_id")
+    supervisor_request_run.add_argument("goal")
+    supervisor_request_run.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
     supervisor_approvals = supervisor_commands.add_parser(
         "approvals",
         help="list SHA-256-bound local team-start approvals",
@@ -1058,7 +1076,12 @@ def main(argv: list[str] | None = None) -> None:
                 manifest = service.manifest(args.outbound_manifest)
                 agent_id = validate_controlled_pilot(config, manifest)
                 manifest_by_agent[agent_id] = manifest["id"]
-            _run_goal(config, args.goal, manifest_by_agent)
+            _run_goal(
+                config,
+                args.goal,
+                manifest_by_agent,
+                start_approval_id=args.start_approval,
+            )
         elif args.command == "agents":
             config = load_config(args.config)
             for name in config.agents:
@@ -1521,6 +1544,11 @@ def main(argv: list[str] | None = None) -> None:
                 payload = supervisor.snapshot()
             elif args.supervisor_command == "request-start":
                 payload = supervisor.request_start(args.snapshot_id)
+            elif args.supervisor_command == "request-run":
+                payload = supervisor.request_project_run(
+                    args.snapshot_id,
+                    args.goal,
+                )
             elif args.supervisor_command == "approvals":
                 payload = supervisor.approvals(args.status)
             elif args.supervisor_command == "approve":
@@ -1650,12 +1678,17 @@ def _run_goal(
     config,
     goal: str,
     outbound_manifest_by_agent: dict[str, str] | None = None,
+    *,
+    start_approval_id: str | None = None,
 ) -> None:
     orchestrator = Orchestrator(
         config,
         outbound_manifest_by_agent=outbound_manifest_by_agent,
     )
-    result = orchestrator.run(goal)
+    result = orchestrator.run(
+        goal,
+        start_approval_id=start_approval_id,
+    )
     print(f"RUN_ID={result.run_id}")
     print(f"FINAL_ARTIFACT={result.final_artifact.path}")
     print()

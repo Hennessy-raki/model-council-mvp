@@ -14,6 +14,7 @@ from .manager import Manager
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
+from .supervisor import SupervisorService
 from .types import AgentRequest, ArtifactRef, PlannedTask, RunStatus, TaskStatus
 
 
@@ -65,8 +66,32 @@ class Orchestrator:
             ),
         )
 
-    def run(self, goal: str) -> RunResult:
-        run_id = self.store.create_run(goal)
+    def run(
+        self,
+        goal: str,
+        *,
+        start_approval_id: str | None = None,
+    ) -> RunResult:
+        authorization = None
+        if start_approval_id:
+            authorization = SupervisorService(
+                self.store,
+                self.registry,
+            ).start_project_run(start_approval_id, goal)
+        run_id = self.store.create_run(
+            goal,
+            team_snapshot_id=(
+                authorization["snapshot"]["id"] if authorization else None
+            ),
+            start_approval_id=(
+                authorization["approval"]["id"] if authorization else None
+            ),
+            start_scope_sha256=(
+                authorization["approval"]["scope_sha256"]
+                if authorization
+                else None
+            ),
+        )
         try:
             manager_route = self.router.resolve(
                 run_id=run_id,

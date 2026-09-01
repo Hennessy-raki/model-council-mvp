@@ -160,8 +160,14 @@ python -m model_council settings assign detail_executor `
 运行自定义目标：
 
 ```powershell
-python -m model_council run "分析并设计一个个人知识库应用" --config config.example.json
+python -m model_council run "分析并设计一个个人知识库应用" `
+  --start-approval <PROJECT_RUN_APPROVAL_ID> --config <LOCAL_CONFIG>
 ```
+
+`run` is the user-facing project entry point and requires a one-time
+Supervisor project-run approval bound to the current ready team and exact goal.
+The approval is consumed before any Adapter invocation. Use the local
+Supervisor flow to create and approve it.
 
 查看最近运行：
 
@@ -492,6 +498,19 @@ python -m model_council supervisor wizard `
   --config config.example.json
 python -m model_council supervisor check --config <LOCAL_CONFIG>
 python -m model_council supervisor snapshot --config <LOCAL_CONFIG>
+python -m model_council supervisor request-run <SNAPSHOT_ID> `
+  "分析并设计一个个人知识库应用" --config <LOCAL_CONFIG>
+python -m model_council supervisor approve <APPROVAL_ID> `
+  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
+python -m model_council run "分析并设计一个个人知识库应用" `
+  --start-approval <APPROVAL_ID> --config <LOCAL_CONFIG>
+```
+
+The older `supervisor request-start` / `supervisor start` commands remain
+separate local synthetic Manager-platform controls. They do not authorize a
+project run.
+
+```powershell
 python -m model_council supervisor request-start <SNAPSHOT_ID> `
   --config <LOCAL_CONFIG>
 python -m model_council supervisor approve <APPROVAL_ID> `

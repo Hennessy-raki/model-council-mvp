@@ -8,9 +8,21 @@ import unittest
 from model_council.cli import main
 from model_council.config import load_config
 from model_council.orchestrator import Orchestrator
+from model_council.supervisor import SupervisorService
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_cli_run_requires_project_start_approval(self):
+        with self.assertRaises(SystemExit):
+            main(
+                [
+                    "run",
+                    "goal",
+                    "--config",
+                    "config.example.json",
+                ]
+            )
+
     def test_full_mock_workflow(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
@@ -161,6 +173,107 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(
                 len(status_payload["routing"]),
                 len(routing),
+            )
+
+    def test_authorized_project_run_records_start_scope(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            config_path = root / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "state_dir": "runtime",
+                        "manager": "manager",
+                        "reviewer": "reviewer",
+                        "providers": {
+                            "provider-a": {
+                                "kind": "mock",
+                                "display_name": "Provider A",
+                            }
+                        },
+                        "models": {
+                            "model-a": {
+                                "provider": "provider-a",
+                                "display_name": "Model A",
+                            }
+                        },
+                        "agents": {
+                            "manager": {
+                                "type": "mock",
+                                "provider": "provider-a",
+                                "model": "model-a",
+                                "role": "manager",
+                            },
+                            "worker_a": {
+                                "type": "mock",
+                                "provider": "provider-a",
+                                "model": "model-a",
+                                "role": "worker",
+                            },
+                            "worker_b": {
+                                "type": "mock",
+                                "provider": "provider-a",
+                                "model": "model-a",
+                                "role": "worker",
+                            },
+                            "reviewer": {
+                                "type": "mock",
+                                "provider": "provider-a",
+                                "model": "model-a",
+                                "role": "reviewer",
+                            },
+                        },
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            config = load_config(config_path)
+            orchestrator = Orchestrator(config)
+            supervisor = SupervisorService(
+                orchestrator.store,
+                orchestrator.registry,
+            )
+            passed = {
+                "process": {"status": "passed"},
+                "login": {"status": "passed"},
+                "model": {"status": "passed", "details": {"model_id": "model-a"}},
+                "permission": {"status": "passed"},
+                "version": {"status": "passed"},
+                "connection": {"status": "passed"},
+            }
+            for role, agent_id in (
+                ("manager", "manager"),
+                ("worker", "worker_a"),
+                ("reviewer", "reviewer"),
+            ):
+                supervisor.configure_role(
+                    role_key=role,
+                    agent_id=agent_id,
+                    model_id="model-a",
+                    launch_mode="spawn",
+                    transport="cli",
+                    check_profile={"synthetic_checks": passed},
+                )
+            supervisor.check_team()
+            snapshot = supervisor.snapshot()
+            approval = supervisor.request_project_run(snapshot["id"], "test goal")
+            supervisor.decide_start(
+                approval["id"],
+                approve=True,
+                confirmation=approval["scope_sha256"],
+            )
+
+            result = orchestrator.run(
+                "test goal",
+                start_approval_id=approval["id"],
+            )
+            run = orchestrator.store.get_run(result.run_id)
+            self.assertEqual(run["team_snapshot_id"], snapshot["id"])
+            self.assertEqual(run["start_approval_id"], approval["id"])
+            self.assertEqual(
+                run["start_scope_sha256"],
+                approval["scope_sha256"],
             )
 
 

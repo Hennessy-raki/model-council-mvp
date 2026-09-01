@@ -109,9 +109,11 @@ authorization for the displayed team, model, command, working directory,
 prompt, limits and scope SHA-256.
 
 Board 15 is complete: it reconciles the authoritative project status and adds
-deterministic documentation regression coverage. There is no active expansion
-board. Freeze Board 16 or later before changing a Provider, App Server, A2A,
-MCP, workspace, Git or model boundary.
+deterministic documentation regression coverage. Board 17A now advances the
+canonical user lifecycle by binding the current Supervisor team snapshot and
+exact project goal to a one-time project-run approval consumed by the normal
+CLI run entry point. It adds no external-call authority, Artifact cleanup,
+Provider, workspace or publishing behavior.
 
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references

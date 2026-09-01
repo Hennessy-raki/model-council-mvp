@@ -143,6 +143,72 @@ class SupervisorTests(unittest.TestCase):
             ["team_ready", "task_start_requested", "task_start_authorized"],
         )
 
+    def test_project_run_approval_binds_goal_and_is_single_use(self):
+        service = self._service()
+        service.check_team()
+        snapshot = service.snapshot()
+
+        approval = service.request_project_run(
+            snapshot["id"],
+            "Prepare the local synthetic project",
+        )
+        self.assertEqual(approval["scope"]["action"], "start_project_run")
+        self.assertEqual(
+            approval["scope"]["goal"],
+            "Prepare the local synthetic project",
+        )
+        with self.assertRaises(SupervisorError):
+            service.decide_start(
+                approval["id"],
+                approve=True,
+                confirmation="wrong",
+            )
+        service.decide_start(
+            approval["id"],
+            approve=True,
+            confirmation=approval["scope_sha256"],
+        )
+        started = service.start_project_run(
+            approval["id"],
+            "Prepare the local synthetic project",
+        )
+        self.assertEqual(started["approval"]["status"], "consumed")
+        self.assertEqual(
+            started["event"]["event_type"],
+            "project_run_start_authorized",
+        )
+        with self.assertRaises(SupervisorError):
+            service.start_project_run(
+                approval["id"],
+                "Prepare the local synthetic project",
+            )
+
+    def test_project_run_approval_rejects_goal_and_team_drift(self):
+        service = self._service()
+        service.check_team()
+        snapshot = service.snapshot()
+        approval = service.request_project_run(snapshot["id"], "Frozen goal")
+        service.decide_start(
+            approval["id"],
+            approve=True,
+            confirmation=approval["scope_sha256"],
+        )
+        with self.assertRaises(SupervisorError):
+            service.start_project_run(approval["id"], "Edited goal")
+
+        service.configure_role(
+            role_key="worker",
+            agent_id="worker-agent",
+            model_id="worker-model",
+            launch_mode="spawn",
+            transport="mcp",
+            check_profile={"fixture": "fake-mcp"},
+        )
+        stale = service.approval(approval["id"])
+        self.assertEqual(stale["status"], "stale")
+        with self.assertRaises(SupervisorError):
+            service.start_project_run(approval["id"], "Frozen goal")
+
     def test_unmachine_verifiable_check_requires_confirmation_before_snapshot(self):
         service = self._service(
             {

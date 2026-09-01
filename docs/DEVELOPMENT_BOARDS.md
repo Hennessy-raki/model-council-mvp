@@ -306,3 +306,20 @@ Plan:
 
 Report:
 `docs/reports/2026-09-01-board-15-project-rebaseline.md`
+
+### Board 17A: Team lifecycle and project-run authorization
+
+Status: complete for the local offline vertical slice
+
+- bind the exact project goal to the current ready Supervisor team snapshot;
+- require a one-time project-run approval on the normal CLI `run` entry point;
+- reject wrong-goal, stale-team and replayed approvals before Adapter invocation;
+- persist approval provenance on the run record;
+- expose Supervisor state and approvals through the loopback product surface;
+- keep synthetic Manager-platform authorization separate;
+- do not add Artifact retention/purge, Provider calls, network transports,
+  worktrees or Git publishing.
+
+Plan: `docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md`
+
+Report: `docs/reports/2026-09-01-board-17a-team-lifecycle.md`

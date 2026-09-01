@@ -481,3 +481,28 @@ evidence.
   cost.
 - Blocks development: no; the completed scope is terminal, and no repeat or
   additional candidate is authorized.
+
+### PRIV-023: Normal project runs lacked a unified user-start authorization
+
+- Date found: 2026-09-01
+- Channel: local CLI run entry point and ignored Supervisor runtime state
+- Priority: high
+- Data class: exact project goal, team binding and readiness evidence
+- Status: mitigated and accepted for the offline vertical slice
+- Resolution:
+  - project-run approvals bind the exact goal to the current ready team snapshot;
+  - the normal CLI `run` entry point requires and consumes the approval once;
+  - goal, team or readiness drift makes the approval stale before Adapter
+    invocation;
+  - tracked run records retain only approval provenance and scope digests;
+  - no goal text, Artifact body, Provider response or runtime identifier is
+    copied into tracked documentation.
+- Evidence: offline Supervisor and Orchestrator tests cover exact goal binding,
+  wrong-goal rejection, stale-team rejection, single-use consumption and run
+  provenance; current-tree and reachable-history scans pass.
+- Residual risk: the low-level `Orchestrator` API remains usable directly by
+  internal callers without a project-run approval. Future product entry points
+  must use the gated path; removing this compatibility escape requires a
+  separately scoped migration board.
+- Blocks development: no; external Agent readiness and real project execution
+  remain separately scoped.

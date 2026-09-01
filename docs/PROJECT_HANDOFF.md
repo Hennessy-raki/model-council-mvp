@@ -107,6 +107,20 @@ docs/reports/2026-09-01-board-15-project-rebaseline-plan.md
 docs/reports/2026-09-01-board-15-project-rebaseline.md
 ```
 
+Board 17A is complete for the local offline team-lifecycle vertical slice:
+
+```text
+docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
+docs/reports/2026-09-01-board-17a-team-lifecycle.md
+```
+
+It binds an exact project goal to the current ready Supervisor team snapshot,
+requires a one-time project-run approval on the normal CLI `run` entry point,
+rejects wrong-goal and stale-team approvals before Adapter invocation, records
+approval provenance on each authorized run, and exposes Supervisor state in the
+loopback product projection. It adds no Provider, network, Artifact cleanup,
+workspace or publishing authority.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -265,6 +279,8 @@ Baseline history through 2026-08-31:
   offline harness and disabled Codex candidate preparation;
 - all one hundred and thirty unit/integration tests passed after the
   project-goal rebaseline regression coverage;
+- all one hundred and thirty-four unit/integration tests passed after Board
+  17A project-run authorization coverage;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -624,15 +640,15 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The current no-implementation continuation checkpoint for the candidate
+The earlier no-implementation continuation checkpoint for the candidate
 Artifact-retention policy work is recorded in:
 
 ```text
 docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
 ```
 
-It does not freeze or authorize Board 17, Artifact deletion, a runtime
-mutation, or any external call.
+It did not freeze or authorize Artifact deletion, a runtime mutation, or any
+external call. Artifact retention/purge remains deferred after Board 17A.
 
 The historical pre-execution Board 14 continuation checkpoint and authorization
 ladder are recorded in:

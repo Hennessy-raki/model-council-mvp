@@ -26,11 +26,11 @@ Board 15 is complete. It adds a public-safe project-status page, aligns the
 authoritative Board 13/14 state and protects it with deterministic regression
 coverage. It creates no external-call authority.
 
-Board 16 is not started: one local Windows loopback interruption did not
-reproduce, and no repair is authorized until it does. Board 17 is also not
-started. The only current direction is a handoff-only candidate for a narrow,
-offline Artifact-retention policy and safe-cleanup preview; it has not frozen
-scope or authorized an Artifact mutation.
+Board 16 remains deferred because one local Windows loopback interruption did
+not reproduce. Board 17A is complete for the local offline team-lifecycle
+vertical slice. The normal CLI `run` entry point now requires a one-time
+Supervisor project-run approval bound to the current ready team and exact goal.
+Artifact retention/purge remains deferred and separately scoped.
 
 The latest scope and completion reports are:
 
@@ -64,6 +64,8 @@ docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md
 docs/reports/2026-09-01-board-15-project-rebaseline-plan.md
 docs/reports/2026-09-01-board-15-project-rebaseline.md
 docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
+docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
+docs/reports/2026-09-01-board-17a-team-lifecycle.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -139,10 +141,9 @@ or transmitted to an external model.
 5. Treat Board 14 as terminal. Freeze a distinct new board or release scope
    before implementation; no Board 14 experiment or approval authorizes a
    follow-up call.
-6. For the present Board 17 candidate, read
-   `docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md` and
-   obtain an explicit scope freeze before changing Artifact retention or
-   cleanup behavior.
+6. For future work, read the canonical goal and the latest Board 17A report,
+   then freeze a new scope before changing real Agent readiness, retention,
+   cleanup, Provider, transport or workspace behavior.
 
 Do not create a tag or GitHub Release unless the user explicitly requests it.
 Do not interpret the Board 11 live synthetic approval as authorization for a
@@ -194,8 +195,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and thirty tests after the
-project-goal rebaseline regression coverage. The release verifier remains the
+The complete offline suite contains one hundred and thirty-four tests after the
+Board 17A project-run authorization coverage. The release verifier remains the
 Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally

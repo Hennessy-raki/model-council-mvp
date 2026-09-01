@@ -34,24 +34,34 @@ multi-model execution service.
 | Workspace and repair | Isolated worktrees, permission gates, evidence-bound merge and bounded repair/recovery are implemented. | A real writing Agent needs a distinct outbound-context and workspace authorization. |
 | Product interface | Loopback approval/evidence views, comparison, backup/restore and release verification are implemented. | Electron packaging and broader operator workflows are deferred. |
 | Controlled real execution | Exact experiment and start approvals, integrity binding, strict no-approval handling, output/usage/token/cost gates and one terminal synthetic Manager success are implemented. | No repeat, repository context, tools, writes, Git, parallelism or new Provider call is authorized. |
+| Project-run authorization | Normal CLI `run` requires a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | Low-level library callers retain a compatibility path; real Agent lifecycle verification is deferred. |
 
 ## Board sequence after Board 15
 
-1. **Board 16 — deterministic local transport-test reliability**: investigate
-   and harden the local loopback fixture only if the observed Windows socket
-   interruption recurs under a reproducible test.
-2. **Board 17 — offline capability and retention policy completion**: define
-   deferred remote-node authentication, message signing, Artifact retention and
-   generic context summarization without contacting a Provider.
-3. **Board 18 — controlled expansion decision**: only after the user freezes
-   business value and external-context boundaries, choose whether to authorize
-   a new narrow real-provider, repository-context or writing-Agent pilot.
+1. **Board 16 — deterministic local transport-test reliability**: remains
+   deferred unless the observed Windows socket interruption recurs under a
+   reproducible test.
+2. **Board 17A — team lifecycle and project-run authorization**: complete for
+   the local offline vertical slice. The normal CLI `run` now requires a
+   one-time approval bound to the current ready Supervisor team and exact goal.
+3. **Next — real Agent lifecycle verification**: first extend readiness from
+   synthetic observations to one narrowly scoped local Agent fixture, then
+   consider a separately authorized read-only real Agent pilot.
+4. Artifact retention/purge, remote authentication/signing, generic context
+   summarization and broader Provider coverage remain separate future scopes.
 
 Each future board must state its acceptance criteria, threat model, exclusions,
 runtime storage rules and separate authorization ladder before implementation.
 
 Board 15 acceptance report:
 `docs/reports/2026-09-01-board-15-project-rebaseline.md`.
+
+Board 17A plan and acceptance report:
+
+```text
+docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
+docs/reports/2026-09-01-board-17a-team-lifecycle.md
+```
 
 ## Current quality gate
 

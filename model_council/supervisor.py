@@ -34,6 +34,7 @@ APPROVAL_STATUSES = {
     "stale",
     "consumed",
 }
+MAX_PROJECT_GOAL_BYTES = 64_000
 
 
 class SupervisorError(ValueError):
@@ -562,6 +563,57 @@ class SupervisorService:
         )
         return approval
 
+    def request_project_run(self, snapshot_id: str, goal: str) -> dict[str, Any]:
+        """Queue an exact, user-visible project-run authorization.
+
+        This approval is distinct from the Board 13 synthetic Manager-platform
+        start request. It binds the current ready team to the exact project
+        goal, but does not invoke an Adapter or start a process.
+        """
+        snapshot = self.validate_snapshot(snapshot_id)
+        normalized_goal = _bounded_project_goal(goal)
+        scope = {
+            "version": 1,
+            "action": "start_project_run",
+            "goal": normalized_goal,
+            "goal_sha256": sha256(
+                normalized_goal.encode("utf-8")
+            ).hexdigest(),
+            "snapshot_id": snapshot["id"],
+            "snapshot_sha256": snapshot["snapshot_sha256"],
+            "roles": snapshot["payload"]["roles"],
+            "execution_boundary": (
+                "Local orchestrator run after one exact approval; the goal and "
+                "current team snapshot must remain unchanged."
+            ),
+        }
+        approval_id = str(uuid4())
+        now = utc_now()
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO supervisor_start_approvals(
+                    id, snapshot_id, scope_sha256, scope_json, status,
+                    requested_at, decided_at, consumed_at, failure
+                ) VALUES (?, ?, ?, ?, 'pending', ?, NULL, NULL, NULL)
+                """,
+                (approval_id, snapshot_id, _digest(scope), _dump(scope), now),
+            )
+        approval = self.approval(approval_id)
+        manager = self.binding("manager")
+        self.platform.publish(
+            event_type="project_run_start_requested",
+            manager_agent_id=manager["agent_id"],
+            snapshot_id=snapshot_id,
+            approval_id=approval_id,
+            payload={
+                "scope_sha256": approval["scope_sha256"],
+                "snapshot_sha256": snapshot["snapshot_sha256"],
+                "goal_sha256": scope["goal_sha256"],
+            },
+        )
+        return approval
+
     def approval(self, approval_id: str) -> dict[str, Any]:
         with self.store.connect() as conn:
             row = conn.execute(
@@ -661,6 +713,71 @@ class SupervisorService:
             },
         )
         return {"approval": self.approval(approval_id), "event": event}
+
+    def start_project_run(self, approval_id: str, goal: str) -> dict[str, Any]:
+        """Consume one approved project-run scope after revalidation."""
+        approval = self.approval(approval_id)
+        if approval["status"] != "approved" or approval["consumed_at"] is not None:
+            raise SupervisorError(
+                f"project run approval {approval_id!r} is not approved and unused"
+            )
+        scope = approval["scope"]
+        if scope.get("action") != "start_project_run":
+            raise SupervisorError(
+                "approval is for the local synthetic platform, not a project run"
+            )
+        normalized_goal = _bounded_project_goal(goal)
+        if scope.get("goal") != normalized_goal:
+            raise SupervisorError("project run goal differs from approved scope")
+        try:
+            snapshot = self.snapshot_record(approval["snapshot_id"])
+            self._require_current_snapshot(snapshot)
+        except SupervisorError:
+            with self.store.connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE supervisor_start_approvals
+                    SET status = 'stale', failure = ?
+                    WHERE id = ? AND status = 'approved' AND consumed_at IS NULL
+                    """,
+                    (
+                        "team configuration or readiness changed after approval",
+                        approval_id,
+                    ),
+                )
+            raise SupervisorError("project run approval is stale")
+        with self.store.connect() as conn:
+            updated = conn.execute(
+                """
+                UPDATE supervisor_start_approvals
+                SET status = 'consumed', consumed_at = ?
+                WHERE id = ? AND status = 'approved' AND consumed_at IS NULL
+                """,
+                (utc_now(), approval_id),
+            ).rowcount
+        if not updated:
+            raise SupervisorError(
+                f"project run approval {approval_id!r} changed before start"
+            )
+        manager = self.binding("manager")
+        event = self.platform.publish(
+            event_type="project_run_start_authorized",
+            manager_agent_id=manager["agent_id"],
+            snapshot_id=snapshot["id"],
+            approval_id=approval_id,
+            payload={
+                "scope_sha256": approval["scope_sha256"],
+                "snapshot_sha256": snapshot["snapshot_sha256"],
+                "goal_sha256": scope["goal_sha256"],
+                "execution": "orchestrator",
+            },
+        )
+        return {
+            "approval": self.approval(approval_id),
+            "event": event,
+            "snapshot": snapshot,
+            "scope": scope,
+        }
 
     def events(self) -> list[dict[str, Any]]:
         return self.platform.events()
@@ -851,6 +968,17 @@ def _digest(value: Any) -> str:
 
 def _bounded_note(value: str) -> str:
     return value.strip()[:500]
+
+
+def _bounded_project_goal(value: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise SupervisorError("project goal must be non-empty text")
+    normalized = value.strip()
+    if len(normalized.encode("utf-8")) > MAX_PROJECT_GOAL_BYTES:
+        raise SupervisorError(
+            f"project goal exceeds {MAX_PROJECT_GOAL_BYTES} UTF-8 bytes"
+        )
+    return normalized
 
 
 def _decode_binding(row) -> dict[str, Any]:

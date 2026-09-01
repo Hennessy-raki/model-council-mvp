@@ -335,6 +335,22 @@ Plan: `docs/reports/2026-09-01-board-15-project-rebaseline-plan.md`
 
 Report: `docs/reports/2026-09-01-board-15-project-rebaseline.md`
 
+## Productization Board 17A: Team lifecycle and project-run authorization
+
+Status: complete for the local offline vertical slice
+
+- bind the exact project goal to the current ready Supervisor team snapshot;
+- require a one-time project-run approval on the normal CLI `run` entry point;
+- reject wrong-goal, stale-team and replayed approvals before Adapter invocation;
+- persist approval provenance on the run record;
+- project Supervisor state and approvals through the loopback product surface;
+- preserve separate synthetic Manager-platform approvals;
+- defer Artifact retention/purge and all external transport work.
+
+Plan: `docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md`
+
+Report: `docs/reports/2026-09-01-board-17a-team-lifecycle.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

@@ -19,6 +19,7 @@ from .repair import RepairService
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
+from .supervisor import SupervisorError, SupervisorService
 from .workspaces import WorkspaceService
 
 
@@ -52,6 +53,7 @@ class LocalSettingsApplication:
         self.repairs = RepairService(self.store, self.workspaces)
         self.evaluations = EvaluationService(config, self.store)
         self.backups = BackupService(self.store)
+        self.supervisor = SupervisorService(self.store, self.registry)
         self.comparison = RunComparisonService(
             self.store,
             self.ledger,
@@ -122,6 +124,13 @@ class LocalSettingsApplication:
             "backups": {
                 "items": self.backups.backups(),
                 "restore_approvals": self.backups.approvals(),
+            },
+            "supervisor": {
+                "team": self._supervisor_team(),
+                "bindings": self.supervisor.bindings(),
+                "snapshots": self.supervisor.snapshots(),
+                "approvals": self.supervisor.approvals(),
+                "events": self.supervisor.events(),
             },
         }
 
@@ -241,6 +250,15 @@ class LocalSettingsApplication:
             if _text(payload, "action") != "restore":
                 raise ValueError("backup restore action must be restore")
             self.backups.restore(resource_id)
+        elif resource == "supervisor-approvals":
+            decision = _decision(payload)
+            self.supervisor.decide_start(
+                resource_id,
+                approve=decision == "approve",
+                confirmation=_text(payload, "scope_sha256", "")
+                if decision == "approve"
+                else "",
+            )
         else:
             raise ValueError(f"unsupported local resource {resource!r}")
         return self.state()
@@ -313,11 +331,35 @@ class LocalSettingsApplication:
                     "consumed_at": item["consumed_at"],
                 }
             )
+        for item in self.supervisor.approvals():
+            result.append(
+                {
+                    "kind": "supervisor",
+                    "id": item["id"],
+                    "status": item["status"],
+                    "action": item["scope"].get("action", "team start"),
+                    "resource": item["snapshot_id"],
+                    "scope_sha256": item["scope_sha256"],
+                    "scope": item["scope"],
+                    "requested_at": item["requested_at"],
+                    "decided_at": item["decided_at"],
+                    "consumed_at": item["consumed_at"],
+                }
+            )
         return sorted(
             result,
             key=lambda item: (item["requested_at"], item["id"]),
             reverse=True,
         )
+
+    def _supervisor_team(self) -> dict[str, Any]:
+        try:
+            return self.supervisor.check_team()
+        except SupervisorError as exc:
+            return {
+                "status": "not_configured",
+                "errors": [{"code": "team_not_configured", "message": str(exc)}],
+            }
 
     def _workspace_evidence(self) -> list[dict[str, Any]]:
         with self.store.connect() as conn:

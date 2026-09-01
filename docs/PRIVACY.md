@@ -178,6 +178,12 @@ create an Adapter, start a real process, connect to a service or invoke a
 model. A future real readiness checker needs a separate scope, privacy review
 and explicit external-call authorization.
 
+Board 17A project-run approvals bind the exact local goal and current team
+snapshot in ignored SQLite runtime state. The normal CLI `run` consumes that
+approval once before any Adapter invocation and records only the snapshot,
+approval and scope digest on the run. Goal text and approval scopes are not
+copied into tracked documentation or sent to an external service.
+
 ## Controlled experiment boundary
 
 Board 14 experiment prompts, transport commands, resolved working directories,
