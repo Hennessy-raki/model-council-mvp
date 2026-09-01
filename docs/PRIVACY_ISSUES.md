@@ -432,3 +432,29 @@ evidence.
   executor then fails closed without retry and records only bounded local
   diagnostic metadata.
 - Blocks development: no; any future candidate remains separately gated.
+
+### PRIV-021: Provider input usage may include unreviewed host context
+
+- Date found: 2026-09-01
+- Channel: one separately approved synthetic Board 14 App Server execution and
+  ignored local runtime usage diagnostic
+- Priority: medium
+- Data class: complete Provider-reported token counts and protocol source
+  shape; raw host context or response would be private operational data
+- Status: resolved before public commit
+- Resolution:
+  - the fifth experiment failed closed at the frozen total-token limit and its
+    approval was consumed without retry;
+  - runtime retained only normalized input/output/total counts, source-shape
+    metadata, the limit, and `response_text_stored: false`;
+  - Board 14.9 requires any future Provider-input headroom to be explicit,
+    SHA-256-bound, separately capped, and human-approved rather than inferred
+    from the small synthetic prompt.
+- Evidence: the completed usage shape was present at approved App Server
+  locations; the current-tree and reachable-history privacy scans passed after
+  the run.
+- Residual risk: a Provider may continue to include host or service context in
+  billed input usage. A future scope must set an explicit budget that covers
+  that risk or fail closed; Model Council must not recover or retain raw
+  context to diagnose it.
+- Blocks development: no; no new candidate or retry is authorized.

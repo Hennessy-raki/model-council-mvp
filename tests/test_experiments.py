@@ -94,6 +94,8 @@ class ExperimentTests(unittest.TestCase):
         *,
         fixture_arguments=None,
         max_total_tokens=2000,
+        max_input_tokens=None,
+        max_output_tokens=None,
     ):
         fixture = (
             Path(__file__).resolve().parent / "fixtures" / fixture_name
@@ -139,6 +141,10 @@ class ExperimentTests(unittest.TestCase):
         spec["transport"]["command"] = command
         spec["transport"]["working_directory"] = synthetic_cwd
         spec["limits"]["max_total_tokens"] = max_total_tokens
+        if max_input_tokens is not None:
+            spec["limits"]["max_input_tokens"] = max_input_tokens
+        if max_output_tokens is not None:
+            spec["limits"]["max_output_tokens"] = max_output_tokens
         return spec
 
     def _approved_start(self, spec):
@@ -540,6 +546,106 @@ class ExperimentTests(unittest.TestCase):
         )
         self.assertNotIn('"response":', json.dumps(diagnostic, sort_keys=True))
         self.assertNotIn("Create exactly two", json.dumps(diagnostic, sort_keys=True))
+
+    def test_input_and_output_token_limits_are_explicit_and_privacy_safe(self):
+        cases = (
+            {
+                "name": "input",
+                "fixture_arguments": [
+                    "--input-tokens",
+                    "16000",
+                    "--output-tokens",
+                    "64",
+                ],
+                "limits": {
+                    "max_total_tokens": 17000,
+                    "max_input_tokens": 15999,
+                    "max_output_tokens": 128,
+                },
+                "failure_class": "input_limit_exceeded",
+                "limit_key": "max_input_tokens",
+                "limit_value": 15999,
+            },
+            {
+                "name": "output",
+                "fixture_arguments": ["--output-tokens", "5"],
+                "limits": {
+                    "max_total_tokens": 2000,
+                    "max_output_tokens": 4,
+                },
+                "failure_class": "output_limit_exceeded",
+                "limit_key": "max_output_tokens",
+                "limit_value": 4,
+            },
+        )
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                experiment, start = self._approved_start(
+                    self._fixture_real_spec(
+                        "fake_codex_app_server_plan.py",
+                        fixture_arguments=case["fixture_arguments"],
+                        **case["limits"],
+                    )
+                )
+                with self.assertRaisesRegex(
+                    ExperimentError,
+                    case["limit_key"],
+                ):
+                    self.experiments.execute_start(start["id"])
+                diagnostic = self.experiments.evidence(experiment["id"])[0]["evidence"]
+                self.assertEqual(diagnostic["failure_class"], case["failure_class"])
+                self.assertEqual(
+                    diagnostic[case["limit_key"]],
+                    case["limit_value"],
+                )
+                self.assertTrue(diagnostic["response_text_stored"] is False)
+                serialized = json.dumps(diagnostic, sort_keys=True)
+                self.assertNotIn('"response":', serialized)
+                self.assertNotIn("Create exactly two", serialized)
+
+    def test_large_provider_input_requires_every_explicit_budget(self):
+        spec = self._fixture_real_spec(
+            "fake_codex_app_server_plan.py",
+            fixture_arguments=[
+                "--input-tokens",
+                "16000",
+                "--output-tokens",
+                "64",
+            ],
+            max_total_tokens=17000,
+            max_input_tokens=16010,
+            max_output_tokens=128,
+        )
+        _, start = self._approved_start(spec)
+        completed = self.experiments.execute_start(start["id"])
+        usage = completed["evidence"][0]["evidence"]["usage"]
+        self.assertEqual(usage["input_tokens"], 16000)
+        self.assertEqual(usage["output_tokens"], 64)
+        self.assertEqual(usage["total_tokens"], 16064)
+
+    def test_input_output_limit_policy_rejects_inconsistent_budget(self):
+        snapshot = self._snapshot(
+            manager_agent="fake-manager",
+            manager_model="fake-model",
+        )
+        cases = (
+            ({"max_input_tokens": 2001}, "cannot exceed"),
+            (
+                {"max_input_tokens": 1900, "max_output_tokens": 200},
+                "plus max_output_tokens",
+            ),
+        )
+        for limits, message in cases:
+            with self.subTest(limits=limits):
+                spec = self._spec(
+                    phase="14.0",
+                    snapshot=snapshot,
+                    manager_agent="fake-manager",
+                    manager_model="fake-model",
+                )
+                spec["limits"].update(limits)
+                with self.assertRaisesRegex(ExperimentError, message):
+                    self.experiments.prepare(spec)
 
     def test_total_or_completed_usage_is_accepted_without_relaxing_limits(self):
         for usage_mode in ("total", "completed"):

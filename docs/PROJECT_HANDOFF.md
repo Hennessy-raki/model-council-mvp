@@ -75,15 +75,17 @@ Codex Manager candidates. Board 14.3 adds the controlled executor, Board 14.4
 adds supported App Server usage shapes, Board 14.5 binds executor integrity,
 Board 14.6 adds privacy-safe usage-failure classification, Board 14.7 adds
 privacy-safe Manager output-contract classification, and Board 14.8 binds the
-complete v2 output contract into the generated synthetic prompt.
+complete v2 output contract into the generated synthetic prompt. Board 14.9
+adds explicit Provider input/output hard budgets.
 
-Four separately authorized one-turn synthetic Codex Manager attempts were
+Five separately authorized one-turn synthetic Codex Manager attempts were
 made after their exact approvals. All start approvals were consumed and all
 attempts failed closed without retry: the first two on the hard usage gate and
 the latter two on the frozen output contract; the fourth classified
-`task_key_invalid`. Neither experiment nor approval may be reused. Runtime
-evidence contains no response body. Board 14.8 corrects the actionable
-product defect: the old prompt did not specify every local contract rule.
+`task_key_invalid`; the fifth reported complete input usage above the frozen
+total-token cap. Neither experiment nor approval may be reused. Runtime
+evidence contains no response body. Board 14.8 corrected the prompt contract;
+Board 14.9 makes future Provider input headroom explicit and separately bound.
 
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
@@ -567,6 +569,11 @@ Board 14.8 corrects the cause exposed by the fourth attempt. The exact
 identity-bound `manager_two_worker_plan_v2` prompt now states every enforced
 JSON rule: only `tasks`, exactly two task objects, exact fields, non-empty
 unique keys, both frozen Workers once, and `depends_on: []`. Generic or edited
-prompts cannot prepare an experiment. It does not create a candidate or grant
-execution authority. A future candidate must be prepared after the Board 14.8
-commit and repeat every approval gate.
+prompts cannot prepare an experiment.
+
+Board 14.9 follows the fifth attempt's complete high Provider-input usage.
+Future scopes may set `max_input_tokens` and `max_output_tokens`, but must
+also set a compatible `max_total_tokens`. The executor fails closed on each
+dimension and records only privacy-safe numeric budget diagnostics. It does
+not create a candidate or grant execution authority. A future candidate must
+be prepared after the Board 14.9 commit and repeat every approval gate.

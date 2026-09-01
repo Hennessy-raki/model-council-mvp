@@ -16,6 +16,16 @@ if "--plan-mode" in sys.argv:
     index = sys.argv.index("--plan-mode")
     plan_mode = sys.argv[index + 1]
 
+input_tokens = 10
+if "--input-tokens" in sys.argv:
+    index = sys.argv.index("--input-tokens")
+    input_tokens = int(sys.argv[index + 1])
+
+output_tokens = 5
+if "--output-tokens" in sys.argv:
+    index = sys.argv.index("--output-tokens")
+    output_tokens = int(sys.argv[index + 1])
+
 
 for line in sys.stdin:
     if not line.strip():
@@ -106,9 +116,9 @@ for line in sys.stdin:
             }
         )
         usage = {
-            "inputTokens": 10,
-            "outputTokens": 5,
-            "totalTokens": 15,
+            "inputTokens": input_tokens,
+            "outputTokens": output_tokens,
+            "totalTokens": input_tokens + output_tokens,
         }
         if usage_mode == "incomplete":
             usage = {

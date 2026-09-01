@@ -72,6 +72,8 @@ class RegistryTests(unittest.TestCase):
                                 }
                             },
                             "input_tokens": 123,
+                            "max_input_tokens": 18000,
+                            "max_output_tokens": 256,
                             "max_total_tokens": 2000,
                             "token_sources": ["estimated"],
                         },
@@ -122,6 +124,14 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["input_tokens"],
                 123,
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["max_input_tokens"],
+                18000,
+            )
+            self.assertEqual(
+                snapshot["settings"]["nested"]["value"]["max_output_tokens"],
+                256,
             )
             self.assertEqual(
                 snapshot["settings"]["nested"]["value"]["max_total_tokens"],

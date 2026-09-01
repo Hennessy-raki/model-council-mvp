@@ -581,27 +581,37 @@ class ExperimentService:
             response_bytes = len(response.encode("utf-8"))
             if response_bytes > scope["limits"]["max_response_bytes"]:
                 raise ExperimentError("Manager response exceeded max_response_bytes")
-            total_tokens = usage.get("total_tokens") if usage else None
-            token_limit = scope["limits"].get("max_total_tokens")
-            if token_limit is not None and total_tokens is None:
+            usage_limits = {
+                "max_input_tokens": scope["limits"].get("max_input_tokens"),
+                "max_output_tokens": scope["limits"].get("max_output_tokens"),
+                "max_total_tokens": scope["limits"].get("max_total_tokens"),
+            }
+            if any(limit is not None for limit in usage_limits.values()) and usage is None:
                 failure_class = self._usage_failure_class(usage_observations)
                 self._usage_gate_evidence(
                     experiment["id"],
                     failure_class=failure_class,
                     observations=usage_observations,
                     usage=None,
-                    token_limit=token_limit,
                 )
                 raise ExperimentError(f"Manager usage is {failure_class}")
-            if token_limit is not None and total_tokens > token_limit:
+            for usage_key, limit_key, failure_class in (
+                ("input_tokens", "max_input_tokens", "input_limit_exceeded"),
+                ("output_tokens", "max_output_tokens", "output_limit_exceeded"),
+                ("total_tokens", "max_total_tokens", "exceeded_limit"),
+            ):
+                token_limit = usage_limits[limit_key]
+                if token_limit is None or usage[usage_key] <= token_limit:
+                    continue
                 self._usage_gate_evidence(
                     experiment["id"],
-                    failure_class="exceeded_limit",
+                    failure_class=failure_class,
                     observations=usage_observations,
                     usage=usage,
-                    token_limit=token_limit,
+                    limit_key=limit_key,
+                    limit_value=token_limit,
                 )
-                raise ExperimentError("Manager usage exceeded max_total_tokens")
+                raise ExperimentError(f"Manager usage exceeded {limit_key}")
             evidence = {
                 "version": 1,
                 "kind": "codex_app_server_turn",
@@ -1163,9 +1173,16 @@ class ExperimentService:
         failure_class: str,
         observations: list[dict[str, Any]],
         usage: dict[str, int] | None,
-        token_limit: int,
+        limit_key: str | None = None,
+        limit_value: int | None = None,
     ) -> None:
-        if failure_class not in {"unavailable", "incomplete", "exceeded_limit"}:
+        if failure_class not in {
+            "unavailable",
+            "incomplete",
+            "input_limit_exceeded",
+            "output_limit_exceeded",
+            "exceeded_limit",
+        }:
             raise ExperimentError("unsupported usage failure class")
         diagnostic = {
             "version": 1,
@@ -1180,11 +1197,11 @@ class ExperimentService:
             ],
             "response_text_stored": False,
         }
-        if failure_class == "exceeded_limit":
-            if usage is None:
+        if failure_class.endswith("_limit_exceeded") or failure_class == "exceeded_limit":
+            if usage is None or limit_key is None or limit_value is None:
                 raise ExperimentError("over-limit usage diagnostic requires usage")
             diagnostic["usage"] = usage
-            diagnostic["max_total_tokens"] = token_limit
+            diagnostic[limit_key] = limit_value
         self._evidence(
             experiment_id,
             "codex_app_server_usage_diagnostic",
@@ -1397,6 +1414,8 @@ def _validate_limits(value: Any) -> dict[str, Any]:
         raise ExperimentError("limits must be an object")
     unsupported = set(value) - {
         *DEFAULT_LIMITS,
+        "max_input_tokens",
+        "max_output_tokens",
         "max_total_tokens",
         "max_total_cost",
         "cost_currency",
@@ -1441,6 +1460,37 @@ def _validate_limits(value: Any) -> dict[str, Any]:
         or max_total_tokens < 1
     ):
         raise ExperimentError("max_total_tokens must be a positive integer")
+    component_limits = {
+        "max_input_tokens": result.get("max_input_tokens"),
+        "max_output_tokens": result.get("max_output_tokens"),
+    }
+    for key, limit in component_limits.items():
+        if limit is not None and (
+            not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or limit < 1
+        ):
+            raise ExperimentError(f"{key} must be a positive integer")
+    if any(limit is not None for limit in component_limits.values()):
+        if max_total_tokens is None:
+            raise ExperimentError(
+                "max_input_tokens or max_output_tokens requires max_total_tokens"
+            )
+        if any(
+            limit is not None and limit > max_total_tokens
+            for limit in component_limits.values()
+        ):
+            raise ExperimentError(
+                "input/output token limits cannot exceed max_total_tokens"
+            )
+        if (
+            all(limit is not None for limit in component_limits.values())
+            and sum(component_limits.values()) > max_total_tokens
+        ):
+            raise ExperimentError(
+                "max_input_tokens plus max_output_tokens cannot exceed "
+                "max_total_tokens"
+            )
     max_total_cost = result.get("max_total_cost")
     if max_total_cost is not None:
         try:

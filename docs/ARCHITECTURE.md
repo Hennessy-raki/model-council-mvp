@@ -115,6 +115,12 @@ in the experiment scope SHA-256. Team-readiness, Agent/Model identity, prompt,
 transport or source-integrity drift makes the experiment or start approval
 stale before process startup.
 
+Provider-reported input, output and total tokens are independent hard-budget
+dimensions. `max_total_tokens` remains mandatory whenever a scope sets
+`max_input_tokens` or `max_output_tokens`; component limits cannot exceed the
+total or exceed it together. No host or Provider context is assumed free:
+every increased input budget must be explicit in a new approval scope.
+
 ## Usage, cost and balance ledger
 
 Every Adapter invocation creates one immutable `usage_events` record. Locally

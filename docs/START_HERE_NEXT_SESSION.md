@@ -13,7 +13,8 @@ Board 14.3 controlled-executor verification, Board 14.4 usage compatibility
 repair, Board 14.5 executor-integrity binding, and Board 14.6 privacy-safe
 usage-failure diagnostics, and Board 14.7 privacy-safe Manager output-contract
 diagnostics, and Board 14.8 contract-bound synthetic prompt repair are
-implemented locally. Board 14 remains in progress because four separately
+implemented locally. Board 14.9 explicit Provider input/output budget repair is
+also implemented locally. Board 14 remains in progress because five separately
 authorized real synthetic attempts failed closed and none is eligible for
 retry.
 
@@ -40,6 +41,8 @@ docs/reports/2026-08-31-board-14-7-output-contract-diagnostics-plan.md
 docs/reports/2026-08-31-board-14-7-output-contract-diagnostics.md
 docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt-plan.md
 docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md
+docs/reports/2026-09-01-board-14-9-provider-input-budget-plan.md
+docs/reports/2026-09-01-board-14-9-provider-input-budget.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -86,6 +89,12 @@ canonical `manager_two_worker_plan_v2` prompt is generated from the two bound
 mock Worker IDs and states the exact JSON shape already enforced locally.
 Generic or edited prompts cannot prepare an experiment. It creates no new
 candidate and grants no App Server or model-call authority.
+
+Board 14.9 follows a fifth attempt that failed at complete Provider input
+usage above the total cap. Future scopes may set explicit
+`max_input_tokens` and `max_output_tokens`; each is SHA-256-bound, must be
+compatible with `max_total_tokens`, and fails closed independently. No host or
+Provider context is treated as free or inferred from prompt bytes.
 
 ## Required next-session sequence
 
@@ -145,8 +154,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and twenty-three tests after
-Board 14.8. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and twenty-six tests after
+Board 14.9. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.
