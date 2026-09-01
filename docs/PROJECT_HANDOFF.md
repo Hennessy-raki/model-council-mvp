@@ -121,6 +121,19 @@ approval provenance on each authorized run, and exposes Supervisor state in the
 loopback product projection. It adds no Provider, network, Artifact cleanup,
 workspace or publishing authority.
 
+Board 17B is complete for deterministic local Agent lifecycle fixtures only:
+
+```text
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md
+```
+
+It records local start/connect/attach/detach/stop transitions, bounded
+process/login/actual-Model/permission/version/protocol/connectivity evidence,
+remediation and confirmation-required states. Lifecycle evidence is bound into
+Supervisor snapshots and project-run stale-on-drift checks. It adds no real
+Agent, Provider, network, repository, worktree, Git or Artifact-purge authority.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -640,13 +653,13 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 17A development handoff is:
+The latest post-Board 17B development handoff is:
 
 ```text
-docs/reports/2026-09-01-board-17a-next-session-handoff.md
+docs/reports/2026-09-01-board-17b-next-session-handoff.md
 ```
 
-It records the current local commit, completed Board 17A scope, remaining
+It records the current local commit, completed Board 17B scope, remaining
 goal-alignment gaps, the recommended next board and the safe opening sequence.
 It does not authorize a new board, external call, runtime mutation or Artifact
 purge.

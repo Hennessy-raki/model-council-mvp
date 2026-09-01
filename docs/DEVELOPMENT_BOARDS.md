@@ -323,3 +323,21 @@ Status: complete for the local offline vertical slice
 Plan: `docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md`
 
 Report: `docs/reports/2026-09-01-board-17a-team-lifecycle.md`
+
+### Board 17B: Deterministic local Agent lifecycle verification
+
+Status: complete for the local fixture slice
+
+- deterministic local start/connect/attach/detach/stop transitions;
+- bounded lifecycle session and transition-event persistence;
+- process, login, actual-Model, permission, version, protocol and connectivity
+  evidence with remediation and explicit confirmation handling;
+- lifecycle evidence bound into team snapshots and project-run approvals;
+- shared Supervisor service consumed by CLI and loopback Web projections;
+- no Provider, network, repository, worktree, Git or Artifact-purge behavior.
+
+Plan:
+`docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md`
+
+Report:
+`docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md`

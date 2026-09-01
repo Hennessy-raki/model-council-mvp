@@ -32,6 +32,11 @@ vertical slice. The normal CLI `run` entry point now requires a one-time
 Supervisor project-run approval bound to the current ready team and exact goal.
 Artifact retention/purge remains deferred and separately scoped.
 
+Board 17B is complete for deterministic local Agent lifecycle fixtures only.
+It does not qualify a real Agent or authorize a new model call. Read the
+Board 17B report before freezing any real-Agent, Provider, transport, workspace
+or retention scope.
+
 The latest scope and completion reports are:
 
 ```text
@@ -67,6 +72,8 @@ docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
 docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
 docs/reports/2026-09-01-board-17a-team-lifecycle.md
 docs/reports/2026-09-01-board-17a-next-session-handoff.md
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

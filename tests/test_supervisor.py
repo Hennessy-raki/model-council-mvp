@@ -308,6 +308,127 @@ class SupervisorTests(unittest.TestCase):
             "bound_model_not_observed",
         )
 
+    def test_deterministic_local_agent_lifecycle_is_audited(self):
+        service = self._service()
+        service.configure_role(
+            role_key="manager",
+            agent_id="manager-agent",
+            model_id="manager-model",
+            launch_mode="spawn",
+            transport="cli",
+            check_profile={
+                "fixture": "fake-cli",
+                "lifecycle": {
+                    "checks": {
+                        "actual_model": {
+                            "status": "passed",
+                            "details": {"model_id": "manager-model"},
+                        },
+                        "protocol": {
+                            "status": "passed",
+                            "details": {"protocol": "cli"},
+                        },
+                    }
+                },
+            },
+        )
+        self.assertEqual(
+            service.start_agent("manager")["session"]["state"],
+            "started",
+        )
+        self.assertEqual(
+            service.connect_agent("manager")["session"]["state"],
+            "connected",
+        )
+        self.assertEqual(
+            service.attach_agent("manager")["session"]["state"],
+            "attached",
+        )
+        report = service.check_role("manager")
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["checks"]["actual_model"]["status"], "passed")
+        self.assertEqual(report["checks"]["protocol"]["status"], "passed")
+        self.assertEqual(
+            service.detach_agent("manager")["session"]["state"],
+            "detached",
+        )
+        self.assertEqual(
+            service.stop_agent("manager")["session"]["state"],
+            "stopped",
+        )
+        self.assertEqual(len(service.lifecycle_events("manager")), 5)
+
+    def test_lifecycle_failure_and_model_mismatch_fail_closed(self):
+        service = self._service()
+        service.configure_role(
+            role_key="worker",
+            agent_id="worker-agent",
+            model_id="worker-model",
+            launch_mode="spawn",
+            transport="cli",
+            check_profile={
+                "lifecycle": {
+                    "operations": {
+                        "start": {
+                            "status": "failed",
+                            "code": "fixture_process_missing",
+                        }
+                    },
+                    "checks": {
+                        "actual_model": {
+                            "status": "passed",
+                            "details": {"model_id": "other-model"},
+                        },
+                        "protocol": {"status": "passed"},
+                    },
+                }
+            },
+        )
+        failed = service.start_agent("worker")
+        self.assertEqual(failed["session"]["state"], "failed")
+        report = service.check_role("worker")
+        self.assertEqual(report["status"], "not_ready")
+        self.assertEqual(report["checks"]["process"]["status"], "failed")
+        self.assertEqual(
+            report["checks"]["actual_model"]["code"],
+            "bound_model_not_observed",
+        )
+
+    def test_lifecycle_evidence_drift_stales_project_run_approval(self):
+        service = self._service()
+        for role in ("manager", "worker", "reviewer"):
+            service.configure_role(
+                role_key=role,
+                agent_id=f"{role}-agent",
+                model_id=f"{role}-model",
+                launch_mode="spawn",
+                transport="cli",
+                check_profile={
+                    "lifecycle": {
+                        "checks": {
+                            "actual_model": {
+                                "status": "passed",
+                                "details": {"model_id": f"{role}-model"},
+                            },
+                            "protocol": {"status": "passed"},
+                        }
+                    }
+                },
+            )
+            service.start_agent(role)
+        service.check_team()
+        snapshot = service.snapshot()
+        approval = service.request_project_run(snapshot["id"], "Frozen lifecycle goal")
+        service.decide_start(
+            approval["id"],
+            approve=True,
+            confirmation=approval["scope_sha256"],
+        )
+        service.stop_agent("worker")
+        with self.assertRaises(SupervisorError):
+            service.start_project_run(approval["id"], "Frozen lifecycle goal")
+        self.assertEqual(service.approval(approval["id"])["status"], "stale")
+
     def test_all_launch_modes_and_first_stage_transports_validate(self):
         service = self._service()
         combinations = (

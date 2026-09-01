@@ -125,13 +125,15 @@ class LocalSettingsApplication:
                 "items": self.backups.backups(),
                 "restore_approvals": self.backups.approvals(),
             },
-            "supervisor": {
-                "team": self._supervisor_team(),
-                "bindings": self.supervisor.bindings(),
-                "snapshots": self.supervisor.snapshots(),
-                "approvals": self.supervisor.approvals(),
-                "events": self.supervisor.events(),
-            },
+                "supervisor": {
+                    "team": self._supervisor_team(),
+                    "bindings": self.supervisor.bindings(),
+                    "snapshots": self.supervisor.snapshots(),
+                    "approvals": self.supervisor.approvals(),
+                    "lifecycle_sessions": self.supervisor.lifecycle_sessions(),
+                    "lifecycle_events": self.supervisor.lifecycle_events(),
+                    "events": self.supervisor.events(),
+                },
         }
 
     def compare_runs(self, left_run_id: str, right_run_id: str) -> dict[str, Any]:
@@ -899,6 +901,7 @@ INDEX_HTML = """<!doctype html>
       currentState = state;
       const r = state.registry, ledger = state.ledger;
       const interop = state.interoperability;
+      const supervisor = state.supervisor || {};
       const approvalCenter = state.approval_center || [];
       const centerTable = approvalCenter.length
         ? `<div class="table-wrap"><table><thead><tr><th>Requested</th><th>Kind</th><th>Action</th><th>Resource</th><th>Scope SHA-256</th><th>Scope</th><th>Status</th><th>Decision</th><th>Consume</th></tr></thead><tbody>${approvalCenter.map(item => `<tr><td>${escapeHtml(item.requested_at)}</td><td>${escapeHtml(item.kind)}</td><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.resource)}</td><td><code>${escapeHtml(item.scope_sha256)}</code></td><td><details><summary>Inspect local scope</summary><code>${json(item.scope)}</code></details></td><td>${escapeHtml(item.status)}</td><td>${item.status === "pending" ? `<button class="center-approval-action" type="button" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(item.id)}" data-scope="${escapeHtml(item.scope_sha256)}" data-decision="approve">Approve exact scope</button> <button class="center-approval-action" type="button" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(item.id)}" data-decision="reject">Reject</button>` : ""}</td><td>${item.kind === "backup_restore" && item.status === "approved" ? `<button class="backup-restore" type="button" data-id="${escapeHtml(item.id)}">Restore once</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
@@ -921,6 +924,10 @@ INDEX_HTML = """<!doctype html>
         <h2>Approval center</h2>
         <p class="small">Approval and consumption remain separate. This page delegates to the same persisted single-use checks as the CLI and never invokes, merges, discards or restores merely by refreshing.</p>
         ${centerTable}
+        <h2>Supervisor Agent lifecycle</h2>
+        <p class="small">Lifecycle records are deterministic local fixture evidence. This view never starts, connects, attaches, detaches or stops an Agent.</p>
+        ${table(supervisor.lifecycle_sessions || [], [{key:"updated_at",label:"Updated"},{key:"role_key",label:"Role"},{key:"agent_id",label:"Agent"},{key:"model_id",label:"Model"},{key:"state",label:"State"},{key:"evidence_sha256",label:"Evidence SHA-256"},{key:"failure",label:"Failure"}])}
+        ${table(supervisor.lifecycle_events || [], [{key:"created_at",label:"Recorded"},{key:"role_key",label:"Role"},{key:"event_type",label:"Event"},{key:"from_state",label:"From"},{key:"to_state",label:"To"},{key:"payload",label:"Bounded evidence",json:true}])}
         <h2>Workspace evidence</h2>
         <h3>Leases and permissions</h3>
         ${table(state.workspaces.leases, [{key:"updated_at",label:"Updated"},{key:"id",label:"Lease"},{key:"agent_id",label:"Agent"},{key:"status",label:"Status"},{key:"target_branch",label:"Target"},{key:"base_sha",label:"Base SHA"},{key:"permissions",label:"Permissions",json:true}])}

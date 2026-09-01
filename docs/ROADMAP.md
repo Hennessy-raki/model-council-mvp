@@ -351,6 +351,28 @@ Plan: `docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md`
 
 Report: `docs/reports/2026-09-01-board-17a-team-lifecycle.md`
 
+## Productization Board 17B: Deterministic local Agent lifecycle verification
+
+Status: complete for the local fixture slice
+
+- model deterministic `start`, `connect`, `attach`, `detach` and `stop`
+  transitions per bound role;
+- persist bounded lifecycle sessions, transition events and evidence digests in
+  ignored local SQLite state;
+- record process, login, actual-Model, permission, version, protocol and
+  connectivity evidence with remediation and confirmation-required states;
+- bind lifecycle evidence into Supervisor snapshots and project-run approval
+  stale-on-drift validation;
+- expose the same service state through CLI and loopback Web projections;
+- keep all Provider, network, repository, worktree, Git and Artifact-purge
+  behavior deferred.
+
+Plan:
+`docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md`
+
+Report:
+`docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

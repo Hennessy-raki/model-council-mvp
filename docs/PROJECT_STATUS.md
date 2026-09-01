@@ -19,6 +19,8 @@ multi-model execution service.
 - Board 13 is complete only for local-private Supervisor readiness controls.
 - Board 14 is complete only for one local-private, read-only synthetic Manager
   execution. Its terminal experiment and consumed approval cannot be replayed.
+- Board 17B is complete only for deterministic local Agent lifecycle fixtures;
+  it does not qualify a real Agent or authorize a new model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -35,8 +37,13 @@ multi-model execution service.
 | Product interface | Loopback approval/evidence views, comparison, backup/restore and release verification are implemented. | Electron packaging and broader operator workflows are deferred. |
 | Controlled real execution | Exact experiment and start approvals, integrity binding, strict no-approval handling, output/usage/token/cost gates and one terminal synthetic Manager success are implemented. | No repeat, repository context, tools, writes, Git, parallelism or new Provider call is authorized. |
 | Project-run authorization | Normal CLI `run` requires a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | Low-level library callers retain a compatibility path; real Agent lifecycle verification is deferred. |
+| Agent lifecycle verification | Deterministic local fixture transitions and bounded lifecycle evidence are persisted and projected through CLI/Web. | Real Agent start/connect/attach, remote validation and external model calls remain separately scoped. |
 
 ## Board sequence after Board 15
+
+Board 17B is now complete for the deterministic local fixture slice. The
+remaining “Next” item below must be interpreted as real Agent qualification,
+which requires a new frozen scope and exact authorization.
 
 1. **Board 16 — deterministic local transport-test reliability**: remains
    deferred unless the observed Windows socket interruption recurs under a
@@ -61,6 +68,13 @@ Board 17A plan and acceptance report:
 ```text
 docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
 docs/reports/2026-09-01-board-17a-team-lifecycle.md
+```
+
+Board 17B plan and acceptance report:
+
+```text
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification-plan.md
+docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md
 ```
 
 ## Current quality gate

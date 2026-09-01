@@ -543,6 +543,31 @@ class CouncilStore:
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS supervisor_agent_sessions (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL,
+                    agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+                    model_id TEXT NOT NULL REFERENCES models(id),
+                    launch_mode TEXT NOT NULL,
+                    transport TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    evidence_sha256 TEXT NOT NULL,
+                    failure TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    detached_at TEXT,
+                    UNIQUE(role_key)
+                );
+                CREATE TABLE IF NOT EXISTS supervisor_agent_events (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES supervisor_agent_sessions(id),
+                    event_type TEXT NOT NULL,
+                    from_state TEXT,
+                    to_state TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS controlled_experiments (
                     id TEXT PRIMARY KEY,
                     phase TEXT NOT NULL,
@@ -668,6 +693,8 @@ class CouncilStore:
                     ON supervisor_start_approvals(status, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_supervisor_events_manager
                     ON supervisor_platform_events(manager_agent_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_supervisor_agent_events_session
+                    ON supervisor_agent_events(session_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiments_status
                     ON controlled_experiments(status, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiment_events

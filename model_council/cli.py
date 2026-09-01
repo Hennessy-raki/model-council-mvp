@@ -811,9 +811,12 @@ def build_parser() -> argparse.ArgumentParser:
             "process",
             "login",
             "model",
+            "actual_model",
             "permission",
             "version",
             "connection",
+            "protocol",
+            "connectivity",
         ),
     )
     supervisor_confirm.add_argument("--note", default="")
@@ -885,6 +888,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     supervisor_start.add_argument("approval_id")
     supervisor_start.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_lifecycle = supervisor_commands.add_parser(
+        "lifecycle",
+        help="run one deterministic local Agent lifecycle transition",
+    )
+    supervisor_lifecycle.add_argument(
+        "operation",
+        choices=("start", "connect", "attach", "detach", "stop"),
+    )
+    supervisor_lifecycle.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_lifecycle.add_argument(
         "--config",
         default=str(default_config_path()),
     )
@@ -1526,6 +1545,8 @@ def main(argv: list[str] | None = None) -> None:
                     "bindings": supervisor.bindings(),
                     "snapshots": supervisor.snapshots(),
                     "approvals": supervisor.approvals(),
+                    "lifecycle_sessions": supervisor.lifecycle_sessions(),
+                    "lifecycle_events": supervisor.lifecycle_events(),
                     "manager_platform_events": supervisor.events(),
                 }
             elif args.supervisor_command == "check":
@@ -1564,6 +1585,8 @@ def main(argv: list[str] | None = None) -> None:
                 )
             elif args.supervisor_command == "start":
                 payload = supervisor.start(args.approval_id)
+            elif args.supervisor_command == "lifecycle":
+                payload = supervisor.transition_agent(args.role, args.operation)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "experiment":
             config = load_config(args.config)

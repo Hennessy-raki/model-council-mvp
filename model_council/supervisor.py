@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from hashlib import sha256
 from typing import Any, Protocol
 from uuid import uuid4
@@ -20,6 +21,31 @@ CHECK_NAMES = (
     "version",
     "connection",
 )
+CANONICAL_LIFECYCLE_CHECKS = (
+    "process",
+    "login",
+    "actual_model",
+    "permission",
+    "version",
+    "protocol",
+    "connectivity",
+)
+LIFECYCLE_STATES = {
+    "configured",
+    "starting",
+    "started",
+    "connecting",
+    "connected",
+    "attaching",
+    "attached",
+    "detaching",
+    "detached",
+    "stopping",
+    "stopped",
+    "failed",
+    "user_confirmation_required",
+}
+LIFECYCLE_OPERATIONS = {"start", "connect", "attach", "detach", "stop"}
 CHECK_STATUSES = {
     "passed",
     "failed",
@@ -46,6 +72,51 @@ class ReadinessInspector(Protocol):
 
     def inspect(self, binding: dict[str, Any]) -> dict[str, Any]:
         """Return a check-name keyed mapping of synthetic local observations."""
+
+
+class AgentLifecycleFixture(Protocol):
+    """Deterministic local lifecycle transition provider."""
+
+    def transition(
+        self,
+        binding: dict[str, Any],
+        operation: str,
+        current_state: str,
+    ) -> dict[str, Any]:
+        """Return a bounded status and optional reason/details."""
+
+
+class StaticAgentLifecycleFixture:
+    """Resolve lifecycle outcomes from a local, synthetic binding profile."""
+
+    def transition(
+        self,
+        binding: dict[str, Any],
+        operation: str,
+        current_state: str,
+    ) -> dict[str, Any]:
+        profile = binding.get("check_profile", {})
+        lifecycle = profile.get("lifecycle", {}) if isinstance(profile, dict) else {}
+        outcomes = lifecycle.get("operations", {}) if isinstance(lifecycle, dict) else {}
+        outcome = outcomes.get(operation, {}) if isinstance(outcomes, dict) else {}
+        if not isinstance(outcome, dict):
+            outcome = {}
+        status = str(outcome.get("status", "passed"))
+        if status not in {"passed", "failed", "user_confirmation_required"}:
+            return {
+                "status": "failed",
+                "code": "invalid_lifecycle_status",
+                "details": {},
+            }
+        return {
+            "status": status,
+            "code": str(outcome.get("code", ""))[:120] or None,
+            "details": sanitize_for_storage(
+                outcome.get("details", {})
+                if isinstance(outcome.get("details", {}), dict)
+                else {}
+            ),
+        }
 
 
 class StaticReadinessInspector:
@@ -130,12 +201,173 @@ class SupervisorService:
         registry: RegistryService,
         *,
         inspector: ReadinessInspector | None = None,
+        lifecycle: AgentLifecycleFixture | None = None,
         platform: LocalManagerPlatform | None = None,
     ):
         self.store = store
         self.registry = registry
         self.inspector = inspector or StaticReadinessInspector()
+        self.lifecycle = lifecycle or StaticAgentLifecycleFixture()
         self.platform = platform or LocalManagerPlatform(store)
+
+    def lifecycle_session(self, role_key: str) -> dict[str, Any] | None:
+        self._validate_role(role_key)
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM supervisor_agent_sessions WHERE role_key = ?",
+                (role_key,),
+            ).fetchone()
+        return _decode_lifecycle_session(row) if row is not None else None
+
+    def lifecycle_sessions(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM supervisor_agent_sessions
+                ORDER BY updated_at DESC, id DESC
+                """
+            ).fetchall()
+        return [_decode_lifecycle_session(row) for row in rows]
+
+    def lifecycle_events(self, role_key: str | None = None) -> list[dict[str, Any]]:
+        query = """
+            SELECT e.*, s.role_key
+            FROM supervisor_agent_events e
+            JOIN supervisor_agent_sessions s ON s.id = e.session_id
+        """
+        params: tuple[Any, ...] = ()
+        if role_key is not None:
+            self._validate_role(role_key)
+            query += " WHERE s.role_key = ?"
+            params = (role_key,)
+        query += " ORDER BY e.created_at, e.id"
+        with self.store.connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [_decode_lifecycle_event(row) for row in rows]
+
+    def transition_agent(self, role_key: str, operation: str) -> dict[str, Any]:
+        """Run one deterministic local lifecycle transition."""
+        self._validate_role(role_key)
+        if operation not in LIFECYCLE_OPERATIONS:
+            raise SupervisorError(f"unsupported Agent lifecycle operation {operation!r}")
+        binding = self.binding(role_key)
+        current = self.lifecycle_session(role_key)
+        current_state = current["state"] if current else "configured"
+        next_state = _next_lifecycle_state(
+            operation,
+            current_state,
+            binding["launch_mode"],
+            binding["transport"],
+        )
+        outcome = self.lifecycle.transition(binding, operation, current_state)
+        status = outcome.get("status")
+        if status == "failed":
+            next_state = "failed"
+        elif status == "user_confirmation_required":
+            next_state = "user_confirmation_required"
+        elif next_state is None:
+            raise SupervisorError(
+                f"lifecycle operation {operation!r} is invalid from state {current_state!r}"
+            )
+        now = utc_now()
+        evidence = {
+            "operation": operation,
+            "status": status,
+            "code": outcome.get("code"),
+            "details": sanitize_for_storage(outcome.get("details", {})),
+            "role_key": role_key,
+            "agent_id": binding["agent_id"],
+            "model_id": binding["model_id"],
+            "launch_mode": binding["launch_mode"],
+            "transport": binding["transport"],
+        }
+        evidence_sha256 = _digest(evidence)
+        session_id = current["id"] if current else str(uuid4())
+        with self.store.connect() as conn:
+            if current is None:
+                conn.execute(
+                    """
+                    INSERT INTO supervisor_agent_sessions(
+                        id, role_key, agent_id, model_id, launch_mode, transport,
+                        state, evidence_json, evidence_sha256, failure,
+                        created_at, updated_at, detached_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                    """,
+                    (
+                        session_id,
+                        role_key,
+                        binding["agent_id"],
+                        binding["model_id"],
+                        binding["launch_mode"],
+                        binding["transport"],
+                        next_state,
+                        _dump(evidence),
+                        evidence_sha256,
+                        evidence.get("code") if status != "passed" else None,
+                        now,
+                        now,
+                    ),
+                )
+            else:
+                updated = conn.execute(
+                    """
+                    UPDATE supervisor_agent_sessions
+                    SET state = ?, evidence_json = ?, evidence_sha256 = ?,
+                        failure = ?, updated_at = ?, detached_at = ?
+                    WHERE id = ? AND state = ?
+                    """,
+                    (
+                        next_state,
+                        _dump(evidence),
+                        evidence_sha256,
+                        evidence.get("code") if status != "passed" else None,
+                        now,
+                        now if next_state in {"detached", "stopped"} else current["detached_at"],
+                        session_id,
+                        current_state,
+                    ),
+                ).rowcount
+                if not updated:
+                    raise SupervisorError(
+                        f"Agent lifecycle session for {role_key!r} changed before transition"
+                    )
+            event_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO supervisor_agent_events(
+                    id, session_id, event_type, from_state, to_state,
+                    payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    session_id,
+                    f"agent_{operation}",
+                    current_state,
+                    next_state,
+                    _dump(evidence),
+                    now,
+                ),
+            )
+        return {
+            "session": self.lifecycle_session(role_key),
+            "event": self.lifecycle_events(role_key)[-1],
+        }
+
+    def start_agent(self, role_key: str) -> dict[str, Any]:
+        return self.transition_agent(role_key, "start")
+
+    def connect_agent(self, role_key: str) -> dict[str, Any]:
+        return self.transition_agent(role_key, "connect")
+
+    def attach_agent(self, role_key: str) -> dict[str, Any]:
+        return self.transition_agent(role_key, "attach")
+
+    def detach_agent(self, role_key: str) -> dict[str, Any]:
+        return self.transition_agent(role_key, "detach")
+
+    def stop_agent(self, role_key: str) -> dict[str, Any]:
+        return self.transition_agent(role_key, "stop")
 
     def configure_role(
         self,
@@ -208,6 +440,26 @@ class SupervisorService:
                 self._mark_pending_approvals_stale(
                     conn,
                     failure="team configuration changed after start request",
+                )
+                conn.execute(
+                    """
+                    UPDATE supervisor_agent_sessions
+                    SET agent_id = ?, model_id = ?, launch_mode = ?, transport = ?,
+                        state = 'configured', evidence_json = ?, evidence_sha256 = ?,
+                        failure = 'binding_changed', updated_at = ?,
+                        detached_at = NULL
+                    WHERE role_key = ?
+                    """,
+                    (
+                        agent_id,
+                        model_id,
+                        launch_mode,
+                        transport,
+                        _dump({}),
+                        _digest({}),
+                        now,
+                        role_key,
+                    ),
                 )
         return self.binding(role_key)
 
@@ -309,6 +561,10 @@ class SupervisorService:
         confirmations = self._current_confirmations(binding)
         for check_name in CHECK_NAMES:
             item = observed.get(check_name)
+            if check_name == "model" and item is None:
+                item = observed.get("actual_model")
+            if check_name == "connection" and item is None:
+                item = observed.get("connectivity")
             check = self._normalize_check(check_name, item)
             if (
                 check_name == "model"
@@ -336,17 +592,90 @@ class SupervisorService:
                 }
             checks[check_name] = check
 
+        session = self.lifecycle_session(role_key)
+        lifecycle_profile = binding.get("check_profile", {}).get("lifecycle", {})
+        if isinstance(lifecycle_profile, dict) and lifecycle_profile:
+            lifecycle_checks = lifecycle_profile.get("checks", {})
+            if isinstance(lifecycle_checks, dict):
+                for check_name in ("process", "login", "actual_model", "permission",
+                                   "version", "protocol", "connectivity"):
+                    item = lifecycle_checks.get(check_name)
+                    if item is None and check_name == "actual_model":
+                        item = lifecycle_checks.get("model")
+                    if item is None and check_name == "connectivity":
+                        item = lifecycle_checks.get("connection")
+                    if item is None and check_name == "protocol":
+                        item = {
+                            "status": "passed",
+                            "details": {"transport": binding["transport"]},
+                        }
+                    if item is None:
+                        fallback_name = {
+                            "actual_model": "model",
+                            "connectivity": "connection",
+                        }.get(check_name, check_name)
+                        item = observed.get(fallback_name)
+                    checks[check_name] = self._normalize_lifecycle_check(
+                        check_name, item, binding
+                    )
+        else:
+            checks["actual_model"] = checks["model"]
+            checks["connectivity"] = checks["connection"]
+            checks["protocol"] = {
+                "status": "not_applicable",
+                "details": {},
+            }
+
+        if session is not None:
+            if session["state"] in {"failed", "user_confirmation_required"}:
+                checks["process"] = {
+                    "status": session["state"],
+                    "code": session.get("failure") or "lifecycle_transition_failed",
+                    "details": {"session_id": session["id"]},
+                }
+            elif session["state"] in {"detached", "stopped"}:
+                checks["process"] = {
+                    "status": "failed",
+                    "code": f"agent_{session['state']}",
+                    "details": {"session_id": session["id"], "state": session["state"]},
+                }
+            elif session["state"] in {
+                "started",
+                "connecting",
+                "connected",
+                "attaching",
+                "attached",
+                "detaching",
+                "stopping",
+            }:
+                checks["process"] = {
+                    "status": "passed",
+                    "source": "lifecycle_session",
+                    "details": {"session_id": session["id"], "state": session["state"]},
+                }
+            checks["lifecycle"] = {
+                "status": "passed"
+                if session["state"] not in {"failed", "user_confirmation_required"}
+                else session["state"],
+                "details": {
+                    "session_id": session["id"],
+                    "state": session["state"],
+                    "evidence_sha256": session["evidence_sha256"],
+                },
+            }
+
         errors = [
             {
                 "check": name,
                 "code": checks[name].get("code", checks[name]["status"]),
                 "suggestion": _suggestion(name, checks[name]["status"], binding),
             }
-            for name in CHECK_NAMES
+            for name in CANONICAL_LIFECYCLE_CHECKS
+            if name in checks
             if checks[name]["status"]
             in {"failed", "user_confirmation_required"}
         ]
-        statuses = {item["status"] for item in checks.values()}
+        statuses = {checks[name]["status"] for name in CANONICAL_LIFECYCLE_CHECKS if name in checks}
         status = (
             "not_ready"
             if "failed" in statuses
@@ -399,7 +728,9 @@ class SupervisorService:
         binding = self.binding(role_key)
         if not check_names:
             raise SupervisorError("choose at least one readiness check to confirm")
-        unsupported = set(check_names) - set(CHECK_NAMES)
+        unsupported = set(check_names) - (
+            set(CHECK_NAMES) | set(CANONICAL_LIFECYCLE_CHECKS)
+        )
         if unsupported:
             raise SupervisorError(f"unsupported readiness checks: {sorted(unsupported)}")
         current = self._latest_current_report(binding)
@@ -410,7 +741,17 @@ class SupervisorService:
         result = []
         with self.store.connect() as conn:
             for check_name in check_names:
-                check = current["report"]["checks"][check_name]
+                if check_name == "actual_model":
+                    source_name = "actual_model"
+                elif check_name == "connectivity":
+                    source_name = "connectivity"
+                else:
+                    source_name = check_name
+                check = current["report"]["checks"].get(source_name)
+                if check is None:
+                    raise SupervisorError(
+                        f"{role_key} {check_name} evidence is unavailable"
+                    )
                 if check["status"] != "user_confirmation_required":
                     raise SupervisorError(
                         f"{role_key} {check_name} is not awaiting user confirmation"
@@ -457,6 +798,12 @@ class SupervisorService:
                     "binding_sha256": item["binding"]["binding_sha256"],
                     "readiness_report_id": item["report"]["id"],
                     "checks": item["report"]["report"]["checks"],
+                    "lifecycle_session_id": (
+                        self.lifecycle_session(item["binding"]["role_key"]) or {}
+                    ).get("id"),
+                    "lifecycle_evidence_sha256": (
+                        self.lifecycle_session(item["binding"]["role_key"]) or {}
+                    ).get("evidence_sha256"),
                 }
                 for item in team
             ],
@@ -819,6 +1166,12 @@ class SupervisorService:
                     "binding_sha256": item["binding"]["binding_sha256"],
                     "readiness_report_id": item["report"]["id"],
                     "checks": item["report"]["report"]["checks"],
+                    "lifecycle_session_id": (
+                        self.lifecycle_session(item["binding"]["role_key"]) or {}
+                    ).get("id"),
+                    "lifecycle_evidence_sha256": (
+                        self.lifecycle_session(item["binding"]["role_key"]) or {}
+                    ).get("evidence_sha256"),
                 }
                 for item in team
             ],
@@ -891,6 +1244,32 @@ class SupervisorService:
                 result["status"] = "failed"
                 result["code"] = "invalid_observed_model"
         return result
+
+    def _normalize_lifecycle_check(
+        self,
+        check_name: str,
+        value: Any,
+        binding: dict[str, Any],
+    ) -> dict[str, Any]:
+        if check_name == "actual_model":
+            result = self._normalize_check("model", value)
+            if (
+                result["status"] == "passed"
+                and result["details"].get("model_id") != binding["model_id"]
+            ):
+                return {
+                    "status": "failed",
+                    "code": "bound_model_not_observed",
+                    "details": {
+                        "expected_model_id": binding["model_id"],
+                        "observed_model_id": result["details"].get("model_id"),
+                    },
+                }
+            return result
+        return self._normalize_check(
+            "connection" if check_name == "connectivity" else check_name,
+            value,
+        )
 
     def _require_agent_model_binding(self, agent_id: str, model_id: str) -> None:
         with self.store.connect() as conn:
@@ -1011,14 +1390,56 @@ def _decode_event(row) -> dict[str, Any]:
     return item
 
 
+def _decode_lifecycle_session(row) -> dict[str, Any]:
+    item = dict(row)
+    item["evidence"] = json.loads(item.pop("evidence_json"))
+    return item
+
+
+def _decode_lifecycle_event(row) -> dict[str, Any]:
+    item = dict(row)
+    item["payload"] = json.loads(item.pop("payload_json"))
+    return item
+
+
+def _next_lifecycle_state(
+    operation: str,
+    current_state: str,
+    launch_mode: str,
+    transport: str,
+) -> str | None:
+    transitions = {
+        ("start", "configured"): "started",
+        ("start", "stopped"): "started",
+        ("start", "failed"): "started",
+        ("start", "user_confirmation_required"): "started",
+        ("connect", "started"): "connected",
+        ("connect", "connected"): "connected",
+        ("attach", "connected"): "attached",
+        ("attach", "started"): "attached",
+        ("detach", "attached"): "detached",
+        ("detach", "connected"): "detached",
+        ("detach", "started"): "detached",
+        ("stop", "detached"): "stopped",
+        ("stop", "started"): "stopped",
+        ("stop", "connected"): "stopped",
+        ("stop", "attached"): "stopped",
+        ("stop", "stopped"): "stopped",
+    }
+    if launch_mode in {"remote", "manual"} and operation == "start":
+        return None
+    return transitions.get((operation, current_state))
+
+
 def _suggestion(
     check_name: str,
     status: str,
     binding: dict[str, Any],
 ) -> str:
     if status == "user_confirmation_required":
+        display_name = "connection" if check_name == "connectivity" else check_name
         return (
-            f"Review the local {check_name} evidence for {binding['role_key']} and "
+            f"Review the local {display_name} evidence for {binding['role_key']} and "
             "record an explicit user confirmation if it cannot be machine-verified."
         )
     suggestions = {
@@ -1034,6 +1455,10 @@ def _suggestion(
             "Select the bound Model in the local fake service and rerun the "
             "readiness check."
         ),
+        "actual_model": (
+            "Select the bound Model in the local fake service and rerun the "
+            "lifecycle evidence check."
+        ),
         "permission": (
             "Grant only the configured least-privilege permission and rerun "
             "the readiness check."
@@ -1045,6 +1470,15 @@ def _suggestion(
         "connection": (
             "Restore the approved loopback fake-service connection and rerun "
             "the readiness check."
+        ),
+        "connectivity": (
+            "Review the local connection evidence (connectivity), restore the "
+            "approved loopback fake-service connection and rerun the lifecycle "
+            "evidence check."
+        ),
+        "protocol": (
+            "Use the configured local protocol fixture and rerun the lifecycle "
+            "evidence check."
         ),
     }
     return suggestions[check_name]

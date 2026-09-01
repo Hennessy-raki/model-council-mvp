@@ -506,3 +506,24 @@ evidence.
   separately scoped migration board.
 - Blocks development: no; external Agent readiness and real project execution
   remain separately scoped.
+
+### PRIV-024: Agent lifecycle evidence could be mistaken for live qualification
+
+- Date found: 2026-09-01
+- Channel: local Board 17B deterministic lifecycle fixture
+- Priority: medium
+- Data class: local Agent state, bounded readiness evidence and transition
+  metadata; no credentials, process output or Provider response is retained
+- Status: mitigated and accepted for the local fixture slice
+- Resolution:
+  - lifecycle transitions are explicitly labeled as deterministic local
+    fixture evidence;
+  - process, login, actual-Model, permission, version, protocol and
+    connectivity checks fail closed when missing or mismatched;
+  - session and evidence digests are bound into snapshots so drift stales
+    project-run approvals;
+  - tracked reports state that fixture success does not qualify a real Agent.
+- Residual risk: operators may overread local fixture evidence as third-party
+  operational proof. Any real-Agent qualification requires a new frozen scope,
+  privacy review and exact authorization.
+- Blocks development: no; real Agent validation remains separately scoped.
