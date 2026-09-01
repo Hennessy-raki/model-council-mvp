@@ -4,6 +4,12 @@ Last updated: 2026-09-01
 
 ## Status boundary
 
+The product purpose is defined in `docs/PROJECT_GOAL.md`: enable a user to
+configure or accept a recommendation for a team of heterogeneous Agent+Model
+members, verify each member before work, explicitly authorize the exact run,
+and receive an auditable, source-aware and budget-aware result. This status
+page describes implementation state against that goal; it does not replace it.
+
 Model Council is a local-first control plane with substantial offline control,
 privacy and product-interface coverage. It is not a generally authorized
 multi-model execution service.

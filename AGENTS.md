@@ -22,8 +22,15 @@ Before changing code, read:
 4. `docs/ROADMAP.md`
 5. `docs/DEVELOPMENT_BOARDS.md`
 6. `docs/PRIVACY.md`
+7. `docs/PROJECT_GOAL.md`
 
 ## Architectural invariants
+
+The canonical product purpose and user workflow are defined in
+`docs/PROJECT_GOAL.md`. Treat that document as the highest-level scope guard.
+Every new board must state which goal and user-flow step it advances. A local
+protocol, model, UI or experiment is an implementation means, not the product
+purpose.
 
 - Keep cognition and control separate.
 - The manager model may propose actions but cannot grant itself permissions.

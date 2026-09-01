@@ -3,6 +3,10 @@
 Productization work is tracked in `docs/DEVELOPMENT_BOARDS.md`. Every board
 produces an implementation, tests, a report and a dedicated commit.
 
+The product goal and user lifecycle are canonical in
+`docs/PROJECT_GOAL.md`. Roadmap items are implementation means and may not
+silently redefine that goal.
+
 The refreshed context and verification baseline before Board 5 is recorded in
 `docs/reports/2026-08-29-pre-board-5-session-handoff.md`.
 

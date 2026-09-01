@@ -3,6 +3,11 @@
 Use this document after the local-private Board 14.11 closeout and the
 pre-Board 17 retention handoff.
 
+Before starting any new board, read `docs/PROJECT_GOAL.md`. It is the
+canonical statement of the product初心, the expected user lifecycle and the
+non-negotiable control boundaries. Do not infer the project's purpose from the
+latest board number alone.
+
 ## Current checkpoint
 
 Boards 1 through 12 remain the prepared public release candidate `0.2.0rc1`.
@@ -189,8 +194,9 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and twenty-seven tests after
-Board 14.10. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and thirty tests after the
+project-goal rebaseline regression coverage. The release verifier remains the
+Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.

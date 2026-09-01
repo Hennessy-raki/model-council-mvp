@@ -6,6 +6,7 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
 
 - [`AGENTS.md`](AGENTS.md)
 - [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)
+- [`docs/PROJECT_GOAL.md`](docs/PROJECT_GOAL.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`docs/DEVELOPMENT_BOARDS.md`](docs/DEVELOPMENT_BOARDS.md)
 - [`docs/START_HERE_NEXT_SESSION.md`](docs/START_HERE_NEXT_SESSION.md)

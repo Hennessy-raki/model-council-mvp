@@ -13,6 +13,11 @@ board must include:
 Ideas discovered during a board should be recorded for later prioritization
 unless they are required to satisfy the current board's acceptance criteria.
 
+The canonical purpose, user lifecycle and success criteria are in
+`docs/PROJECT_GOAL.md`. When a new idea conflicts with that document, pause
+implementation and update the goal only after an explicit product decision.
+Board reports must include a short "Contribution to PROJECT_GOAL" section.
+
 ## Board sequence
 
 ### Board 1: Settings and registry foundation

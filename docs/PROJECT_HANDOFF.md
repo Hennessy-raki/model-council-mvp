@@ -135,6 +135,10 @@ behavior. The issue remains documented in `docs/PRIVACY_ISSUES.md`.
 
 ## Why this project exists
 
+The canonical product purpose, expected user lifecycle and anti-drift criteria
+are defined in `docs/PROJECT_GOAL.md`. Read that document before using this
+handoff to interpret any Board or milestone.
+
 The original idea is to let models with different strengths collaborate on a
 real project. Agent applications are treated as model hosts and execution
 interfaces. A designated manager model assigns bounded work, professional models
@@ -259,6 +263,8 @@ Baseline history through 2026-08-31:
   readiness and start-approval board;
 - all one hundred and ten unit/integration tests passed after the Board 14
   offline harness and disabled Codex candidate preparation;
+- all one hundred and thirty unit/integration tests passed after the
+  project-goal rebaseline regression coverage;
 - one full offline run completed;
 - the run produced four completed tasks;
 - ten structured messages were stored;
@@ -393,6 +399,15 @@ after the `cwd` finding and is verified by the local pre-start gate and
 automated tests. A separately approved live revalidation is optional.
 
 ## Productization board status
+
+The project-goal rebaseline report is:
+
+```text
+docs/reports/2026-09-01-project-goal-rebaseline.md
+```
+
+It is a documentation-level scope guard. It does not authorize a new external
+call, runtime mutation or release publication.
 
 Board 1, the settings and registry foundation, is complete. Its report is:
 
