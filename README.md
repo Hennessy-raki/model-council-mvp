@@ -542,10 +542,17 @@ python -m model_council experiment simulate <EXPERIMENT_ID> `
   --config <LOCAL_CONFIG>
 ```
 
-For `real_codex`, `arm` only revalidates the exact scope. There is no real
-executor in Board 14 preparation, and the fake simulator rejects that mode.
-Do not approve the real candidate until the user authorizes its exact local
-manifest.
+For `real_codex`, `arm` only revalidates the exact scope. A controlled
+executor may start one turn only after a separately approved, SHA-256-bound
+start approval; it revalidates the team, identities, scope and source
+integrity before process creation. The fake simulator still rejects that mode.
+Each real turn remains single-use and requires its own explicit local
+authorization.
+
+Board 14 is complete only for one local-private synthetic Manager execution.
+It does not enable the public candidate, authorize a repeat, or change the
+published `0.2.0rc1` release candidate. See
+`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 
 `status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
 

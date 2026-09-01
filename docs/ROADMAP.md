@@ -235,7 +235,7 @@ Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
 
 ## Productization Board 14: Controlled local multi-Agent experiments
 
-Status: in progress
+Status: complete for one local-private controlled synthetic Manager execution
 
 - complete Board 14.0 with a fake Manager and two fake Workers;
 - prepare Board 14.1 with a disabled Codex Manager candidate;
@@ -261,8 +261,12 @@ Status: in progress
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
   one future call, no retry and sequential execution;
-- stop before any real invocation until the user approves the exact local
-  manifest;
+- complete one separately authorized local-private Manager turn only after the
+  exact experiment and second start-approval scopes are approved and
+  revalidated;
+- keep the public candidate `invoke_enabled: false`; do not repeat the
+  terminal experiment or expand to repository context, tools, writes, Git,
+  parallelism, another provider or another call without a new board scope;
 - defer Reasonix, ZCode, real parallelism and the three-Agent experiment.
 
 Plan:
@@ -306,6 +310,9 @@ and `docs/reports/2026-09-01-board-14-9-provider-input-budget.md`
 Board 14.10 plan and report:
 `docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md`
 and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
+
+Board 14.11 closeout report:
+`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

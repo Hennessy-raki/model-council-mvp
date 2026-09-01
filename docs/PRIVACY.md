@@ -189,5 +189,7 @@ private runtime state.
 - evidence stores hashes, byte counts and assertions, not response bodies;
 - private home paths and credential-shaped text are rejected;
 - a plan approval or armed candidate does not authorize a real call;
+- one completed experiment and its consumed start approval do not authorize a
+  repeat or any broader outbound scope;
 - never copy a future Provider response or machine-specific diagnostic into a
   tracked report.

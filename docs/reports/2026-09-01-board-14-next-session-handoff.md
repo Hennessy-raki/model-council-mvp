@@ -2,7 +2,8 @@
 
 Date: 2026-09-01
 
-Status: handoff only; no new candidate or external call is authorized
+Status: superseded by Board 14.11 closeout; retained as the pre-execution
+handoff record
 
 ## Purpose
 
@@ -14,6 +15,11 @@ The companion runtime appendix is deliberately ignored by Git and contains
 local experiment identifiers needed for safe continuation. Read it only from
 the local checkout; never copy it into a tracked document, issue, commit, or
 external prompt.
+
+Board 14.11 subsequently completed one separately authorized synthetic Manager
+turn and closed Board 14 for local-private incubation. Read
+`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md` for the
+current terminal boundary. This historical handoff does not authorize a repeat.
 
 ## Verified code checkpoint
 
@@ -143,5 +149,6 @@ git diff --check passed
 - Board 14.8: `docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md`
 - Board 14.9: `docs/reports/2026-09-01-board-14-9-provider-input-budget.md`
 - Board 14.10: `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
+- Board 14.11: `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`
 - local-only supplement:
   `runtime-board14/2026-09-01-next-session-private-handoff.md`

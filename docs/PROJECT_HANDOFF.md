@@ -62,7 +62,7 @@ snapshots, exact start approvals and local fake Manager-platform events.
 Configuration or readiness drift stales approvals. Board 13 is not pushed and
 does not change the published `0.2.0rc1` release candidate.
 
-Board 14 preparation is implemented locally:
+Board 14 is complete locally and privately:
 
 ```text
 docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md
@@ -78,6 +78,10 @@ privacy-safe Manager output-contract classification, and Board 14.8 binds the
 complete v2 output contract into the generated synthetic prompt. Board 14.9
 adds explicit Provider input/output hard budgets. Board 14.10 requires a
 declared price schedule proving a future high-input envelope fits its cost cap.
+Board 14.11 records one separately authorized, read-only synthetic Manager
+turn that completed after every experiment and start-approval gate was
+revalidated. It does not enable the public candidate or authorize another
+call.
 
 Five separately authorized one-turn synthetic Codex Manager attempts were
 made after their exact approvals. All start approvals were consumed and all
@@ -87,6 +91,11 @@ the latter two on the frozen output contract; the fourth classified
 total-token cap. Neither experiment nor approval may be reused. Runtime
 evidence contains no response body. Board 14.8 corrected the prompt contract;
 Board 14.9 makes future Provider input headroom explicit and separately bound.
+A sixth separately authorized synthetic Manager attempt then completed once
+under the v2 output contract and the explicit token/cost controls. No response
+body, JSONL stream, prompt instance, exact usage record or runtime identifier
+is included in tracked documentation. Every Board 14 attempt and approval is
+terminal and cannot be replayed.
 
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
@@ -538,16 +547,19 @@ Do not arm it for a real pilot. Instead, freeze and display a fresh exact
 candidate that binds the final policy, then obtain separate user approval for
 arming and for one startup-plus-turn request.
 
-Board 14.3 implements that future path offline: an armed experiment creates a
+Board 14.3 implements that controlled path: an armed experiment creates a
 second SHA-256-bound start approval which can be consumed only once. The
 controlled executor revalidates it before process startup, sends only the exact
 synthetic prompt, rejects every server-side approval request, and retains only
-response hash/byte/usage evidence. It has been exercised exclusively with
-repository fake App Server fixtures.
+response hash/byte/usage evidence. It was exercised against repository fake
+App Server fixtures before one separately authorized local-private synthetic
+Manager execution.
 
-The next local action is to prepare a new strict candidate, display its
-experiment digest and stop at `pending`. Do not arm, start, or invoke it until
-the user has separately authorized the displayed experiment and start scopes.
+Before Board 14.11, the next local action was to prepare a fresh strict
+candidate and stop at `pending`. That exact approval ladder has now produced
+one terminal successful execution. Do not create, arm, start or invoke another
+Board 14 candidate without a distinct newly frozen board scope and explicit
+authorization.
 
 Board 14.4 repaired usage compatibility after the first real pilot failed
 closed. The parser accepts complete usage from `last`, `total`, or
@@ -581,18 +593,25 @@ not create a candidate or grant execution authority.
 Board 14.10 adds cost feasibility for those component scopes: both component
 caps, total token and cost caps, and a currency-matching declared price
 schedule are required. The maximum permitted token envelope must fit the
-declared cost cap before preparation. A future candidate must be prepared
-after the Board 14.10 commit and repeat every approval gate.
+declared cost cap before preparation. The Board 14.11 terminal scope satisfied
+that requirement. Any future scope must be newly prepared and separately
+approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The current Board 14 continuation checkpoint and exact next-session
-authorization ladder are recorded in:
+The pre-execution Board 14 continuation checkpoint and authorization ladder are
+recorded in:
 
 ```text
 docs/reports/2026-09-01-board-14-next-session-handoff.md
 ```
 
 It deliberately omits local experiment identifiers and runtime state. The
-local-only supplement is stored below ignored `runtime-board14/` and must never
-be committed or transmitted to an external model.
+Board 14.11 closeout is recorded in:
+
+```text
+docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md
+```
+
+The local-only supplement is stored below ignored `runtime-board14/` and must
+never be committed or transmitted to an external model.

@@ -344,7 +344,7 @@ evidence.
 - Priority: medium
 - Data class: synthetic prompt, Agent/Model identities, command, working
   directory, version/configuration hashes, budgets, approval and evidence
-- Status: mitigated for Board 14 preparation
+- Status: mitigated and exercised under one explicit Board 14 authorization
 - Resolution:
   - experiment state remains below the ignored runtime directory;
   - public examples contain only generic synthetic identifiers and paths;
@@ -352,15 +352,17 @@ evidence.
   - the initial policy requires zero files, zero Artifacts, read-only, no
     tools, no workspace writes and no Git;
   - fake evidence stores hashes, byte counts and assertions instead of output;
-  - the real candidate has no executor and remains disabled.
+  - the controlled executor remains unavailable unless an exact experiment and
+    integrity-bound, single-use start approval are separately authorized.
 - Evidence: focused tests cover private-context rejection, disabled public
-  configuration, zero-call simulation and stale approval after identity/team
-  drift.
-- Residual risk: a future exact local manifest and Provider response may
-  contain operational or account-correlatable details. They must remain local
-  and require a new privacy review after the real run.
-- Blocks development: no for offline preparation; a real call remains blocked
-  pending exact authorization.
+  configuration, zero-call simulation, stale approval after identity/team
+  drift and executor-integrity drift. One separately authorized local-private
+  synthetic turn completed without copying runtime content into tracked files.
+- Residual risk: any future exact local manifest and Provider response may
+  contain operational or account-correlatable details. They must remain local,
+  require a new privacy review, and need a distinct approval ladder.
+- Blocks development: no; the completed scope is terminal and grants no new
+  execution authority.
 
 ### PRIV-018: Failed usage gates lacked a privacy-safe failure classification
 
@@ -453,6 +455,9 @@ evidence.
 - Evidence: the completed usage shape was present at approved App Server
   locations; the current-tree and reachable-history privacy scans passed after
   the run.
+- Post-closeout: one later separately authorized synthetic turn completed
+  within its explicit component and total limits. Exact usage and protocol
+  records remain only in ignored local runtime state.
 - Residual risk: a Provider may continue to include host or service context in
   billed input usage. A future scope must set an explicit budget that covers
   that risk or fail closed; Model Council must not recover or retain raw
@@ -474,4 +479,5 @@ evidence.
   billing. A future scope must be approved as an estimate and still retain
   strict token caps; Model Council must not represent the estimate as actual
   cost.
-- Blocks development: no; no candidate or execution is authorized.
+- Blocks development: no; the completed scope is terminal, and no repeat or
+  additional candidate is authorized.

@@ -206,7 +206,7 @@ Report: `docs/reports/2026-08-31-board-13-supervisor-team-readiness.md`
 
 ### Board 14: Controlled local multi-Agent experiments
 
-Status: in progress
+Status: complete for one local-private controlled synthetic Manager execution
 
 - Board 14.0 offline experiment harness and fake Manager/two-Worker simulation
   are implemented;
@@ -235,8 +235,11 @@ Status: in progress
 - public Codex candidate remains `invoke_enabled: false`;
 - five separately authorized one-turn synthetic Codex Manager attempts consumed
   their approvals and failed closed without retry; none may be reused;
-- Board 14 remains incomplete pending a separately authorized future candidate
-  and one-turn review.
+- a sixth separately authorized one-turn synthetic Manager experiment completed
+  once after the exact experiment and start-approval ladder; it is terminal
+  and cannot be replayed;
+- no Board 14 experiment, approval, prompt, response, JSONL stream, usage
+  record or runtime identifier is public or reusable.
 
 Plan:
 `docs/reports/2026-08-31-board-14-local-multi-agent-experiment-plan.md`
@@ -279,3 +282,6 @@ and `docs/reports/2026-09-01-board-14-9-provider-input-budget.md`
 Board 14.10 plan and report:
 `docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md`
 and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
+
+Board 14.11 closeout report:
+`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`

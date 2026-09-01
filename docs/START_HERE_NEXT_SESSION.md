@@ -1,6 +1,6 @@
 # Start Here in the Next Session
 
-Use this document after the local-only Board 14 preparation commit.
+Use this document after the local-private Board 14.11 closeout.
 
 ## Current checkpoint
 
@@ -8,15 +8,13 @@ Boards 1 through 12 remain the prepared public release candidate `0.2.0rc1`.
 Board 13 is complete only in the local private checkout. No Git tag, GitHub
 Release or push has been created for Board 13.
 
-Board 14.0, Board 14.1 preparation, Board 14.2 offline App Server verification,
-Board 14.3 controlled-executor verification, Board 14.4 usage compatibility
-repair, Board 14.5 executor-integrity binding, and Board 14.6 privacy-safe
-usage-failure diagnostics, and Board 14.7 privacy-safe Manager output-contract
-diagnostics, and Board 14.8 contract-bound synthetic prompt repair are
-implemented locally. Board 14.9 explicit Provider input/output budget repair is
-also implemented locally. Board 14 remains in progress because five separately
-authorized real synthetic attempts failed closed and none is eligible for
-retry.
+Board 14.0 through Board 14.10 are implemented locally. Board 14.11 completed
+one separately authorized, read-only synthetic Manager turn through the
+controlled executor after the full experiment and start-approval ladder. Five
+earlier attempts failed closed without retry; all six attempts and their
+approvals are terminal and cannot be reused. Board 14 is complete only in the
+local private checkout and does not alter the public `0.2.0rc1` release
+candidate.
 
 The latest scope and completion reports are:
 
@@ -46,6 +44,7 @@ docs/reports/2026-09-01-board-14-9-provider-input-budget.md
 docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md
 docs/reports/2026-09-01-board-14-10-cost-feasibility.md
 docs/reports/2026-09-01-board-14-next-session-handoff.md
+docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -103,9 +102,12 @@ Board 14.10 requires a future high-input scope to bind a declared
 currency-matching price schedule and prove the maximum token envelope fits the
 cost cap before it can be prepared.
 
-The current handoff is `docs/reports/2026-09-01-board-14-next-session-handoff.md`.
-Its ignored local supplement records runtime-only identifiers and must never be
-committed or transmitted to an external model.
+Board 14.11 records the privacy-safe closeout: the one authorized turn
+completed under the v2 output contract and the bound usage/token controls,
+without copying prompt, response, JSONL, stdout, stderr or exact Provider
+records into tracked files. Its earlier continuation handoff is historical;
+the ignored local supplement remains runtime-only and must never be committed
+or transmitted to an external model.
 
 ## Required next-session sequence
 
@@ -115,7 +117,9 @@ committed or transmitted to an external model.
    not match `origin/main` until an explicit future publishing decision.
 3. Run the full offline suite, compilation and history privacy scan.
 4. Read `docs/PRIVACY_ISSUES.md` before changing any data boundary.
-5. Freeze a new board or release scope before implementation.
+5. Treat Board 14 as terminal. Freeze a distinct new board or release scope
+   before implementation; no Board 14 experiment or approval authorizes a
+   follow-up call.
 
 Do not create a tag or GitHub Release unless the user explicitly requests it.
 Do not interpret the Board 11 live synthetic approval as authorization for a
@@ -138,6 +142,8 @@ context.
   and fake Manager events remain private local runtime data.
 - Experiment prompts, transport metadata, identities, budgets, approvals and
   evidence remain private local runtime data.
+- The completed Board 14 experiment and its consumed start approval are never
+  replayed or used as authority for another call.
 
 ## Repository orientation
 
