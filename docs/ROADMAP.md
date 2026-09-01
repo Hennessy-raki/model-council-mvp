@@ -255,6 +255,8 @@ Status: in progress
   identities and reject generic or drifted prompts before approval;
 - bind any future Provider input/output token headroom as explicit hard limits
   rather than inferring it from prompt bytes or allowing unbounded overhead;
+- require a declared price schedule and worst-case cost feasibility before a
+  high-input token envelope can enter a future approval scope;
 - bind the current team, identities, exact synthetic prompt, transport,
   permissions, budgets and stop rules to one SHA-256;
 - retain zero files, zero Artifacts, read-only, no tools, no writes, no Git,
@@ -300,6 +302,10 @@ and `docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md`
 Board 14.9 plan and report:
 `docs/reports/2026-09-01-board-14-9-provider-input-budget-plan.md`
 and `docs/reports/2026-09-01-board-14-9-provider-input-budget.md`
+
+Board 14.10 plan and report:
+`docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md`
+and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`
 
 ## Milestone 2: Persistent sessions and a second model family
 

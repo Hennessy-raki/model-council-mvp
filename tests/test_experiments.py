@@ -96,6 +96,7 @@ class ExperimentTests(unittest.TestCase):
         max_total_tokens=2000,
         max_input_tokens=None,
         max_output_tokens=None,
+        cost_estimate=None,
     ):
         fixture = (
             Path(__file__).resolve().parent / "fixtures" / fixture_name
@@ -145,6 +146,13 @@ class ExperimentTests(unittest.TestCase):
             spec["limits"]["max_input_tokens"] = max_input_tokens
         if max_output_tokens is not None:
             spec["limits"]["max_output_tokens"] = max_output_tokens
+        if max_input_tokens is not None and max_output_tokens is not None:
+            spec["limits"]["cost_estimate"] = cost_estimate or {
+                "input_per_million": "1",
+                "output_per_million": "2",
+                "per_request": "0",
+                "currency": "USD",
+            }
         return spec
 
     def _approved_start(self, spec):
@@ -571,6 +579,7 @@ class ExperimentTests(unittest.TestCase):
                 "fixture_arguments": ["--output-tokens", "5"],
                 "limits": {
                     "max_total_tokens": 2000,
+                    "max_input_tokens": 10,
                     "max_output_tokens": 4,
                 },
                 "failure_class": "output_limit_exceeded",
@@ -646,6 +655,29 @@ class ExperimentTests(unittest.TestCase):
                 spec["limits"].update(limits)
                 with self.assertRaisesRegex(ExperimentError, message):
                     self.experiments.prepare(spec)
+
+    def test_component_budget_requires_bounded_cost_schedule(self):
+        spec = self._fixture_real_spec(
+            "fake_codex_app_server_plan.py",
+            max_input_tokens=100,
+            max_output_tokens=100,
+        )
+        spec["limits"].pop("cost_estimate")
+        with self.assertRaisesRegex(ExperimentError, "cost_estimate"):
+            self.experiments.prepare(spec)
+        spec = self._fixture_real_spec(
+            "fake_codex_app_server_plan.py",
+            max_input_tokens=100,
+            max_output_tokens=100,
+            cost_estimate={
+                "input_per_million": "2000",
+                "output_per_million": "2000",
+                "per_request": "0",
+                "currency": "USD",
+            },
+        )
+        with self.assertRaisesRegex(ExperimentError, "exceeds max_total_cost"):
+            self.experiments.prepare(spec)
 
     def test_total_or_completed_usage_is_accepted_without_relaxing_limits(self):
         for usage_mode in ("total", "completed"):

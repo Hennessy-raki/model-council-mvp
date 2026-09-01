@@ -1419,6 +1419,7 @@ def _validate_limits(value: Any) -> dict[str, Any]:
         "max_total_tokens",
         "max_total_cost",
         "cost_currency",
+        "cost_estimate",
     }
     if unsupported:
         raise ExperimentError(f"unsupported experiment limits: {sorted(unsupported)}")
@@ -1492,6 +1493,7 @@ def _validate_limits(value: Any) -> dict[str, Any]:
                 "max_total_tokens"
             )
     max_total_cost = result.get("max_total_cost")
+    numeric_cost: Decimal | None = None
     if max_total_cost is not None:
         try:
             numeric_cost = Decimal(str(max_total_cost))
@@ -1502,7 +1504,82 @@ def _validate_limits(value: Any) -> dict[str, Any]:
         if not str(result.get("cost_currency", "")).strip():
             raise ExperimentError("max_total_cost requires cost_currency")
         result["max_total_cost"] = str(max_total_cost)
+    cost_estimate = result.get("cost_estimate")
+    if any(limit is not None for limit in component_limits.values()):
+        if not all(limit is not None for limit in component_limits.values()):
+            raise ExperimentError(
+                "max_input_tokens and max_output_tokens must both be set"
+            )
+        if numeric_cost is None:
+            raise ExperimentError(
+                "component token limits require max_total_cost"
+            )
+        normalized_estimate = _validate_cost_estimate(
+            cost_estimate,
+            currency=str(result["cost_currency"]),
+        )
+        estimated_max_cost = _estimate_cost(
+            input_tokens=component_limits["max_input_tokens"],
+            output_tokens=component_limits["max_output_tokens"],
+            estimate=normalized_estimate,
+        )
+        if estimated_max_cost > numeric_cost:
+            raise ExperimentError(
+                "component token envelope exceeds max_total_cost"
+            )
+        result["cost_estimate"] = normalized_estimate
+    elif cost_estimate is not None:
+        raise ExperimentError(
+            "cost_estimate requires max_input_tokens and max_output_tokens"
+        )
     return result
+
+
+def _validate_cost_estimate(value: Any, *, currency: str) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ExperimentError("component token limits require cost_estimate")
+    required = {
+        "input_per_million",
+        "output_per_million",
+        "per_request",
+        "currency",
+    }
+    if set(value) != required:
+        raise ExperimentError("cost_estimate has unsupported or missing fields")
+    estimate_currency = str(value["currency"]).strip().upper()
+    if estimate_currency != currency.strip().upper():
+        raise ExperimentError("cost_estimate currency must match cost_currency")
+    normalized: dict[str, str] = {"currency": estimate_currency}
+    for key in ("input_per_million", "output_per_million", "per_request"):
+        try:
+            amount = Decimal(str(value[key]))
+        except InvalidOperation as exc:
+            raise ExperimentError(f"cost_estimate {key} must be numeric") from exc
+        if not amount.is_finite() or amount < 0:
+            raise ExperimentError(
+                f"cost_estimate {key} must be finite and non-negative"
+            )
+        if key != "per_request" and amount == 0:
+            raise ExperimentError(
+                f"cost_estimate {key} must be positive"
+            )
+        normalized[key] = str(amount)
+    return normalized
+
+
+def _estimate_cost(
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    estimate: dict[str, str],
+) -> Decimal:
+    return (
+        Decimal(input_tokens) * Decimal(estimate["input_per_million"])
+        / Decimal(1_000_000)
+        + Decimal(output_tokens) * Decimal(estimate["output_per_million"])
+        / Decimal(1_000_000)
+        + Decimal(estimate["per_request"])
+    )
 
 
 def _validate_transport(

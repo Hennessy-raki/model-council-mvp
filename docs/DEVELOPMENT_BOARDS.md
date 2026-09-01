@@ -228,6 +228,8 @@ Status: in progress
   prompt and scope, rejecting generic prompts and extra JSON fields;
 - Board 14.9 adds separately bounded Provider input/output token limits and
   privacy-safe component-limit diagnostics without changing the default cap;
+- Board 14.10 requires an explicit declared price schedule before a high-input
+  token envelope may be prepared under a cost cap;
 - exact team, identity, prompt, transport, permission, budget and stop-rule
   scope is SHA-256-bound;
 - public Codex candidate remains `invoke_enabled: false`;
@@ -273,3 +275,7 @@ and `docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md`
 Board 14.9 plan and report:
 `docs/reports/2026-09-01-board-14-9-provider-input-budget-plan.md`
 and `docs/reports/2026-09-01-board-14-9-provider-input-budget.md`
+
+Board 14.10 plan and report:
+`docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md`
+and `docs/reports/2026-09-01-board-14-10-cost-feasibility.md`

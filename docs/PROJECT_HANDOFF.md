@@ -76,7 +76,8 @@ adds supported App Server usage shapes, Board 14.5 binds executor integrity,
 Board 14.6 adds privacy-safe usage-failure classification, Board 14.7 adds
 privacy-safe Manager output-contract classification, and Board 14.8 binds the
 complete v2 output contract into the generated synthetic prompt. Board 14.9
-adds explicit Provider input/output hard budgets.
+adds explicit Provider input/output hard budgets. Board 14.10 requires a
+declared price schedule proving a future high-input envelope fits its cost cap.
 
 Five separately authorized one-turn synthetic Codex Manager attempts were
 made after their exact approvals. All start approvals were consumed and all
@@ -575,5 +576,10 @@ Board 14.9 follows the fifth attempt's complete high Provider-input usage.
 Future scopes may set `max_input_tokens` and `max_output_tokens`, but must
 also set a compatible `max_total_tokens`. The executor fails closed on each
 dimension and records only privacy-safe numeric budget diagnostics. It does
-not create a candidate or grant execution authority. A future candidate must
-be prepared after the Board 14.9 commit and repeat every approval gate.
+not create a candidate or grant execution authority.
+
+Board 14.10 adds cost feasibility for those component scopes: both component
+caps, total token and cost caps, and a currency-matching declared price
+schedule are required. The maximum permitted token envelope must fit the
+declared cost cap before preparation. A future candidate must be prepared
+after the Board 14.10 commit and repeat every approval gate.

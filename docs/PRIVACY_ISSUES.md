@@ -458,3 +458,20 @@ evidence.
   that risk or fail closed; Model Council must not recover or retain raw
   context to diagnose it.
 - Blocks development: no; no new candidate or retry is authorized.
+
+### PRIV-022: Cost cap lacked a bound price schedule for high-input scopes
+
+- Date found: 2026-09-01
+- Channel: local Board 14 scope review
+- Priority: medium
+- Data class: operator-declared price schedule and token/cost limits; actual
+  Provider billing records remain private runtime data
+- Status: resolved before public commit
+- Resolution: Board 14.10 requires an explicit, bounded price schedule
+  whenever a candidate sets Provider input/output component caps, and reject a
+  worst-case envelope above the approved cost cap before any process starts.
+- Residual risk: declared prices can become stale or differ from Provider
+  billing. A future scope must be approved as an estimate and still retain
+  strict token caps; Model Council must not represent the estimate as actual
+  cost.
+- Blocks development: no; no candidate or execution is authorized.

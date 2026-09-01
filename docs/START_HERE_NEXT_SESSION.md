@@ -43,6 +43,8 @@ docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt-plan.md
 docs/reports/2026-08-31-board-14-8-contract-bound-synthetic-prompt.md
 docs/reports/2026-09-01-board-14-9-provider-input-budget-plan.md
 docs/reports/2026-09-01-board-14-9-provider-input-budget.md
+docs/reports/2026-09-01-board-14-10-cost-feasibility-plan.md
+docs/reports/2026-09-01-board-14-10-cost-feasibility.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -95,6 +97,10 @@ usage above the total cap. Future scopes may set explicit
 `max_input_tokens` and `max_output_tokens`; each is SHA-256-bound, must be
 compatible with `max_total_tokens`, and fails closed independently. No host or
 Provider context is treated as free or inferred from prompt bytes.
+
+Board 14.10 requires a future high-input scope to bind a declared
+currency-matching price schedule and prove the maximum token envelope fits the
+cost cap before it can be prepared.
 
 ## Required next-session sequence
 
@@ -154,8 +160,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and twenty-six tests after
-Board 14.9. The release verifier remains the Board 12 public-release gate and
+The complete offline suite contains one hundred and twenty-seven tests after
+Board 14.10. The release verifier remains the Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
 unpublished local incubation branch is ahead of `origin/main`.
