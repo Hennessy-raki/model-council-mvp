@@ -1,7 +1,7 @@
 # Start Here in the Next Session
 
 Use this document after the local-private Board 14.11 closeout and the
-pre-Board 17 retention handoff.
+Board 17A team-lifecycle handoff.
 
 Before starting any new board, read `docs/PROJECT_GOAL.md`. It is the
 canonical statement of the product初心, the expected user lifecycle and the
@@ -66,6 +66,7 @@ docs/reports/2026-09-01-board-15-project-rebaseline.md
 docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
 docs/reports/2026-09-01-board-17a-team-lifecycle-plan.md
 docs/reports/2026-09-01-board-17a-team-lifecycle.md
+docs/reports/2026-09-01-board-17a-next-session-handoff.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

@@ -640,6 +640,17 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
+The latest post-Board 17A development handoff is:
+
+```text
+docs/reports/2026-09-01-board-17a-next-session-handoff.md
+```
+
+It records the current local commit, completed Board 17A scope, remaining
+goal-alignment gaps, the recommended next board and the safe opening sequence.
+It does not authorize a new board, external call, runtime mutation or Artifact
+purge.
+
 The earlier no-implementation continuation checkpoint for the candidate
 Artifact-retention policy work is recorded in:
 
