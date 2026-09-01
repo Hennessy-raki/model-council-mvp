@@ -1,6 +1,7 @@
 # Start Here in the Next Session
 
-Use this document after the local-private Board 14.11 closeout.
+Use this document after the local-private Board 14.11 closeout and the
+pre-Board 17 retention handoff.
 
 ## Current checkpoint
 
@@ -19,6 +20,12 @@ candidate.
 Board 15 is complete. It adds a public-safe project-status page, aligns the
 authoritative Board 13/14 state and protects it with deterministic regression
 coverage. It creates no external-call authority.
+
+Board 16 is not started: one local Windows loopback interruption did not
+reproduce, and no repair is authorized until it does. Board 17 is also not
+started. The only current direction is a handoff-only candidate for a narrow,
+offline Artifact-retention policy and safe-cleanup preview; it has not frozen
+scope or authorized an Artifact mutation.
 
 The latest scope and completion reports are:
 
@@ -51,6 +58,7 @@ docs/reports/2026-09-01-board-14-next-session-handoff.md
 docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md
 docs/reports/2026-09-01-board-15-project-rebaseline-plan.md
 docs/reports/2026-09-01-board-15-project-rebaseline.md
+docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,
@@ -126,6 +134,10 @@ or transmitted to an external model.
 5. Treat Board 14 as terminal. Freeze a distinct new board or release scope
    before implementation; no Board 14 experiment or approval authorizes a
    follow-up call.
+6. For the present Board 17 candidate, read
+   `docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md` and
+   obtain an explicit scope freeze before changing Artifact retention or
+   cleanup behavior.
 
 Do not create a tag or GitHub Release unless the user explicitly requests it.
 Do not interpret the Board 11 live synthetic approval as authorization for a

@@ -609,8 +609,18 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The pre-execution Board 14 continuation checkpoint and authorization ladder are
-recorded in:
+The current no-implementation continuation checkpoint for the candidate
+Artifact-retention policy work is recorded in:
+
+```text
+docs/reports/2026-09-01-pre-board-17-artifact-retention-handoff.md
+```
+
+It does not freeze or authorize Board 17, Artifact deletion, a runtime
+mutation, or any external call.
+
+The historical pre-execution Board 14 continuation checkpoint and authorization
+ladder are recorded in:
 
 ```text
 docs/reports/2026-09-01-board-14-next-session-handoff.md
