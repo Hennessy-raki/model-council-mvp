@@ -172,6 +172,11 @@ Board 20 adds a bounded single-process CLI lifecycle sequence for the built-in
 local fake subprocess. It stops the fixture before exit and introduces no
 arbitrary command or cross-process PID authority.
 
+Board 22 binds Board 21 qualification preflight results to non-mock Supervisor
+roles, current team snapshots and project-run approval provenance. It stores
+only sanitized scope metadata and hashes in ignored runtime state; no process,
+Provider, model, network or repository action is added.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and

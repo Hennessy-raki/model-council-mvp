@@ -440,6 +440,21 @@ Plan:
 Report:
 `docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md`
 
+## Productization Board 22: Qualification preflight binding
+
+Status: complete for the local offline Supervisor slice
+
+- bind sanitized qualification preflight results to non-mock roles;
+- include qualification provenance in snapshots and project-run approvals;
+- fail closed and stale approvals on qualification or role drift;
+- keep real Agent and all external execution separately scoped.
+
+Plan:
+`docs/reports/2026-09-03-board-22-qualification-binding-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-22-qualification-binding.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

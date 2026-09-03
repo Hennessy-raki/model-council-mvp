@@ -938,6 +938,23 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="local JSON declaration; it is validated only and never persisted",
     )
+    supervisor_qualification_bind = supervisor_commands.add_parser(
+        "qualification-bind",
+        help="bind an eligible offline qualification preflight to one role",
+    )
+    supervisor_qualification_bind.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_qualification_bind.add_argument(
+        "--candidate-file",
+        required=True,
+        help="local JSON declaration; only its sanitized scope is retained",
+    )
+    supervisor_qualification_bind.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
 
     experiment = subparsers.add_parser(
         "experiment",
@@ -1634,6 +1651,20 @@ def main(argv: list[str] | None = None) -> None:
                     supervisor.transition_agent(args.role, operation)
                     for operation in args.operation
                 ]
+            elif args.supervisor_command == "qualification-bind":
+                preflight = QualificationPreflightService().evaluate(
+                    _load_json_object(args.candidate_file, "--candidate-file")
+                )
+                if preflight["status"] == "blocked":
+                    payload = preflight
+                else:
+                    payload = {
+                        "preflight": preflight,
+                        "binding": supervisor.bind_qualification_preflight(
+                            args.role,
+                            preflight,
+                        ),
+                    }
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "experiment":
             config = load_config(args.config)

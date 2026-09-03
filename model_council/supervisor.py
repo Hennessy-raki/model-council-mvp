@@ -355,12 +355,14 @@ class SupervisorService:
         inspector: ReadinessInspector | None = None,
         lifecycle: AgentLifecycleFixture | None = None,
         platform: LocalManagerPlatform | None = None,
+        allow_synthetic_fixture_for_tests: bool = False,
     ):
         self.store = store
         self.registry = registry
         self.inspector = inspector or StaticReadinessInspector()
         self.lifecycle = lifecycle or StaticAgentLifecycleFixture()
         self.platform = platform or LocalManagerPlatform(store)
+        self.allow_synthetic_fixture_for_tests = allow_synthetic_fixture_for_tests
 
     def lifecycle_session(self, role_key: str) -> dict[str, Any] | None:
         self._validate_role(role_key)
@@ -396,6 +398,116 @@ class SupervisorService:
         with self.store.connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [_decode_lifecycle_event(row) for row in rows]
+
+    def qualification_preflight(self, role_key: str) -> dict[str, Any] | None:
+        self._validate_role(role_key)
+        with self.store.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM supervisor_qualification_preflights
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+        return _decode_qualification_preflight(row) if row is not None else None
+
+    def qualification_preflights(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM supervisor_qualification_preflights
+                ORDER BY role_key
+                """
+            ).fetchall()
+        return [_decode_qualification_preflight(row) for row in rows]
+
+    def bind_qualification_preflight(
+        self,
+        role_key: str,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Bind one eligible Board 21 result to a configured role."""
+        self._validate_role(role_key)
+        if not isinstance(result, dict):
+            raise SupervisorError("qualification preflight result must be an object")
+        if result.get("status") != "eligible_for_separate_review":
+            raise SupervisorError("only an eligible qualification preflight can be bound")
+        if result.get("execution_authorized") is not False:
+            raise SupervisorError("qualification preflight cannot authorize execution")
+        scope = result.get("normalized_scope")
+        scope_sha256 = result.get("scope_sha256")
+        if not isinstance(scope, dict) or not isinstance(scope_sha256, str):
+            raise SupervisorError("qualification preflight scope is incomplete")
+        if _digest(scope) != scope_sha256:
+            raise SupervisorError("qualification preflight scope digest is invalid")
+        if scope.get("kind") != "offline_agent_qualification_preflight":
+            raise SupervisorError("unsupported qualification preflight scope")
+        identity = scope.get("identity")
+        if not isinstance(identity, dict):
+            raise SupervisorError("qualification preflight identity is missing")
+        binding = self.binding(role_key)
+        expected = {
+            "agent_id": binding["agent_id"],
+            "model_id": binding["model_id"],
+        }
+        if identity.get("agent_id") != expected["agent_id"] or identity.get(
+            "model_id"
+        ) != expected["model_id"]:
+            raise SupervisorError("qualification preflight identity does not match role")
+        provider_id = identity.get("provider_id")
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT provider_id FROM agent_profiles WHERE id = ?",
+                (binding["agent_id"],),
+            ).fetchone()
+        if row is None or provider_id != row["provider_id"]:
+            raise SupervisorError(
+                "qualification preflight Provider does not match role Agent"
+            )
+        now = utc_now()
+        preflight_id = str(uuid4())
+        with self.store.connect() as conn:
+            previous = conn.execute(
+                """
+                SELECT scope_sha256 FROM supervisor_qualification_preflights
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+            if previous is not None and previous["scope_sha256"] != scope_sha256:
+                self._mark_pending_approvals_stale(
+                    conn,
+                    failure="qualification preflight changed after approval",
+                )
+            conn.execute(
+                """
+                INSERT INTO supervisor_qualification_preflights(
+                    id, role_key, agent_id, model_id, provider_id, scope_sha256,
+                    scope_json, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'current', ?, ?)
+                ON CONFLICT(role_key) DO UPDATE SET
+                    id = excluded.id,
+                    agent_id = excluded.agent_id,
+                    model_id = excluded.model_id,
+                    provider_id = excluded.provider_id,
+                    scope_sha256 = excluded.scope_sha256,
+                    scope_json = excluded.scope_json,
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    preflight_id,
+                    role_key,
+                    identity["agent_id"],
+                    identity["model_id"],
+                    provider_id,
+                    scope_sha256,
+                    _dump(sanitize_for_storage(scope)),
+                    now,
+                    now,
+                ),
+            )
+        return self.qualification_preflight(role_key)
 
     def transition_agent(self, role_key: str, operation: str) -> dict[str, Any]:
         """Run one deterministic local lifecycle transition."""
@@ -600,6 +712,14 @@ class SupervisorService:
                 )
                 conn.execute(
                     """
+                    UPDATE supervisor_qualification_preflights
+                    SET status = 'stale', updated_at = ?
+                    WHERE role_key = ?
+                    """,
+                    (now, role_key),
+                )
+                conn.execute(
+                    """
                     UPDATE supervisor_agent_sessions
                     SET agent_id = ?, model_id = ?, launch_mode = ?, transport = ?,
                         state = 'configured', evidence_json = ?, evidence_sha256 = ?,
@@ -783,6 +903,29 @@ class SupervisorService:
                 "details": {},
             }
 
+        if self._qualification_required(binding):
+            preflight = self.qualification_preflight(role_key)
+            if (
+                preflight is None
+                or preflight["status"] != "current"
+                or preflight["agent_id"] != binding["agent_id"]
+                or preflight["model_id"] != binding["model_id"]
+            ):
+                checks["qualification_preflight"] = {
+                    "status": "failed",
+                    "code": "qualification_preflight_required",
+                    "details": {},
+                }
+            else:
+                checks["qualification_preflight"] = {
+                    "status": "passed",
+                    "source": "qualification_preflight",
+                    "details": {
+                        "preflight_id": preflight["id"],
+                        "scope_sha256": preflight["scope_sha256"],
+                    },
+                }
+
         if session is not None:
             if session["state"] in {"failed", "user_confirmation_required"}:
                 checks["process"] = {
@@ -821,18 +964,21 @@ class SupervisorService:
                 },
             }
 
+        error_names = list(CANONICAL_LIFECYCLE_CHECKS)
+        if self._qualification_required(binding):
+            error_names.append("qualification_preflight")
         errors = [
             {
                 "check": name,
                 "code": checks[name].get("code", checks[name]["status"]),
                 "suggestion": _suggestion(name, checks[name]["status"], binding),
             }
-            for name in CANONICAL_LIFECYCLE_CHECKS
+            for name in error_names
             if name in checks
             if checks[name]["status"]
             in {"failed", "user_confirmation_required"}
         ]
-        statuses = {checks[name]["status"] for name in CANONICAL_LIFECYCLE_CHECKS if name in checks}
+        statuses = {checks[name]["status"] for name in error_names if name in checks}
         status = (
             "not_ready"
             if "failed" in statuses
@@ -961,6 +1107,18 @@ class SupervisorService:
                     "lifecycle_evidence_sha256": (
                         self.lifecycle_session(item["binding"]["role_key"]) or {}
                     ).get("evidence_sha256"),
+                    "qualification_preflight_id": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("id"),
+                    "qualification_preflight_sha256": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("scope_sha256"),
                 }
                 for item in team
             ],
@@ -1329,6 +1487,18 @@ class SupervisorService:
                     "lifecycle_evidence_sha256": (
                         self.lifecycle_session(item["binding"]["role_key"]) or {}
                     ).get("evidence_sha256"),
+                    "qualification_preflight_id": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("id"),
+                    "qualification_preflight_sha256": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("scope_sha256"),
                 }
                 for item in team
             ],
@@ -1453,6 +1623,22 @@ class SupervisorService:
                 f"Agent {agent_id!r} is not bound to Model {model_id!r}"
             )
 
+    def _qualification_required(self, binding: dict[str, Any]) -> bool:
+        """Require Board 21 preflight for real/non-mock Agent adapters."""
+        profile = binding.get("check_profile", {})
+        if (
+            self.allow_synthetic_fixture_for_tests
+            and isinstance(profile, dict)
+            and "synthetic_checks" in profile
+        ):
+            return False
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT adapter_type FROM agent_profiles WHERE id = ?",
+                (binding["agent_id"],),
+            ).fetchone()
+        return row is not None and row["adapter_type"] != "mock"
+
     @staticmethod
     def _validate_role(role_key: str) -> None:
         if role_key not in REQUIRED_ROLES:
@@ -1526,6 +1712,12 @@ def _decode_binding(row) -> dict[str, Any]:
 def _decode_report(row) -> dict[str, Any]:
     item = dict(row)
     item["report"] = json.loads(item.pop("report_json"))
+    return item
+
+
+def _decode_qualification_preflight(row) -> dict[str, Any]:
+    item = dict(row)
+    item["scope"] = json.loads(item.pop("scope_json"))
     return item
 
 
@@ -1638,6 +1830,10 @@ def _suggestion(
         "protocol": (
             "Use the configured local protocol fixture and rerun the lifecycle "
             "evidence check."
+        ),
+        "qualification_preflight": (
+            "Bind a current, matching offline qualification preflight for this "
+            "non-mock Agent before creating a team snapshot."
         ),
     }
     return suggestions[check_name]

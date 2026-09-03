@@ -30,6 +30,9 @@ multi-model execution service.
 - Board 21 is complete only for a pure local qualification preflight; it does
   not load project configuration, start a process, qualify a real Agent or
   authorize a new model call.
+- Board 22 is complete only for binding eligible preflight results to non-mock
+  Supervisor roles and approval provenance; it does not qualify a real Agent
+  or authorize a new model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -52,7 +55,7 @@ multi-model execution service.
 
 ## Board sequence after Board 15
 
-Board 17B, Board 18, Board 19 and Board 20 are complete for local
+Board 17B, Board 18, Board 19, Board 20, Board 21 and Board 22 are complete for local
 control-plane slices. The remaining “Next” item below is real Agent
 qualification, which requires a new frozen scope and exact authorization.
 
@@ -70,6 +73,11 @@ qualification, which requires a new frozen scope and exact authorization.
    authorization; no external call is implied by Boards 20 or 21.
 6. Artifact retention/purge, remote authentication/signing, generic context
    summarization and broader Provider coverage remain separate future scopes.
+
+Board 21 (offline qualification preflight) and Board 22 (qualification
+binding) are also complete local control-plane slices. Neither authorizes an
+external call; the next real-Agent qualification board must build on their
+scope, identity and stale-on-drift evidence.
 
 Each future board must state its acceptance criteria, threat model, exclusions,
 runtime storage rules and separate authorization ladder before implementation.
@@ -119,6 +127,13 @@ Board 21 plan and acceptance report:
 ```text
 docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md
 docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md
+```
+
+Board 22 plan and acceptance report:
+
+```text
+docs/reports/2026-09-03-board-22-qualification-binding-plan.md
+docs/reports/2026-09-03-board-22-qualification-binding.md
 ```
 
 Board 21 is complete for a pure local qualification preflight. It validates a

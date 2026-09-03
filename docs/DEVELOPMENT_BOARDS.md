@@ -410,3 +410,22 @@ Plan:
 
 Report:
 `docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md`
+
+### Board 22: Qualification preflight binding
+
+Status: complete for the local offline Supervisor slice
+
+- require a current matching qualification preflight for non-mock Agent roles;
+- persist only sanitized preflight scope metadata and SHA-256 in ignored
+  runtime state;
+- bind qualification provenance to team snapshots and project-run approvals;
+- stale preflight and downstream approvals on role or scope drift;
+- expose binding through CLI and read-only Web state;
+- keep all process, Provider, model, network, repository, worktree and Git
+  behavior out of scope.
+
+Plan:
+`docs/reports/2026-09-03-board-22-qualification-binding-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-22-qualification-binding.md`

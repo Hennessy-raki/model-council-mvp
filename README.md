@@ -525,6 +525,17 @@ the separate approval ladder and runtime-only evidence policy. It always
 returns `execution_authorized: false`; a successful preflight is not a real
 Agent qualification or execution approval.
 
+For a configured non-mock role, bind the eligible preflight to the Supervisor
+role before creating a team snapshot:
+
+```powershell
+python -m model_council supervisor qualification-bind manager `
+  --candidate-file <LOCAL_QUALIFICATION_JSON> --config <LOCAL_CONFIG>
+```
+
+The binding stores only sanitized scope metadata and its digest in local
+ignored runtime state. Role or scope drift invalidates downstream approvals.
+
 ```powershell
 python -m model_council supervisor request-start <SNAPSHOT_ID> `
   --config <LOCAL_CONFIG>

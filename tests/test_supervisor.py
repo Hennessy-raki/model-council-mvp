@@ -5,8 +5,10 @@ from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from model_council.cli import main
+from model_council.qualification import QualificationPreflightService
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore
 from model_council.supervisor import (
@@ -109,6 +111,59 @@ class SupervisorTests(unittest.TestCase):
             check_profile={"fixture": "fake-a2a"},
         )
         return service
+
+    def _qualification(self, agent_id="manager-agent", model_id="manager-model"):
+        return QualificationPreflightService().evaluate(
+            {
+                "agent_id": agent_id,
+                "model_id": model_id,
+                "provider_id": "local-fake",
+                "launch_mode": "spawn",
+                "transport": "cli",
+                "lifecycle_checks": [
+                    "process",
+                    "login",
+                    "actual_model",
+                    "permission",
+                    "version",
+                    "protocol",
+                    "connectivity",
+                ],
+                "permissions": ["read_only"],
+                "context": {
+                    "repository_context": False,
+                    "private_project_content": False,
+                    "worktree": False,
+                    "workspace_write": False,
+                    "prompt_instance": False,
+                    "artifact_body": False,
+                },
+                "limits": {
+                    "max_input_tokens": 100,
+                    "max_output_tokens": 100,
+                    "max_total_tokens": 200,
+                    "max_total_cost": "0.01",
+                    "currency": "USD",
+                    "max_duration_seconds": 60,
+                    "max_attempts": 1,
+                    "retry_on_failure": False,
+                },
+                "approval_ladder": [
+                    "preflight_review",
+                    "external_scope_approval",
+                    "execution_approval",
+                ],
+                "evidence": {
+                    "storage": "runtime_only",
+                    "retain_raw_output": False,
+                    "retain_stdout": False,
+                    "retain_stderr": False,
+                    "retain_prompt": False,
+                    "retain_response": False,
+                },
+                "execution_authorized": False,
+            }
+        )
 
     def test_ready_snapshot_notifies_manager_and_exact_approval_authorizes_start(self):
         service = self._service()
@@ -433,6 +488,177 @@ class SupervisorTests(unittest.TestCase):
         with self.assertRaises(SupervisorError):
             service.start_project_run(approval["id"], "Frozen lifecycle goal")
         self.assertEqual(service.approval(approval["id"])["status"], "stale")
+
+    def test_non_mock_role_requires_matching_preflight_and_binds_snapshot_provenance(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        service.configure_role(
+            role_key="manager",
+            agent_id="manager-agent",
+            model_id="manager-model",
+            launch_mode="spawn",
+            transport="cli",
+            check_profile={"fixture": "fake-cli"},
+        )
+        self.assertEqual(
+            service.check_role("manager")["errors"][0]["code"],
+            "qualification_preflight_required",
+        )
+        preflight = self._qualification()
+        bound = service.bind_qualification_preflight("manager", preflight)
+        self.assertEqual(bound["status"], "current")
+        self.assertEqual(service.check_role("manager")["status"], "ready")
+        service.check_team()
+        snapshot = service.snapshot()
+        manager_role = next(
+            item for item in snapshot["payload"]["roles"] if item["role_key"] == "manager"
+        )
+        self.assertEqual(
+            manager_role["qualification_preflight_sha256"],
+            preflight["scope_sha256"],
+        )
+        approval = service.request_project_run(snapshot["id"], "Qualified goal")
+        manager_scope = next(
+            item for item in approval["scope"]["roles"] if item["role_key"] == "manager"
+        )
+        self.assertEqual(
+            manager_scope["qualification_preflight_sha256"],
+            preflight["scope_sha256"],
+        )
+
+    def test_preflight_digest_and_identity_are_verified_without_echoing_scope(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        preflight = self._qualification()
+        tampered = dict(preflight)
+        tampered["scope_sha256"] = "0" * 64
+        with self.assertRaises(SupervisorError):
+            service.bind_qualification_preflight("manager", tampered)
+        mismatched = self._qualification(model_id="worker-model")
+        with self.assertRaises(SupervisorError):
+            service.bind_qualification_preflight("manager", mismatched)
+
+    def test_changed_preflight_stales_pending_project_approval(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        service.bind_qualification_preflight("manager", self._qualification())
+        service.check_team()
+        snapshot = service.snapshot()
+        approval = service.request_project_run(snapshot["id"], "Qualified goal")
+        service.decide_start(
+            approval["id"],
+            approve=True,
+            confirmation=approval["scope_sha256"],
+        )
+        # Recompute through the pure service so the supplied digest is valid.
+        candidate = {
+            **{
+                "agent_id": "manager-agent",
+                "model_id": "manager-model",
+                "provider_id": "local-fake",
+                "launch_mode": "spawn",
+                "transport": "cli",
+                "lifecycle_checks": [
+                    "process", "login", "actual_model", "permission",
+                    "version", "protocol", "connectivity",
+                ],
+                "permissions": ["read_only"],
+                "context": {
+                    "repository_context": False,
+                    "private_project_content": False,
+                    "worktree": False,
+                    "workspace_write": False,
+                    "prompt_instance": False,
+                    "artifact_body": False,
+                },
+                "limits": {
+                    "max_input_tokens": 100,
+                    "max_output_tokens": 100,
+                    "max_total_tokens": 200,
+                    "max_total_cost": "0.01",
+                    "currency": "USD",
+                    "max_duration_seconds": 61,
+                    "max_attempts": 1,
+                    "retry_on_failure": False,
+                },
+                "approval_ladder": [
+                    "preflight_review", "external_scope_approval", "execution_approval",
+                ],
+                "evidence": {
+                    "storage": "runtime_only",
+                    "retain_raw_output": False,
+                    "retain_stdout": False,
+                    "retain_stderr": False,
+                    "retain_prompt": False,
+                    "retain_response": False,
+                },
+                "execution_authorized": False,
+            }
+        }
+        service.bind_qualification_preflight(
+            "manager",
+            QualificationPreflightService().evaluate(candidate),
+        )
+        self.assertEqual(service.approval(approval["id"])["status"], "stale")
+
+    def test_cli_binds_eligible_preflight_through_supervisor_service(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        scope = self._qualification()["normalized_scope"]
+        candidate = {
+            **scope["identity"],
+            **scope["launch"],
+            "lifecycle_checks": scope["lifecycle_checks"],
+            "permissions": scope["permissions"],
+            "context": scope["context_exclusions"],
+            "limits": scope["limits"],
+            "approval_ladder": scope["approval_ladder"],
+            "evidence": scope["evidence_policy"],
+            "execution_authorized": False,
+        }
+        candidate_path = Path(self.temp.name) / "qualification.json"
+        candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+        output = StringIO()
+        with patch("model_council.cli.load_config", return_value=object()):
+            with patch("model_council.cli._load_supervisor", return_value=service):
+                with redirect_stdout(output):
+                    main(
+                        [
+                            "supervisor",
+                            "qualification-bind",
+                            "manager",
+                            "--candidate-file",
+                            str(candidate_path),
+                            "--config",
+                            "unused.json",
+                        ]
+                    )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["binding"]["status"], "current")
 
     def test_local_subprocess_fixture_uses_argument_array_and_stops_cleanly(self):
         service = self._service()

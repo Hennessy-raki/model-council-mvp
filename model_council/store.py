@@ -514,6 +514,18 @@ class CouncilStore:
                     note TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS supervisor_qualification_preflights (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL UNIQUE,
+                    agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+                    model_id TEXT NOT NULL REFERENCES models(id),
+                    provider_id TEXT NOT NULL REFERENCES providers(id),
+                    scope_sha256 TEXT NOT NULL,
+                    scope_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS supervisor_team_snapshots (
                     id TEXT PRIMARY KEY,
                     snapshot_sha256 TEXT NOT NULL,

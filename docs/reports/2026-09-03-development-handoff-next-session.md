@@ -2,7 +2,7 @@
 
 Date: 2026-09-03
 
-Status: handoff checkpoint after Board 21; no external-call authority is
+Status: handoff checkpoint after Board 22; no external-call authority is
 granted by this document.
 
 ## 1. Purpose of this handoff
@@ -75,8 +75,8 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: 893d062 Add offline Agent qualification preflight
-relative to origin/main: ahead 26
+HEAD: <CURRENT_LOCAL_COMMIT>
+relative to origin/main: ahead <CURRENT_AHEAD_COUNT>
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
@@ -107,6 +107,8 @@ No push, tag or release has been performed.
 - Board 21: pure local `supervisor qualification-preflight` validation of a
   future Agent qualification declaration; it returns a deterministic digest
   and bounded blockers without loading runtime state or starting anything.
+- Board 22: qualification preflight binding for non-mock roles, with snapshot
+  and project-run approval provenance plus stale-on-drift handling.
 
 Key implementation areas:
 
@@ -121,10 +123,10 @@ scripts/privacy_scan.py           current-tree and reachable-history checks
 
 ## 6. Verification evidence
 
-The Board 20 quality gate is green:
+The Board 22 quality gate is green:
 
 ```text
-offline test suite: 140 tests passed
+offline test suite: 148 tests passed
 Python compilation: passed
 tracked JSON validation: 12 files passed
 current-tree privacy scan: passed

@@ -132,6 +132,9 @@ class LocalSettingsApplication:
                     "approvals": self.supervisor.approvals(),
                     "lifecycle_sessions": self.supervisor.lifecycle_sessions(),
                     "lifecycle_events": self.supervisor.lifecycle_events(),
+                    "qualification_preflights": (
+                        self.supervisor.qualification_preflights()
+                    ),
                     "events": self.supervisor.events(),
                 },
         }
@@ -928,6 +931,9 @@ INDEX_HTML = """<!doctype html>
         <p class="small">Lifecycle records are deterministic local fixture evidence. This view never starts, connects, attaches, detaches or stops an Agent.</p>
         ${table(supervisor.lifecycle_sessions || [], [{key:"updated_at",label:"Updated"},{key:"role_key",label:"Role"},{key:"agent_id",label:"Agent"},{key:"model_id",label:"Model"},{key:"state",label:"State"},{key:"evidence_sha256",label:"Evidence SHA-256"},{key:"failure",label:"Failure"}])}
         ${table(supervisor.lifecycle_events || [], [{key:"created_at",label:"Recorded"},{key:"role_key",label:"Role"},{key:"event_type",label:"Event"},{key:"from_state",label:"From"},{key:"to_state",label:"To"},{key:"payload",label:"Bounded evidence",json:true}])}
+        <h2>Agent qualification preflight</h2>
+        <p class="small">These are local scope summaries only. They do not qualify a real Agent or authorize execution.</p>
+        ${table(supervisor.qualification_preflights || [], [{key:"updated_at",label:"Updated"},{key:"role_key",label:"Role"},{key:"agent_id",label:"Agent"},{key:"model_id",label:"Model"},{key:"provider_id",label:"Provider"},{key:"status",label:"Status"},{key:"scope_sha256",label:"Scope SHA-256"}])}
         <h2>Workspace evidence</h2>
         <h3>Leases and permissions</h3>
         ${table(state.workspaces.leases, [{key:"updated_at",label:"Updated"},{key:"id",label:"Lease"},{key:"agent_id",label:"Agent"},{key:"status",label:"Status"},{key:"target_branch",label:"Target"},{key:"base_sha",label:"Base SHA"},{key:"permissions",label:"Permissions",json:true}])}

@@ -81,7 +81,11 @@ class ExperimentTests(unittest.TestCase):
                 model_id="fake-model",
                 role=role,
             )
-        self.supervisor = SupervisorService(self.store, self.registry)
+        self.supervisor = SupervisorService(
+            self.store,
+            self.registry,
+            allow_synthetic_fixture_for_tests=True,
+        )
         self.experiments = ExperimentService(
             self.store,
             self.registry,
