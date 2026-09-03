@@ -372,3 +372,19 @@ Plan:
 
 Report:
 `docs/reports/2026-09-03-board-19-project-run-approval-hardening.md`
+
+### Board 20: CLI local Agent lifecycle sequence
+
+Status: complete for the local subprocess fixture slice
+
+- built-in local fake Agent process;
+- bounded single-process `lifecycle-sequence` CLI command;
+- safe lifecycle evidence and fixture stop before exit;
+- no arbitrary shell, cross-process PID, Provider, network or repository
+  authority.
+
+Plan:
+`docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-20-cli-local-lifecycle.md`

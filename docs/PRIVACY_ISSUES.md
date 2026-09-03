@@ -565,3 +565,21 @@ evidence.
   Supervisor approvals in a separate maintenance scope.
 - Blocks development: no; real Agent and external execution remain separately
   scoped.
+
+### PRIV-027: Cross-process lifecycle control risk
+
+- Date found: 2026-09-03
+- Channel: Board 20 CLI lifecycle design review
+- Priority: medium
+- Data class: local process handles and machine-specific process identity
+- Status: mitigated before implementation
+- Resolution:
+  - rejected persisted bare-PID control because process identity could not be
+    proven safely across CLI invocations;
+  - constrained subprocess verification to one bounded
+    `lifecycle-sequence` process;
+  - the built-in fixture is stopped before command exit and no raw handle or
+    process output is persisted.
+- Residual risk: future persistent Agent sessions need an explicit identity
+  handshake and separately reviewed process-ownership design.
+- Blocks development: no; real Agent lifecycle remains separately scoped.

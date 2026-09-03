@@ -473,6 +473,85 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(service.stop_agent("manager")["session"]["state"], "stopped")
         self.assertEqual(service.lifecycle_session("manager")["evidence"]["code"], "fixture_process_stopped")
 
+    def test_cli_subprocess_fixture_persists_across_lifecycle_commands(self):
+        root = Path(self.temp.name) / "cli-fixture"
+        root.mkdir()
+        config_path = root / "config.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "state_dir": "runtime",
+                    "manager": "manager-agent",
+                    "reviewer": "reviewer-agent",
+                    "providers": {
+                        "local-fake": {"kind": "local", "display_name": "Local Fake"}
+                    },
+                    "models": {
+                        f"{role}-model": {
+                            "provider": "local-fake",
+                            "display_name": f"{role.title()} Model",
+                        }
+                        for role in ("manager", "worker", "reviewer")
+                    },
+                    "agents": {
+                        f"{role}-agent": {
+                            "type": "mock",
+                            "provider": "local-fake",
+                            "model": f"{role}-model",
+                            "role": role,
+                        }
+                        for role in ("manager", "worker", "reviewer")
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        team_path = root / "team.json"
+        team_path.write_text(
+            json.dumps(
+                {
+                    "roles": {
+                        role: {
+                            "agent_id": f"{role}-agent",
+                            "model_id": f"{role}-model",
+                            "launch_mode": "spawn",
+                            "transport": "cli",
+                            "check_profile": {},
+                        }
+                        for role in ("manager", "worker", "reviewer")
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        main(["supervisor", "wizard", "--team-file", str(team_path), "--config", str(config_path)])
+        output = StringIO()
+        with redirect_stdout(output):
+            main(
+                [
+                    "supervisor",
+                    "lifecycle-sequence",
+                    "manager",
+                    "--operation",
+                    "start",
+                    "--operation",
+                    "connect",
+                    "--operation",
+                    "attach",
+                    "--operation",
+                    "detach",
+                    "--operation",
+                    "stop",
+                    "--config",
+                    str(config_path),
+                ]
+            )
+        outputs = json.loads(output.getvalue())
+        self.assertEqual(
+            [item["session"]["state"] for item in outputs],
+            ["started", "connected", "attached", "detached", "stopped"],
+        )
+
     def test_all_launch_modes_and_first_stage_transports_validate(self):
         service = self._service()
         combinations = (

@@ -390,6 +390,38 @@ Plan:
 Report:
 `docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md`
 
+## Productization Board 19: Project-run approval hardening
+
+Status: complete for local offline control
+
+- production `Orchestrator.run()` requires `start_approval_id`;
+- missing approval fails closed before run creation or Adapter invocation;
+- existing exact-goal, snapshot, lifecycle-drift and single-use checks remain;
+- only a private explicit offline test mode bypasses approval for pipeline tests.
+
+Plan:
+`docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-19-project-run-approval-hardening.md`
+
+## Productization Board 20: CLI local Agent lifecycle sequence
+
+Status: complete for the local subprocess fixture slice
+
+- provide a built-in local fake Agent process;
+- run a bounded `supervisor lifecycle-sequence` in one controlled CLI process;
+- reuse explicit `shell=False` process control and bounded lifecycle evidence;
+- stop the fixture before the command exits;
+- keep arbitrary command execution, cross-process PID control and all external
+  Agent/Provider behavior out of scope.
+
+Plan:
+`docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-20-cli-local-lifecycle.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

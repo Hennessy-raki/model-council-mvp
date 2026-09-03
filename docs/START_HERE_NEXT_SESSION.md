@@ -46,6 +46,10 @@ Python and CLI project-run entry points now fail closed without exact
 Supervisor approval; the private offline test mode is not a product entry
 point.
 
+Board 20 is complete for one bounded CLI `lifecycle-sequence` using the
+built-in local fake subprocess. It does not qualify a real Agent or authorize
+a new model call.
+
 The latest scope and completion reports are:
 
 ```text
@@ -89,6 +93,9 @@ docs/reports/2026-09-01-board-18-next-session-handoff.md
 docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md
 docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
 docs/reports/2026-09-03-board-19-next-session-handoff.md
+docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md
+docs/reports/2026-09-03-board-20-cli-local-lifecycle.md
+docs/reports/2026-09-03-board-20-next-session-handoff.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

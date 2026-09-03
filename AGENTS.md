@@ -120,6 +120,11 @@ fail closed without the exact Supervisor approval. Only a private explicitly
 named offline test mode can exercise the collaboration pipeline without that
 approval; it is not a product entry point and adds no external-call authority.
 
+Board 20 is complete for a bounded single-process CLI lifecycle sequence using
+the built-in local fake subprocess. The fixture is stopped before command exit;
+no arbitrary command, cross-process PID, real Agent or external-call authority
+is added.
+
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
 only. Every real App Server, A2A or MCP transport additionally requires

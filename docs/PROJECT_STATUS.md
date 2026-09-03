@@ -24,6 +24,9 @@ multi-model execution service.
 - Board 18 is complete only for one explicitly configured local fake
   subprocess fixture; it does not qualify a real Agent or authorize a new
   model call.
+- Board 20 is complete only for one bounded CLI sequence using the built-in
+  local fake subprocess fixture; it does not qualify a real Agent or authorize
+  a new model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -42,12 +45,13 @@ multi-model execution service.
 | Project-run authorization | Normal CLI and production Python `Orchestrator.run()` require a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | A private offline test harness remains for pipeline tests; real Agent lifecycle verification is deferred. |
 | Agent lifecycle verification | Deterministic local fixture transitions and bounded lifecycle evidence are persisted and projected through CLI/Web. | Real Agent start/connect/attach, remote validation and external model calls remain separately scoped. |
 | Local subprocess fixture | One explicit local command-array fixture can be started, observed, attached, detached and stopped with bounded evidence. | No real Agent, Provider, network or repository qualification. |
+| CLI lifecycle sequence | A bounded single-process CLI sequence exercises the built-in fixture and stops it before exit. | No arbitrary command, cross-process PID control or real Agent qualification. |
 
 ## Board sequence after Board 15
 
-Board 17B is now complete for the deterministic local fixture slice. The
-remaining “Next” item below must be interpreted as real Agent qualification,
-which requires a new frozen scope and exact authorization.
+Board 17B, Board 18, Board 19 and Board 20 are complete for local
+control-plane slices. The remaining “Next” item below is real Agent
+qualification, which requires a new frozen scope and exact authorization.
 
 1. **Board 16 — deterministic local transport-test reliability**: remains
    deferred unless the observed Windows socket interruption recurs under a
@@ -57,9 +61,11 @@ which requires a new frozen scope and exact authorization.
    one-time approval bound to the current ready Supervisor team and exact goal.
 3. **Board 19 — project-run approval hardening**: complete; production CLI and
    Python entry points now fail closed without exact approval.
-4. **Next — real Agent qualification**: requires a new frozen scope and exact
-   authorization; no external call is implied by Board 19.
-5. Artifact retention/purge, remote authentication/signing, generic context
+4. **Board 20 — CLI local Agent lifecycle sequence**: complete for the local
+   subprocess fixture slice.
+5. **Next — real Agent qualification**: requires a new frozen scope and exact
+   authorization; no external call is implied by Board 20.
+6. Artifact retention/purge, remote authentication/signing, generic context
    summarization and broader Provider coverage remain separate future scopes.
 
 Each future board must state its acceptance criteria, threat model, exclusions,
@@ -95,6 +101,14 @@ Board 19 plan and report:
 ```text
 docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md
 docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
+```
+
+Board 20 plan, report and handoff:
+
+```text
+docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md
+docs/reports/2026-09-03-board-20-cli-local-lifecycle.md
+docs/reports/2026-09-03-board-20-next-session-handoff.md
 ```
 
 ## Current quality gate

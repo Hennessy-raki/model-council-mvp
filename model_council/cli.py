@@ -21,7 +21,7 @@ from .registry import RegistryService
 from .release import ReleaseVerifier
 from .routing import RoutingService
 from .store import CouncilStore
-from .supervisor import SupervisorService
+from .supervisor import SubprocessAgentLifecycleFixture, SupervisorService
 from .workspaces import WorkspaceService
 
 
@@ -907,6 +907,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         default=str(default_config_path()),
     )
+    supervisor_lifecycle_sequence = supervisor_commands.add_parser(
+        "lifecycle-sequence",
+        help="run a bounded lifecycle sequence with the built-in local fixture",
+    )
+    supervisor_lifecycle_sequence.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_lifecycle_sequence.add_argument(
+        "--operation",
+        action="append",
+        required=True,
+        choices=("start", "connect", "attach", "detach", "stop"),
+    )
+    supervisor_lifecycle_sequence.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
 
     experiment = subparsers.add_parser(
         "experiment",
@@ -1532,7 +1550,12 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "supervisor":
             config = load_config(args.config)
-            supervisor = _load_supervisor(config)
+            supervisor = _load_supervisor(
+                config,
+                subprocess_fixture=(
+                    args.supervisor_command == "lifecycle-sequence"
+                ),
+            )
             if args.supervisor_command == "wizard":
                 payload = {
                     "bindings": supervisor.apply_wizard(
@@ -1587,6 +1610,11 @@ def main(argv: list[str] | None = None) -> None:
                 payload = supervisor.start(args.approval_id)
             elif args.supervisor_command == "lifecycle":
                 payload = supervisor.transition_agent(args.role, args.operation)
+            elif args.supervisor_command == "lifecycle-sequence":
+                payload = [
+                    supervisor.transition_agent(args.role, operation)
+                    for operation in args.operation
+                ]
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "experiment":
             config = load_config(args.config)
@@ -1758,9 +1786,14 @@ def _load_interoperability(config) -> InteroperabilityService:
     return InteroperabilityService(config, store)
 
 
-def _load_supervisor(config) -> SupervisorService:
+def _load_supervisor(config, *, subprocess_fixture: bool = False) -> SupervisorService:
     registry = _load_registry(config)
-    return SupervisorService(registry.store, registry)
+    lifecycle = None
+    if subprocess_fixture:
+        lifecycle = SubprocessAgentLifecycleFixture(
+            default_command=[sys.executable, "-m", "model_council.local_fixture"]
+        )
+    return SupervisorService(registry.store, registry, lifecycle=lifecycle)
 
 
 def _load_experiments(config) -> ExperimentService:

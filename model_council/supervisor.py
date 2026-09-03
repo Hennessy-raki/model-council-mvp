@@ -84,6 +84,7 @@ class AgentLifecycleFixture(Protocol):
         binding: dict[str, Any],
         operation: str,
         current_state: str,
+        session: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Return a bounded status and optional reason/details."""
 
@@ -96,6 +97,7 @@ class StaticAgentLifecycleFixture:
         binding: dict[str, Any],
         operation: str,
         current_state: str,
+        session: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         profile = binding.get("check_profile", {})
         lifecycle = profile.get("lifecycle", {}) if isinstance(profile, dict) else {}
@@ -139,6 +141,7 @@ class SubprocessAgentLifecycleFixture:
         binding: dict[str, Any],
         operation: str,
         current_state: str,
+        session: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         role_key = binding["role_key"]
         process = self._processes.get(role_key)
@@ -177,7 +180,12 @@ class SubprocessAgentLifecycleFixture:
             return {
                 "status": "passed",
                 "code": "fixture_process_started",
-                "details": {"process_marker": marker},
+                "details": {
+                    "process_marker": marker,
+                    "command_sha256": sha256(
+                        _dump(command).encode("utf-8")
+                    ).hexdigest(),
+                },
             }
         if operation in {"connect", "attach"}:
             if process is None:
@@ -197,7 +205,9 @@ class SubprocessAgentLifecycleFixture:
             return {
                 "status": "passed",
                 "code": f"fixture_{operation}_verified",
-                "details": {"attached": role_key in self._attached},
+                "details": {
+                    "attached": role_key in self._attached,
+                },
             }
         if operation == "detach":
             if process is None or process.poll() is not None:
@@ -219,7 +229,7 @@ class SubprocessAgentLifecycleFixture:
                     "code": "fixture_process_missing",
                     "details": {},
                 }
-            if process.poll() is None:
+            if process is not None and process.poll() is None:
                 try:
                     process.terminate()
                     process.wait(timeout=2)
@@ -238,7 +248,9 @@ class SubprocessAgentLifecycleFixture:
             return {
                 "status": "passed",
                 "code": "fixture_process_stopped",
-                "details": {"exit_code": process.returncode},
+                "details": {
+                    "exit_code": process.returncode,
+                },
             }
         return {
             "status": "failed",
@@ -399,7 +411,12 @@ class SupervisorService:
             binding["launch_mode"],
             binding["transport"],
         )
-        outcome = self.lifecycle.transition(binding, operation, current_state)
+        outcome = self.lifecycle.transition(
+            binding,
+            operation,
+            current_state,
+            session=current,
+        )
         status = outcome.get("status")
         if status == "failed":
             next_state = "failed"

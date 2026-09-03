@@ -156,6 +156,10 @@ docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
 Only an explicitly named private offline test mode can exercise the pipeline
 without a Supervisor approval; CLI and Web never enable it.
 
+Board 20 adds a bounded single-process CLI lifecycle sequence for the built-in
+local fake subprocess. It stops the fixture before exit and introduces no
+arbitrary command or cross-process PID authority.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -675,13 +679,13 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 19 development handoff is:
+The latest post-Board 20 development handoff is:
 
 ```text
-docs/reports/2026-09-03-board-19-next-session-handoff.md
+docs/reports/2026-09-03-board-20-next-session-handoff.md
 ```
 
-It records the current local commit, completed Board 19 scope, remaining
+It records the current local commit, completed Board 20 scope, remaining
 goal-alignment gaps, the recommended next board and the safe opening sequence.
 It does not authorize a new board, external call, runtime mutation or Artifact
 purge.
