@@ -27,6 +27,9 @@ multi-model execution service.
 - Board 20 is complete only for one bounded CLI sequence using the built-in
   local fake subprocess fixture; it does not qualify a real Agent or authorize
   a new model call.
+- Board 21 is complete only for a pure local qualification preflight; it does
+  not load project configuration, start a process, qualify a real Agent or
+  authorize a new model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -64,7 +67,7 @@ qualification, which requires a new frozen scope and exact authorization.
 4. **Board 20 — CLI local Agent lifecycle sequence**: complete for the local
    subprocess fixture slice.
 5. **Next — real Agent qualification**: requires a new frozen scope and exact
-   authorization; no external call is implied by Board 20.
+   authorization; no external call is implied by Boards 20 or 21.
 6. Artifact retention/purge, remote authentication/signing, generic context
    summarization and broader Provider coverage remain separate future scopes.
 
@@ -110,6 +113,18 @@ docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md
 docs/reports/2026-09-03-board-20-cli-local-lifecycle.md
 docs/reports/2026-09-03-board-20-next-session-handoff.md
 ```
+
+Board 21 plan and acceptance report:
+
+```text
+docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md
+docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md
+```
+
+Board 21 is complete for a pure local qualification preflight. It validates a
+future Agent scope without loading project configuration, initializing runtime
+state, starting a process or authorizing a Provider/model call. Real Agent
+qualification remains the next separately frozen and authorized milestone.
 
 ## Current quality gate
 

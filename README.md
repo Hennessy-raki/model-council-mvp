@@ -510,6 +510,21 @@ The older `supervisor request-start` / `supervisor start` commands remain
 separate local synthetic Manager-platform controls. They do not authorize a
 project run.
 
+Before considering any real Agent qualification, validate a local declaration
+with the pure offline preflight. It does not load project configuration,
+initialize runtime state, start a process or contact any endpoint:
+
+```powershell
+python -m model_council supervisor qualification-preflight `
+  --candidate-file <LOCAL_QUALIFICATION_JSON>
+```
+
+The command requires explicit lifecycle checks, read-only permissions, private
+context exclusions, bounded token/cost/time limits, a single-attempt stop rule,
+the separate approval ladder and runtime-only evidence policy. It always
+returns `execution_authorized: false`; a successful preflight is not a real
+Agent qualification or execution approval.
+
 ```powershell
 python -m model_council supervisor request-start <SNAPSHOT_ID> `
   --config <LOCAL_CONFIG>

@@ -422,6 +422,24 @@ Plan:
 Report:
 `docs/reports/2026-09-03-board-20-cli-local-lifecycle.md`
 
+## Productization Board 21: Offline Agent qualification preflight
+
+Status: complete for the pure local validation slice
+
+- validate a future Agent qualification declaration with no runtime or
+  external side effects;
+- require explicit identity, lifecycle checks, read-only permissions, context
+  exclusions, bounded budgets, stop rules, approvals and evidence policy;
+- produce a deterministic scope digest and bounded blocker diagnostics;
+- keep real Agent, Provider, network, repository, worktree, Git and Artifact
+  behavior deferred.
+
+Plan:
+`docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

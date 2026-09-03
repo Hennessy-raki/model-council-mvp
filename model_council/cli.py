@@ -14,6 +14,7 @@ from .evaluation import EvaluationService
 from .experiments import ExperimentService
 from .interoperability import InteroperabilityService, MCPToolBroker
 from .outbound_context import OutboundContextService, validate_controlled_pilot
+from .qualification import QualificationPreflightService
 from .repair import RepairPolicy, RepairService
 from .ledger import UsageLedger
 from .orchestrator import Orchestrator
@@ -925,6 +926,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         default=str(default_config_path()),
     )
+    supervisor_qualification_preflight = supervisor_commands.add_parser(
+        "qualification-preflight",
+        help=(
+            "validate one offline Agent-qualification declaration without "
+            "starting an Agent or contacting any endpoint"
+        ),
+    )
+    supervisor_qualification_preflight.add_argument(
+        "--candidate-file",
+        required=True,
+        help="local JSON declaration; it is validated only and never persisted",
+    )
 
     experiment = subparsers.add_parser(
         "experiment",
@@ -1549,6 +1562,12 @@ def main(argv: list[str] | None = None) -> None:
                 payload = backups.restore(args.approval_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "supervisor":
+            if args.supervisor_command == "qualification-preflight":
+                payload = QualificationPreflightService().evaluate(
+                    _load_json_object(args.candidate_file, "--candidate-file")
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
             config = load_config(args.config)
             supervisor = _load_supervisor(
                 config,

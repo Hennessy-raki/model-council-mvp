@@ -2,15 +2,15 @@
 
 Date: 2026-09-03
 
-Status: handoff checkpoint only; no new Board is frozen and no external-call
-authority is granted by this document.
+Status: handoff checkpoint after Board 21; no external-call authority is
+granted by this document.
 
 ## 1. Purpose of this handoff
 
 This document is the authoritative continuation note for the next development
 session. It preserves the project goal, the current implementation boundary,
 the completed local evidence and the conditions that must be satisfied before
-any new Board or real-Agent work begins.
+real-Agent work begins.
 
 The tracked document is public-safe. It intentionally uses placeholders for
 the approved checkout and excludes local runtime identifiers, credentials,
@@ -75,8 +75,8 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: 71572f4 Add safe CLI local Agent lifecycle sequence
-relative to origin/main: ahead 24
+HEAD: <CURRENT_LOCAL_COMMIT>
+relative to origin/main: ahead <CURRENT_AHEAD_COUNT>
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
@@ -104,6 +104,9 @@ No push, tag or release has been performed.
   `start -> connect -> attach -> detach -> stop`, with the fixture stopped
   before command exit. Cross-process PID control and arbitrary commands were
   deliberately rejected.
+- Board 21: pure local `supervisor qualification-preflight` validation of a
+  future Agent qualification declaration; it returns a deterministic digest
+  and bounded blockers without loading runtime state or starting anything.
 
 Key implementation areas:
 
@@ -154,7 +157,8 @@ Artifact purge was performed.
 
 The next product-aligned candidate is a narrowly scoped real-Agent
 qualification board. Before changing code, the next session must write and
-review a Board 21 plan containing all of the following:
+review a new plan containing all of the following. Board 21's preflight is
+necessary preparation but is not execution authorization:
 
 - contribution to `docs/PROJECT_GOAL.md` and the exact lifecycle step advanced;
 - one named Agent, Model and Provider (or an explicit offline-only fixture);

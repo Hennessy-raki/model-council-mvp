@@ -50,6 +50,10 @@ Board 20 is complete for one bounded CLI `lifecycle-sequence` using the
 built-in local fake subprocess. It does not qualify a real Agent or authorize
 a new model call.
 
+Board 21 is complete for a pure local `qualification-preflight` validator. It
+does not load project configuration, start a process, qualify a real Agent or
+authorize a new model call.
+
 The latest scope and completion reports are:
 
 ```text
@@ -96,6 +100,8 @@ docs/reports/2026-09-03-board-19-next-session-handoff.md
 docs/reports/2026-09-03-board-20-cli-local-lifecycle-plan.md
 docs/reports/2026-09-03-board-20-cli-local-lifecycle.md
 docs/reports/2026-09-03-board-20-next-session-handoff.md
+docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md
+docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

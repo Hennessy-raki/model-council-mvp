@@ -388,3 +388,25 @@ Plan:
 
 Report:
 `docs/reports/2026-09-03-board-20-cli-local-lifecycle.md`
+
+### Board 21: Offline Agent qualification preflight
+
+Status: complete for the pure local validation slice
+
+- validate a future Agent/Model/Provider qualification declaration without
+  loading project configuration or runtime state;
+- require canonical lifecycle checks, read-only permissions, explicit private
+  context exclusions, bounded token/cost/time limits and a one-attempt stop
+  rule;
+- require a separate approval ladder and runtime-only evidence policy;
+- reject credentials, personal paths, protected runtime references, unknown
+  fields and execution-authority claims;
+- return a deterministic scope digest and bounded blocker codes;
+- do not start a process or invoke a Provider, model, network, repository,
+  worktree or Git operation.
+
+Plan:
+`docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md`

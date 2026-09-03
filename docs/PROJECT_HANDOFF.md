@@ -691,16 +691,16 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 20 development handoff is:
+The latest post-Board 21 development handoff is:
 
 ```text
-docs/reports/2026-09-03-board-20-next-session-handoff.md
+docs/reports/2026-09-03-development-handoff-next-session.md
 ```
 
-It records the current local commit, completed Board 20 scope, remaining
-goal-alignment gaps, the recommended next board and the safe opening sequence.
-It does not authorize a new board, external call, runtime mutation or Artifact
-purge.
+It records the current local commit, completed Board 21 scope, remaining
+goal-alignment gaps, the requirements for a future real-Agent board and the
+safe opening sequence. It does not authorize a new board, external call,
+runtime mutation or Artifact purge.
 
 The earlier no-implementation continuation checkpoint for the candidate
 Artifact-retention policy work is recorded in:
