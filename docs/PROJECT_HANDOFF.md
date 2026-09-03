@@ -1,6 +1,18 @@
 # Project Handoff
 
-Last updated: 2026-09-01
+Last updated: 2026-09-03
+
+The latest continuation checkpoint is:
+
+```text
+docs/reports/2026-09-03-development-handoff-next-session.md
+```
+
+It records the current Board 20 checkpoint, the canonical product goal,
+privacy and approval boundaries, the offline quality-gate evidence and the
+requirements for freezing the next board. It does not authorize a new
+external call, runtime mutation, repository-context export, worktree action,
+Artifact purge or publication.
 
 The authoritative Board 7 completion report is:
 

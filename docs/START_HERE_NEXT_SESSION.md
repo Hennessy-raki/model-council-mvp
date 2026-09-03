@@ -225,8 +225,15 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and thirty-four tests after the
-Board 17A project-run authorization coverage. The release verifier remains the
+The complete offline suite contains one hundred and forty tests after the
+Board 20 CLI local lifecycle coverage. The latest detailed continuation
+checkpoint is:
+
+```text
+docs/reports/2026-09-03-development-handoff-next-session.md
+```
+
+The release verifier remains the
 Board 12 public-release gate and
 requires a clean
 synchronized `main`; do not expect it to pass while this intentionally
