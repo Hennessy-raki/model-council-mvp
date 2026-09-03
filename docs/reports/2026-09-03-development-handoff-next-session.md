@@ -75,8 +75,8 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: <CURRENT_LOCAL_COMMIT>
-relative to origin/main: ahead <CURRENT_AHEAD_COUNT>
+HEAD: 893d062 Add offline Agent qualification preflight
+relative to origin/main: ahead 26
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
