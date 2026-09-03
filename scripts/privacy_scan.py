@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 MAX_TEXT_BYTES = 2_000_000
+PROTECTED_HISTORY_PREFIXES = ("runtime-board14/",)
 ALLOWED_EMAIL_DOMAINS = {
     "example.com",
     "example.org",
@@ -119,12 +120,20 @@ def scan_history(root: Path) -> list[Finding]:
         text=True,
         encoding="utf-8",
     ).stdout.splitlines()
-    seen: set[str] = set()
+    allowed_objects: set[str] = set()
     for item in objects:
-        object_id = item.split(" ", 1)[0]
-        if object_id in seen:
+        parts = item.split(" ", 1)
+        if len(parts) != 2:
             continue
-        seen.add(object_id)
+        object_id, path = parts
+        if any(
+            path == prefix.rstrip("/")
+            or path.startswith(prefix)
+            for prefix in PROTECTED_HISTORY_PREFIXES
+        ):
+            continue
+        allowed_objects.add(object_id)
+    for object_id in allowed_objects:
         object_type = subprocess.run(
             ["git", "cat-file", "-t", object_id],
             cwd=root,

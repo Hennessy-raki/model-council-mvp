@@ -8,10 +8,28 @@ import unittest
 from model_council.cli import main
 from model_council.config import load_config
 from model_council.orchestrator import Orchestrator
-from model_council.supervisor import SupervisorService
+from model_council.supervisor import SupervisorError, SupervisorService
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_python_run_requires_project_start_approval(self):
+        with TemporaryDirectory() as temp:
+            config_path = Path(temp) / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "state_dir": "runtime",
+                        "manager": "manager",
+                        "agents": {
+                            "manager": {"type": "mock"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(SupervisorError):
+                Orchestrator(load_config(config_path)).run("goal")
+
     def test_cli_run_requires_project_start_approval(self):
         with self.assertRaises(SystemExit):
             main(
@@ -76,7 +94,10 @@ class OrchestratorTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            orchestrator = Orchestrator(load_config(config_path))
+            orchestrator = Orchestrator(
+                load_config(config_path),
+                _offline_test_mode=True,
+            )
             result = orchestrator.run("test goal")
             run = orchestrator.store.get_run(result.run_id)
             tasks = orchestrator.store.tasks_for_run(result.run_id)

@@ -544,3 +544,24 @@ evidence.
 - Residual risk: a future real-Agent adapter may expose more machine context.
   That work requires a new privacy review and exact authorization.
 - Blocks development: no; real Agent qualification remains separately scoped.
+
+### PRIV-026: Python project-run API bypassed exact start approval
+
+- Date found: 2026-09-03
+- Channel: local `Orchestrator.run()` entry point
+- Priority: high
+- Data class: project goal, team binding and lifecycle evidence could be used
+  without the normal user-start approval
+- Status: mitigated for production entry points
+- Resolution:
+  - production `Orchestrator.run()` now rejects missing
+    `start_approval_id` before run creation or Adapter invocation;
+  - exact-goal, current-team and single-use checks remain delegated to the
+    Supervisor service;
+  - only an explicitly named private offline test mode remains for isolated
+    pipeline tests and is not exposed by CLI/Web.
+- Residual risk: the private test mode is technically callable by internal
+  Python code. Removing it requires migrating those tests to full synthetic
+  Supervisor approvals in a separate maintenance scope.
+- Blocks development: no; real Agent and external execution remain separately
+  scoped.

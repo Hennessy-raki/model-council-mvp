@@ -41,6 +41,11 @@ Board 18 is complete for one explicit local fake subprocess fixture only. It
 uses `shell=False`, stores bounded process evidence, and does not qualify a
 real Agent or authorize a new model call.
 
+Board 19 is complete for local project-run approval hardening. Production
+Python and CLI project-run entry points now fail closed without exact
+Supervisor approval; the private offline test mode is not a product entry
+point.
+
 The latest scope and completion reports are:
 
 ```text
@@ -81,6 +86,9 @@ docs/reports/2026-09-01-board-17b-agent-lifecycle-verification.md
 docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md
 docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md
 docs/reports/2026-09-01-board-18-next-session-handoff.md
+docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md
+docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
+docs/reports/2026-09-03-board-19-next-session-handoff.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

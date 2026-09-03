@@ -835,7 +835,7 @@ class InteroperabilityTests(unittest.TestCase):
             path.write_text(json.dumps(data), encoding="utf-8")
             config = load_config(path)
 
-            first = Orchestrator(config)
+            first = Orchestrator(config, _offline_test_mode=True)
             with self.assertRaisesRegex(RuntimeError, "all worker tasks failed"):
                 first.run("Design a synthetic local-only note system")
             adapter = first.adapters["codex_app"]
@@ -850,6 +850,7 @@ class InteroperabilityTests(unittest.TestCase):
             resumed = Orchestrator(
                 config,
                 outbound_manifest_by_agent={"codex_app": manifest["id"]},
+                _offline_test_mode=True,
             )
             result = resumed.run("Design a synthetic local-only note system")
             self.assertIn("Model Council", result.final_text)

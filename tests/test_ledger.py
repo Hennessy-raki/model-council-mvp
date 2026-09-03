@@ -230,7 +230,10 @@ class LedgerTests(unittest.TestCase):
                 },
                 workflow=True,
             )
-            orchestrator = Orchestrator(load_config(config_path))
+            orchestrator = Orchestrator(
+                load_config(config_path),
+                _offline_test_mode=True,
+            )
             result = orchestrator.run("ledger workflow")
 
             summary = orchestrator.ledger.summary(run_id=result.run_id)

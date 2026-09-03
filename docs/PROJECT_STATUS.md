@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-09-01
+Last updated: 2026-09-03
 
 ## Status boundary
 
@@ -39,7 +39,7 @@ multi-model execution service.
 | Workspace and repair | Isolated worktrees, permission gates, evidence-bound merge and bounded repair/recovery are implemented. | A real writing Agent needs a distinct outbound-context and workspace authorization. |
 | Product interface | Loopback approval/evidence views, comparison, backup/restore and release verification are implemented. | Electron packaging and broader operator workflows are deferred. |
 | Controlled real execution | Exact experiment and start approvals, integrity binding, strict no-approval handling, output/usage/token/cost gates and one terminal synthetic Manager success are implemented. | No repeat, repository context, tools, writes, Git, parallelism or new Provider call is authorized. |
-| Project-run authorization | Normal CLI `run` requires a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | Low-level library callers retain a compatibility path; real Agent lifecycle verification is deferred. |
+| Project-run authorization | Normal CLI and production Python `Orchestrator.run()` require a one-time approval bound to the current ready Supervisor team and exact goal; run provenance is persisted. | A private offline test harness remains for pipeline tests; real Agent lifecycle verification is deferred. |
 | Agent lifecycle verification | Deterministic local fixture transitions and bounded lifecycle evidence are persisted and projected through CLI/Web. | Real Agent start/connect/attach, remote validation and external model calls remain separately scoped. |
 | Local subprocess fixture | One explicit local command-array fixture can be started, observed, attached, detached and stopped with bounded evidence. | No real Agent, Provider, network or repository qualification. |
 
@@ -55,10 +55,11 @@ which requires a new frozen scope and exact authorization.
 2. **Board 17A — team lifecycle and project-run authorization**: complete for
    the local offline vertical slice. The normal CLI `run` now requires a
    one-time approval bound to the current ready Supervisor team and exact goal.
-3. **Next — real Agent lifecycle verification**: first extend readiness from
-   synthetic observations to one narrowly scoped local Agent fixture, then
-   consider a separately authorized read-only real Agent pilot.
-4. Artifact retention/purge, remote authentication/signing, generic context
+3. **Board 19 — project-run approval hardening**: complete; production CLI and
+   Python entry points now fail closed without exact approval.
+4. **Next — real Agent qualification**: requires a new frozen scope and exact
+   authorization; no external call is implied by Board 19.
+5. Artifact retention/purge, remote authentication/signing, generic context
    summarization and broader Provider coverage remain separate future scopes.
 
 Each future board must state its acceptance criteria, threat model, exclusions,
@@ -87,6 +88,13 @@ Board 18 plan, report and handoff:
 docs/reports/2026-09-01-board-18-local-subprocess-lifecycle-plan.md
 docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md
 docs/reports/2026-09-01-board-18-next-session-handoff.md
+```
+
+Board 19 plan and report:
+
+```text
+docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md
+docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
 ```
 
 ## Current quality gate

@@ -145,6 +145,17 @@ It uses argument-array `shell=False` process control and stores only bounded
 process markers, exit codes, reason codes and hashes. It does not qualify a
 real Agent or authorize a new model call.
 
+Board 19 closes the remaining production Python approval bypass:
+
+```text
+docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md
+docs/reports/2026-09-03-board-19-project-run-approval-hardening.md
+```
+
+`Orchestrator.run()` now fails closed without an exact project-run approval.
+Only an explicitly named private offline test mode can exercise the pipeline
+without a Supervisor approval; CLI and Web never enable it.
+
 Board 8 remains the verified live Codex milestone. Board 11 later added the
 single authorized DeepSeek synthetic evaluation described above. Board 8
 includes one functionally successful live synthetic Codex App Server run and
@@ -664,13 +675,13 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 18 development handoff is:
+The latest post-Board 19 development handoff is:
 
 ```text
-docs/reports/2026-09-01-board-18-next-session-handoff.md
+docs/reports/2026-09-03-board-19-next-session-handoff.md
 ```
 
-It records the current local commit, completed Board 18 scope, remaining
+It records the current local commit, completed Board 19 scope, remaining
 goal-alignment gaps, the recommended next board and the safe opening sequence.
 It does not authorize a new board, external call, runtime mutation or Artifact
 purge.

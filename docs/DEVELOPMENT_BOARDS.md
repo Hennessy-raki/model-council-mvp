@@ -356,3 +356,19 @@ Plan:
 
 Report:
 `docs/reports/2026-09-01-board-18-local-subprocess-lifecycle.md`
+
+### Board 19: Project-run approval hardening
+
+Status: complete for local offline control
+
+- production `Orchestrator.run()` requires `start_approval_id`;
+- missing approval fails closed before run creation or Adapter invocation;
+- existing exact-goal, snapshot, lifecycle-drift and single-use checks remain;
+- only a private explicit offline test mode bypasses approval for pipeline tests;
+- no Provider, model, network, repository, worktree, Git or Artifact authority.
+
+Plan:
+`docs/reports/2026-09-03-board-19-project-run-approval-hardening-plan.md`
+
+Report:
+`docs/reports/2026-09-03-board-19-project-run-approval-hardening.md`

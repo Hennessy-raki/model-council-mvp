@@ -115,6 +115,11 @@ exact project goal to a one-time project-run approval consumed by the normal
 CLI run entry point. It adds no external-call authority, Artifact cleanup,
 Provider, workspace or publishing behavior.
 
+Board 19 is complete: production Python and CLI project-run entry points now
+fail closed without the exact Supervisor approval. Only a private explicitly
+named offline test mode can exercise the collaboration pipeline without that
+approval; it is not a product entry point and adds no external-call authority.
+
 Interoperability state remains local and authoritative in SQLite. Non-loopback
 HTTP endpoints require HTTPS. Credentials are environment-variable references
 only. Every real App Server, A2A or MCP transport additionally requires

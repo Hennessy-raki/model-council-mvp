@@ -14,7 +14,7 @@ from .manager import Manager
 from .registry import RegistryService
 from .routing import RoutingService
 from .store import CouncilStore
-from .supervisor import SupervisorService
+from .supervisor import SupervisorError, SupervisorService
 from .types import AgentRequest, ArtifactRef, PlannedTask, RunStatus, TaskStatus
 
 
@@ -31,9 +31,11 @@ class Orchestrator:
         config: CouncilConfig,
         *,
         outbound_manifest_by_agent: dict[str, str] | None = None,
+        _offline_test_mode: bool = False,
     ):
         self.config = config
         self.outbound_manifest_by_agent = outbound_manifest_by_agent or {}
+        self._offline_test_mode = _offline_test_mode
         self.store = CouncilStore(config.state_dir / "council.db")
         self.registry = RegistryService(self.store)
         self.registry.sync_from_config(config)
@@ -72,6 +74,10 @@ class Orchestrator:
         *,
         start_approval_id: str | None = None,
     ) -> RunResult:
+        if start_approval_id is None and not self._offline_test_mode:
+            raise SupervisorError(
+                "project run requires a one-time Supervisor start approval"
+            )
         authorization = None
         if start_approval_id:
             authorization = SupervisorService(
