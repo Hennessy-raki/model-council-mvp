@@ -550,6 +550,58 @@ class SupervisorTests(unittest.TestCase):
         with self.assertRaises(SupervisorError):
             service.bind_qualification_preflight("manager", mismatched)
 
+    def test_runtime_preflight_scope_tamper_blocks_readiness_and_snapshot(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        service.bind_qualification_preflight("manager", self._qualification())
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                UPDATE supervisor_qualification_preflights
+                SET scope_json = ?
+                WHERE role_key = 'manager'
+                """,
+                (json.dumps({"kind": "tampered"}),),
+            )
+        report = service.check_role("manager")
+        self.assertEqual(report["status"], "not_ready")
+        self.assertEqual(
+            report["errors"][0]["code"],
+            "scope_digest_mismatch",
+        )
+        with self.assertRaises(SupervisorError):
+            service.snapshot()
+
+    def test_registry_identity_drift_blocks_current_preflight(self):
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="manager-model",
+            role="manager",
+        )
+        service = self._service()
+        service.bind_qualification_preflight("manager", self._qualification())
+        self.registry.upsert_agent(
+            "manager-agent",
+            adapter_type="cli",
+            provider_id="local-fake",
+            model_id="worker-model",
+            role="manager",
+        )
+        report = service.check_role("manager")
+        self.assertEqual(report["status"], "not_ready")
+        self.assertEqual(
+            report["errors"][0]["code"],
+            "registry_identity_drift",
+        )
+
     def test_changed_preflight_stales_pending_project_approval(self):
         self.registry.upsert_agent(
             "manager-agent",

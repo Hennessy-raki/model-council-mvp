@@ -33,6 +33,8 @@ multi-model execution service.
 - Board 22 is complete only for binding eligible preflight results to non-mock
   Supervisor roles and approval provenance; it does not qualify a real Agent
   or authorize a new model call.
+- Board 23 is complete only for local qualification provenance integrity and
+  revalidation; it does not qualify a real Agent or authorize a new model call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -134,6 +136,13 @@ Board 22 plan and acceptance report:
 ```text
 docs/reports/2026-09-03-board-22-qualification-binding-plan.md
 docs/reports/2026-09-03-board-22-qualification-binding.md
+```
+
+Board 23 plan and acceptance report:
+
+```text
+docs/reports/2026-09-09-board-23-qualification-integrity-plan.md
+docs/reports/2026-09-09-board-23-qualification-integrity.md
 ```
 
 Board 21 is complete for a pure local qualification preflight. It validates a

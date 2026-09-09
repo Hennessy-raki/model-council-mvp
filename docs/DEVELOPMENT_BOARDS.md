@@ -429,3 +429,19 @@ Plan:
 
 Report:
 `docs/reports/2026-09-03-board-22-qualification-binding.md`
+
+### Board 23: Qualification provenance integrity and revalidation
+
+Status: complete for the local offline Supervisor slice
+
+- revalidate stored qualification scope digests;
+- verify current Agent/Model/Provider registry identity and enabled state;
+- fail closed on tampering or identity drift before readiness or snapshot;
+- expose bounded integrity status through CLI and Web;
+- keep all external execution and private project context out of scope.
+
+Plan:
+`docs/reports/2026-09-09-board-23-qualification-integrity-plan.md`
+
+Report:
+`docs/reports/2026-09-09-board-23-qualification-integrity.md`

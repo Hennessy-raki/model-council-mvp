@@ -455,6 +455,20 @@ Plan:
 Report:
 `docs/reports/2026-09-03-board-22-qualification-binding.md`
 
+## Productization Board 23: Qualification provenance integrity
+
+Status: complete for the local offline Supervisor slice
+
+- revalidate qualification digests and registry identity before authorization;
+- fail closed on tampering or Agent/Model/Provider drift;
+- preserve local-only, approval-gated execution boundaries.
+
+Plan:
+`docs/reports/2026-09-09-board-23-qualification-integrity-plan.md`
+
+Report:
+`docs/reports/2026-09-09-board-23-qualification-integrity.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

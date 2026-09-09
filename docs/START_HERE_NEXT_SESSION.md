@@ -58,6 +58,9 @@ Board 22 is complete for binding eligible preflight results to non-mock
 Supervisor roles and approval provenance. It does not qualify a real Agent or
 authorize a new model call.
 
+Board 23 is complete for local qualification provenance integrity and
+revalidation. It does not qualify a real Agent or authorize a new model call.
+
 The latest scope and completion reports are:
 
 ```text
@@ -108,6 +111,8 @@ docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight-plan.md
 docs/reports/2026-09-03-board-21-offline-agent-qualification-preflight.md
 docs/reports/2026-09-03-board-22-qualification-binding-plan.md
 docs/reports/2026-09-03-board-22-qualification-binding.md
+docs/reports/2026-09-09-board-23-qualification-integrity-plan.md
+docs/reports/2026-09-09-board-23-qualification-integrity.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

@@ -2,7 +2,7 @@
 
 Date: 2026-09-03
 
-Status: handoff checkpoint after Board 22; no external-call authority is
+Status: historical handoff checkpoint after Board 22; no external-call authority is
 granted by this document.
 
 ## 1. Purpose of this handoff

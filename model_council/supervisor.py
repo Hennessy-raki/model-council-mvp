@@ -409,7 +409,12 @@ class SupervisorService:
                 """,
                 (role_key,),
             ).fetchone()
-        return _decode_qualification_preflight(row) if row is not None else None
+        if row is None:
+            return None
+        item = _decode_qualification_preflight(row)
+        integrity = self._qualification_integrity(item)
+        item.update(integrity)
+        return item
 
     def qualification_preflights(self) -> list[dict[str, Any]]:
         with self.store.connect() as conn:
@@ -419,7 +424,12 @@ class SupervisorService:
                 ORDER BY role_key
                 """
             ).fetchall()
-        return [_decode_qualification_preflight(row) for row in rows]
+        result = []
+        for row in rows:
+            item = _decode_qualification_preflight(row)
+            item.update(self._qualification_integrity(item))
+            result.append(item)
+        return result
 
     def bind_qualification_preflight(
         self,
@@ -508,6 +518,78 @@ class SupervisorService:
                 ),
             )
         return self.qualification_preflight(role_key)
+
+    def _qualification_integrity(
+        self,
+        preflight: dict[str, Any],
+    ) -> dict[str, Any]:
+        scope = preflight.get("scope")
+        if not isinstance(scope, dict):
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "scope_missing",
+            }
+        if _digest(scope) != preflight.get("scope_sha256"):
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "scope_digest_mismatch",
+            }
+        identity = scope.get("identity")
+        if not isinstance(identity, dict):
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "identity_missing",
+            }
+        for key in ("agent_id", "model_id", "provider_id"):
+            if identity.get(key) != preflight.get(key):
+                return {
+                    "integrity_status": "invalid",
+                    "integrity_code": "identity_record_mismatch",
+                }
+        with self.store.connect() as conn:
+            agent = conn.execute(
+                """
+                SELECT id, provider_id, model_id, enabled
+                FROM agent_profiles WHERE id = ?
+                """,
+                (preflight["agent_id"],),
+            ).fetchone()
+            model = conn.execute(
+                """
+                SELECT id, provider_id, enabled
+                FROM models WHERE id = ?
+                """,
+                (preflight["model_id"],),
+            ).fetchone()
+            provider = conn.execute(
+                "SELECT id, enabled FROM providers WHERE id = ?",
+                (preflight["provider_id"],),
+            ).fetchone()
+        if agent is None or model is None or provider is None:
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "registry_identity_missing",
+            }
+        if not bool(agent["enabled"]) or not bool(model["enabled"]) or not bool(
+            provider["enabled"]
+        ):
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "registry_identity_disabled",
+            }
+        if (
+            agent["provider_id"] != preflight["provider_id"]
+            or agent["model_id"] != preflight["model_id"]
+            or model["provider_id"] != preflight["provider_id"]
+        ):
+            return {
+                "integrity_status": "invalid",
+                "integrity_code": "registry_identity_drift",
+            }
+        return {
+            "integrity_status": "current",
+            "integrity_code": None,
+        }
 
     def transition_agent(self, role_key: str, operation: str) -> dict[str, Any]:
         """Run one deterministic local lifecycle transition."""
@@ -908,12 +990,17 @@ class SupervisorService:
             if (
                 preflight is None
                 or preflight["status"] != "current"
+                or preflight.get("integrity_status") != "current"
                 or preflight["agent_id"] != binding["agent_id"]
                 or preflight["model_id"] != binding["model_id"]
             ):
                 checks["qualification_preflight"] = {
                     "status": "failed",
-                    "code": "qualification_preflight_required",
+                    "code": (
+                        preflight.get("integrity_code")
+                        if preflight is not None
+                        else "qualification_preflight_required"
+                    ),
                     "details": {},
                 }
             else:
@@ -923,6 +1010,7 @@ class SupervisorService:
                     "details": {
                         "preflight_id": preflight["id"],
                         "scope_sha256": preflight["scope_sha256"],
+                        "integrity_status": preflight["integrity_status"],
                     },
                 }
 
@@ -1118,7 +1206,13 @@ class SupervisorService:
                             item["binding"]["role_key"]
                         )
                         or {}
-                    ).get("scope_sha256"),
+                        ).get("scope_sha256"),
+                    "qualification_preflight_integrity": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("integrity_status"),
                 }
                 for item in team
             ],
@@ -1459,6 +1553,18 @@ class SupervisorService:
                     f"{role_key} is not ready; run local team checks and resolve "
                     "all failures or requested confirmations"
                 )
+            if self._qualification_required(binding):
+                preflight = self.qualification_preflight(role_key)
+                if (
+                    preflight is None
+                    or preflight["status"] != "current"
+                    or preflight.get("integrity_status") != "current"
+                    or preflight["agent_id"] != binding["agent_id"]
+                    or preflight["model_id"] != binding["model_id"]
+                ):
+                    raise SupervisorError(
+                        f"{role_key} qualification preflight is stale or invalid"
+                    )
             result.append({"binding": binding, "report": report})
         return result
 
@@ -1498,7 +1604,13 @@ class SupervisorService:
                             item["binding"]["role_key"]
                         )
                         or {}
-                    ).get("scope_sha256"),
+                        ).get("scope_sha256"),
+                    "qualification_preflight_integrity": (
+                        self.qualification_preflight(
+                            item["binding"]["role_key"]
+                        )
+                        or {}
+                    ).get("integrity_status"),
                 }
                 for item in team
             ],

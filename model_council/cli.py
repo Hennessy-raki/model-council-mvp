@@ -1606,6 +1606,9 @@ def main(argv: list[str] | None = None) -> None:
                     "approvals": supervisor.approvals(),
                     "lifecycle_sessions": supervisor.lifecycle_sessions(),
                     "lifecycle_events": supervisor.lifecycle_events(),
+                    "qualification_preflights": (
+                        supervisor.qualification_preflights()
+                    ),
                     "manager_platform_events": supervisor.events(),
                 }
             elif args.supervisor_command == "check":
