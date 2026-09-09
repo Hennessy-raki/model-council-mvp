@@ -75,8 +75,8 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: a05af53 Revalidate qualification provenance integrity
-relative to origin/main: ahead 29
+HEAD: 5f38b5a Update Board 23 development handoff
+relative to origin/main: ahead 30
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
