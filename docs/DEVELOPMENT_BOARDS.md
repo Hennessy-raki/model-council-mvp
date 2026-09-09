@@ -445,3 +445,21 @@ Plan:
 
 Report:
 `docs/reports/2026-09-09-board-23-qualification-integrity.md`
+
+### Board 24: Real-Agent qualification authorization package
+
+Status: scope frozen; offline preparation only, implementation not started
+
+- define a deterministic, privacy-safe package for one future real-Agent
+  qualification request;
+- distinguish declared registry identity, observed evidence and user
+  confirmation;
+- bind command, working-directory category, read-only permissions, synthetic
+  context, limits and stale-on-drift provenance;
+- keep actual Agent execution and every external call separately authorized.
+
+Plan:
+`docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-plan.md`
+
+Freeze record:
+`docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md`

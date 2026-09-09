@@ -30,6 +30,40 @@ def default_config_path() -> Path:
     return Path(__file__).resolve().parent.parent / "config.example.json"
 
 
+def _doctor_public_value(key: str, value):
+    """Return a useful doctor projection without exposing machine paths."""
+    if key == "resolved_executable":
+        return {"available": bool(value)}
+    if key == "executable":
+        text = str(value) if value is not None else ""
+        path = Path(text)
+        if path.is_absolute() or "/" in text or "\\" in text:
+            return {
+                "configured": bool(text),
+                "name": path.name or "<configured executable>",
+            }
+        return text
+    return value
+
+
+def _doctor_public_diagnostics(diagnostics: dict[str, dict]) -> dict[str, dict]:
+    """Redact absolute executable and working-directory paths from doctor output."""
+    public: dict[str, dict] = {}
+    for agent, diagnostic in diagnostics.items():
+        item = dict(diagnostic)
+        if "cwd" in item:
+            cwd_exists = item.get("cwd_exists")
+            item["cwd"] = {
+                "configured": bool(item["cwd"]),
+                "exists": cwd_exists if isinstance(cwd_exists, bool) else None,
+            }
+        for key in ("executable", "resolved_executable"):
+            if key in item:
+                item[key] = _doctor_public_value(key, item[key])
+        public[agent] = item
+    return public
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="model-council",
@@ -1164,7 +1198,13 @@ def main(argv: list[str] | None = None) -> None:
                 name: adapter.diagnose()
                 for name, adapter in build_adapters(config).items()
             }
-            print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    _doctor_public_diagnostics(diagnostics),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
             if not all(item.get("ok", False) for item in diagnostics.values()):
                 raise SystemExit(2)
         elif args.command == "discovery":

@@ -469,6 +469,22 @@ Plan:
 Report:
 `docs/reports/2026-09-09-board-23-qualification-integrity.md`
 
+## Productization Board 24: Real-Agent qualification authorization package
+
+Status: scope frozen; offline preparation only, implementation not started
+
+- define an exact, hashable authorization package for one future Agent;
+- preserve read-only, synthetic-only, zero-file and zero-Artifact boundaries;
+- require actual-identity evidence and user confirmation before execution;
+- keep real Agent, Provider, model and external transport calls separately
+  authorized.
+
+Plan:
+`docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-plan.md`
+
+Freeze record:
+`docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md`
+
 ## Milestone 2: Persistent sessions and additional model families
 
 Status: core controls complete; further qualification deferred

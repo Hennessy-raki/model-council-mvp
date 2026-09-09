@@ -61,6 +61,10 @@ authorize a new model call.
 Board 23 is complete for local qualification provenance integrity and
 revalidation. It does not qualify a real Agent or authorize a new model call.
 
+Board 24 is scope-frozen for offline preparation of a real-Agent
+qualification authorization package. It does not start or qualify an Agent.
+Actual Model identity and the exact working directory remain unresolved.
+
 The latest scope and completion reports are:
 
 ```text
@@ -113,6 +117,8 @@ docs/reports/2026-09-03-board-22-qualification-binding-plan.md
 docs/reports/2026-09-03-board-22-qualification-binding.md
 docs/reports/2026-09-09-board-23-qualification-integrity-plan.md
 docs/reports/2026-09-09-board-23-qualification-integrity.md
+docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-plan.md
+docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md
 ```
 
 Board 12 adds the loopback-only product interface, unified approval center,

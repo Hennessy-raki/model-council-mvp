@@ -583,3 +583,25 @@ evidence.
 - Residual risk: future persistent Agent sessions need an explicit identity
   handshake and separately reviewed process-ownership design.
 - Blocks development: no; real Agent lifecycle remains separately scoped.
+
+### PRIV-028: Doctor diagnostics echoed absolute machine paths
+
+- Date found: 2026-09-09
+- Channel: local `doctor` CLI projection
+- Priority: medium
+- Data class: configured executable and working-directory paths containing
+  machine or user identity
+- Status: mitigated locally
+- Resolution:
+  - the public `doctor` projection now emits only executable availability,
+    executable name and working-directory existence metadata;
+  - absolute `cwd` and resolved executable values are no longer serialized to
+    stdout;
+  - internal Adapter diagnostics remain unchanged for local programmatic use;
+  - a regression test rejects the configured temporary absolute path in the
+    command output.
+- Residual risk: other diagnostic or discovery commands may still expose
+  machine paths if their output is expanded in a future board. Each such
+  projection requires the same privacy review.
+- Blocks development: no; real Agent qualification and external execution
+  remain separately scoped.

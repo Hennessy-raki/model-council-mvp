@@ -696,16 +696,16 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 23 development handoff is:
+The latest post-Board 24 development handoff is:
 
 ```text
-docs/reports/2026-09-03-development-handoff-next-session.md
+docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md
 ```
 
-It records the current local commit, completed Board 23 scope, remaining
-goal-alignment gaps, the requirements for a future real-Agent board and the
-safe opening sequence. It does not authorize a new board, external call,
-runtime mutation or Artifact purge.
+It records the frozen offline preparation scope after Board 23, the remaining
+goal-alignment gaps and the requirements for any future real-Agent execution.
+It does not authorize a process, external call, runtime mutation or Artifact
+purge.
 
 The earlier no-implementation continuation checkpoint for the candidate
 Artifact-retention policy work is recorded in:

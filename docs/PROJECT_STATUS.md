@@ -35,6 +35,9 @@ multi-model execution service.
   or authorize a new model call.
 - Board 23 is complete only for local qualification provenance integrity and
   revalidation; it does not qualify a real Agent or authorize a new model call.
+- Board 24 has a frozen scope for offline real-Agent qualification
+  authorization-package preparation; implementation and execution have not
+  started.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider
@@ -57,9 +60,9 @@ multi-model execution service.
 
 ## Board sequence after Board 15
 
-Board 17B, Board 18, Board 19, Board 20, Board 21 and Board 22 are complete for local
-control-plane slices. The remaining “Next” item below is real Agent
-qualification, which requires a new frozen scope and exact authorization.
+Board 17B, Board 18, Board 19, Board 20, Board 21, Board 22 and Board 23 are
+complete for local control-plane slices. Board 24 is frozen for offline
+preparation; real Agent qualification still requires exact authorization.
 
 1. **Board 16 — deterministic local transport-test reliability**: remains
    deferred unless the observed Windows socket interruption recurs under a
@@ -71,8 +74,9 @@ qualification, which requires a new frozen scope and exact authorization.
    Python entry points now fail closed without exact approval.
 4. **Board 20 — CLI local Agent lifecycle sequence**: complete for the local
    subprocess fixture slice.
-5. **Next — real Agent qualification**: requires a new frozen scope and exact
-   authorization; no external call is implied by Boards 20 or 21.
+5. **Board 24 — real-Agent qualification authorization package**: scope
+   frozen; implement only offline schema, projection and tests until exact
+   runtime identity and working directory can be separately authorized.
 6. Artifact retention/purge, remote authentication/signing, generic context
    summarization and broader Provider coverage remain separate future scopes.
 
@@ -145,10 +149,17 @@ docs/reports/2026-09-09-board-23-qualification-integrity-plan.md
 docs/reports/2026-09-09-board-23-qualification-integrity.md
 ```
 
-Board 21 is complete for a pure local qualification preflight. It validates a
-future Agent scope without loading project configuration, initializing runtime
-state, starting a process or authorizing a Provider/model call. Real Agent
-qualification remains the next separately frozen and authorized milestone.
+Board 24 plan and freeze record:
+
+```text
+docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-plan.md
+docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md
+```
+
+Board 24 is frozen for offline authorization-package preparation. It validates
+the review boundary for a future Agent scope without starting a process or
+authorizing a Provider/model call. Real Agent qualification remains separately
+authorized work.
 
 ## Current quality gate
 
