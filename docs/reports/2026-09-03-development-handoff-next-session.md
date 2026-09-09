@@ -1,8 +1,8 @@
 # Model Council Development Handoff — Next Session
 
-Date: 2026-09-03
+Date: 2026-09-09
 
-Status: historical handoff checkpoint after Board 22; no external-call authority is
+Status: handoff checkpoint after Board 23; no external-call authority is
 granted by this document.
 
 ## 1. Purpose of this handoff
@@ -75,8 +75,8 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: <CURRENT_LOCAL_COMMIT>
-relative to origin/main: ahead <CURRENT_AHEAD_COUNT>
+HEAD: a05af53 Revalidate qualification provenance integrity
+relative to origin/main: ahead 29
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
@@ -109,6 +109,8 @@ No push, tag or release has been performed.
   and bounded blockers without loading runtime state or starting anything.
 - Board 22: qualification preflight binding for non-mock roles, with snapshot
   and project-run approval provenance plus stale-on-drift handling.
+- Board 23: qualification provenance integrity and revalidation against the
+  stored digest and current Agent/Model/Provider registry.
 
 Key implementation areas:
 
@@ -123,10 +125,10 @@ scripts/privacy_scan.py           current-tree and reachable-history checks
 
 ## 6. Verification evidence
 
-The Board 22 quality gate is green:
+The Board 23 quality gate is green:
 
 ```text
-offline test suite: 148 tests passed
+offline test suite: 150 tests passed
 Python compilation: passed
 tracked JSON validation: 12 files passed
 current-tree privacy scan: passed
@@ -159,8 +161,8 @@ Artifact purge was performed.
 
 The next product-aligned candidate is a narrowly scoped real-Agent
 qualification board. Before changing code, the next session must write and
-review a new plan containing all of the following. Board 21's preflight is
-necessary preparation but is not execution authorization:
+review a new plan containing all of the following. Boards 21–23 are necessary
+preparation but are not execution authorization:
 
 - contribution to `docs/PROJECT_GOAL.md` and the exact lifecycle step advanced;
 - one named Agent, Model and Provider (or an explicit offline-only fixture);

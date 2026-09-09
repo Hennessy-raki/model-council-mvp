@@ -242,8 +242,8 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and forty tests after the
-Board 20 CLI local lifecycle coverage. The latest detailed continuation
+The complete offline suite contains one hundred and fifty tests after the
+Board 23 qualification integrity coverage. The latest detailed continuation
 checkpoint is:
 
 ```text

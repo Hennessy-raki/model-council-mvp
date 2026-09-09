@@ -696,13 +696,13 @@ approved; the declared schedule remains an estimate, not Provider billing.
 
 ## Latest continuation handoff
 
-The latest post-Board 21 development handoff is:
+The latest post-Board 23 development handoff is:
 
 ```text
 docs/reports/2026-09-03-development-handoff-next-session.md
 ```
 
-It records the current local commit, completed Board 21 scope, remaining
+It records the current local commit, completed Board 23 scope, remaining
 goal-alignment gaps, the requirements for a future real-Agent board and the
 safe opening sequence. It does not authorize a new board, external call,
 runtime mutation or Artifact purge.
