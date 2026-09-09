@@ -75,8 +75,9 @@ Verified at the start of this handoff:
 
 ```text
 branch: main
-HEAD: 5f38b5a Update Board 23 development handoff
-relative to origin/main: ahead 30
+Board 23 implementation checkpoint: a05af53 Revalidate qualification provenance integrity
+Current documentation may include later handoff-only commits; verify HEAD
+with `git log -1 --oneline` before continuing.
 tracked worktree: clean
 runtime-board14/config.local.json: present and ignored by runtime-*/
 ```
