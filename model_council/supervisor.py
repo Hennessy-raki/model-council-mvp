@@ -32,6 +32,18 @@ CANONICAL_LIFECYCLE_CHECKS = (
     "protocol",
     "connectivity",
 )
+# How an Agent authenticates decides whether the login check is meaningful. An
+# Agent driven by an API key has no interactive login state, so reporting
+# "unknown" for it would look like a missing fact and would hold a team at
+# not_ready forever.
+AUTH_MODE_API_KEY = "api_key"
+AUTH_MODE_INTERACTIVE_LOGIN = "interactive_login"
+AUTH_MODE_UNKNOWN = "unknown"
+AUTHENTICATION_MODES = (
+    AUTH_MODE_API_KEY,
+    AUTH_MODE_INTERACTIVE_LOGIN,
+    AUTH_MODE_UNKNOWN,
+)
 LIFECYCLE_STATES = {
     "configured",
     "starting",
@@ -1191,6 +1203,21 @@ class SupervisorService:
                 item = observed.get("connectivity")
             check = self._normalize_check(check_name, item)
             if (
+                check_name == "login"
+                and self._authentication_mode(binding["agent_id"])
+                == AUTH_MODE_API_KEY
+            ):
+                # A key-based Agent has no interactive login state to observe.
+                # Reporting "unknown" here would look like a missing fact and
+                # would keep the team permanently not ready, when in fact there
+                # is nothing to check. The check is recorded as not applicable
+                # rather than silently passed.
+                check = {
+                    "status": "not_applicable",
+                    "code": "login_not_applicable_for_api_key",
+                    "details": {"authentication_mode": AUTH_MODE_API_KEY},
+                }
+            if (
                 check_name == "model"
                 and check["status"] == "passed"
                 and check["details"].get("model_id") != binding["model_id"]
@@ -1223,6 +1250,19 @@ class SupervisorService:
             if isinstance(lifecycle_checks, dict):
                 for check_name in ("process", "login", "actual_model", "permission",
                                    "version", "protocol", "connectivity"):
+                    if (
+                        check_name == "login"
+                        and self._authentication_mode(binding["agent_id"])
+                        == AUTH_MODE_API_KEY
+                    ):
+                        checks[check_name] = {
+                            "status": "not_applicable",
+                            "code": "login_not_applicable_for_api_key",
+                            "details": {
+                                "authentication_mode": AUTH_MODE_API_KEY
+                            },
+                        }
+                        continue
                     item = lifecycle_checks.get(check_name)
                     if item is None and check_name == "actual_model":
                         item = lifecycle_checks.get("model")
@@ -1925,6 +1965,44 @@ class SupervisorService:
             item = dict(row)
             result.setdefault(item["check_name"], item)
         return result
+
+    def _authentication_mode(self, agent_id: str) -> str:
+        """Classify how one Agent authenticates.
+
+        Read from the persisted Agent configuration rather than assumed. A key
+        based Agent reports no login state, so the login check is not
+        applicable to it; anything else keeps the existing behaviour.
+        """
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT adapter_type, config_json FROM agent_profiles WHERE id = ?",
+                (agent_id,),
+            ).fetchone()
+        if row is None:
+            return AUTH_MODE_UNKNOWN
+        settings: dict[str, Any] = {}
+        raw = row["config_json"]
+        if isinstance(raw, str) and raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict):
+                settings = parsed
+        adapter_type = str(row["adapter_type"] or "")
+        if adapter_type == "openai_compatible":
+            if str(settings.get("api_key_env", "")).strip():
+                return AUTH_MODE_API_KEY
+            return AUTH_MODE_UNKNOWN
+        if adapter_type == "codex_app_server":
+            if str(settings.get("api_key_env", "")).strip():
+                return AUTH_MODE_API_KEY
+            return AUTH_MODE_INTERACTIVE_LOGIN
+        if adapter_type == "cli":
+            if str(settings.get("api_key_env", "")).strip():
+                return AUTH_MODE_API_KEY
+            return AUTH_MODE_INTERACTIVE_LOGIN
+        return AUTH_MODE_UNKNOWN
 
     def _normalize_check(
         self,

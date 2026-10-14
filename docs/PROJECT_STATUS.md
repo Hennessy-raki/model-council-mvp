@@ -65,10 +65,26 @@ multi-model execution service.
   can be recorded without being treated as invocable. Report:
   `docs/reports/2026-10-14-board-27-version-preference-and-discovery.md`.
 
-Measured state at 2026-10-14, after Board 27: 234 offline tests across 26 test
-files, 22320 lines under `model_council/`, 9726 lines under `tests/`, 173
-tracked files, 46 SQLite tables, 44 indexes and 33 recorded privacy entries.
-Re-measure these rather than trusting them; they change with every board.
+- Board 29 is complete for the local offline slice. It closes three gaps that
+  the first real Agent observation exposed: the OpenAI-compatible adapter now
+  records the service-reported model identity separately from the configured
+  one, the Supervisor classifies authentication mode so an API-key Agent's login
+  check is `not_applicable` rather than permanently unknown, and a provider may
+  declare that `/models` is unavailable so the connectivity probe uses the
+  completion endpoint instead of reporting a false failure. Report:
+  `docs/reports/2026-10-14-board-29-gaps-from-first-real-observation.md`.
+
+Measured state at 2026-10-14, after Board 29: 253 offline tests across 27 test
+files, 173 tracked files, 46 SQLite tables, 44 indexes and 33 recorded privacy
+entries. Re-measure these rather than trusting them; they change with every
+board.
+
+One real Agent observation was performed on 2026-10-14 under explicit operator
+authorization and is recorded in the Board 29 report. It confirmed process,
+version, permission, protocol and connectivity, could not obtain `actual_model`
+from a CLI-hosted Agent's output stream, and measured a fixed input-token
+overhead of about 16,000 tokens per call regardless of prompt size. The consumed
+call authorizes no further call.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider

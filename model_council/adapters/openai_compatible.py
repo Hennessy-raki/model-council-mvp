@@ -52,6 +52,15 @@ class OpenAICompatibleAdapter(AgentAdapter):
             settings.get("balance_currency", "USD")
         ).upper()
         self.invoke_enabled = bool(settings.get("invoke_enabled", False))
+        # Default true keeps the existing behaviour. Setting it false declares
+        # that this provider does not answer `/models`, so the connectivity probe
+        # must use the completion endpoint instead of reporting a false failure.
+        self.models_endpoint_available = bool(
+            settings.get("models_endpoint_available", True)
+        )
+        self.probe_prompt = str(
+            settings.get("probe_prompt", "Reply with the single word: ok")
+        )
         context_settings = settings.get("outbound_context")
         self.outbound_policy = (
             OutboundContextPolicy.from_settings(context_settings)
@@ -143,15 +152,68 @@ class OpenAICompatibleAdapter(AgentAdapter):
         content = self._extract_text(data)
         if not content.strip():
             raise RuntimeError(f"model {self.model!r} returned no text")
-        metadata: dict[str, Any] = {"model": self.model}
+        # Record both identities separately. The configured value is what the
+        # operator asked for; the observed value is what the service said it
+        # used. They are not the same claim, and a project rule forbids treating
+        # a configured value as evidence that it is the one actually serving
+        # requests.
+        observed_model = self._extract_reported_model(data)
+        metadata: dict[str, Any] = {
+            "model": self.model,
+            "configured_model": self.model,
+            "observed_model": observed_model,
+            "observed_model_source": (
+                "provider_response"
+                if isinstance(observed_model, str)
+                else MeasurementSource.UNAVAILABLE.value
+            ),
+        }
+        if isinstance(observed_model, str) and observed_model != self.model:
+            metadata["model_identity_mismatch"] = True
         usage = data.get("usage")
         if isinstance(usage, dict):
             metadata["usage"] = usage
             metadata["usage_source"] = MeasurementSource.PROVIDER_REPORTED.value
+            # Some providers report the serving model inside usage rather than
+            # at the top level, so check there too before declaring it unknown.
+            nested = usage.get("model") or usage.get("model_id")
+            if not isinstance(observed_model, str) and isinstance(nested, str):
+                metadata["observed_model"] = nested
+                metadata["observed_model_source"] = "provider_usage"
+                if nested != self.model:
+                    metadata["model_identity_mismatch"] = True
         cost = data.get("cost")
         if isinstance(cost, dict):
             metadata["cost"] = cost
+        prompt_tokens = self._prompt_tokens(usage)
+        if prompt_tokens is not None:
+            # The overhead between the bytes we sent and the tokens the service
+            # billed for is dominated by the host tool's own system prompt. It is
+            # recorded so a future budget scope does not size its input cap from
+            # the prompt length alone.
+            metadata["prompt_tokens"] = prompt_tokens
         return AgentResponse(content=content, metadata=metadata)
+
+    @staticmethod
+    def _extract_reported_model(data: Any) -> str | None:
+        """Read the model identity the service reports, if it reports one."""
+        if not isinstance(data, dict):
+            return None
+        for key in ("model", "model_id", "modelId", "model_name"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    @staticmethod
+    def _prompt_tokens(usage: Any) -> int | None:
+        if not isinstance(usage, dict):
+            return None
+        for key in ("input_tokens", "prompt_tokens"):
+            value = usage.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+        return None
 
     def render_outbound_prompt(self, request: AgentRequest) -> str:
         capabilities = ", ".join(self.card.capabilities) or "none declared"
@@ -274,18 +336,73 @@ class OpenAICompatibleAdapter(AgentAdapter):
         return result
 
     def connectivity_probe(self) -> dict[str, Any]:
+        """Check reachability of the endpoint this Agent actually uses.
+
+        Some providers answer `/models` with a rejection while serving requests
+        perfectly well. The first live observation on 2026-10-14 hit exactly
+        that: `/v1/models` returned 403, yet a real completion succeeded. A probe
+        that only knows how to call `/models` therefore reports a false failure,
+        so a provider may declare that `/models` is unavailable and let the probe
+        confirm reachability the same way a real call would. That path costs one
+        bounded request, which is why it has to be declared explicitly rather
+        than guessed.
+        """
+        if self.models_endpoint_available:
+            try:
+                models = self.discover_models()
+            except Exception as exc:  # noqa: BLE001
+                return {
+                    "status": ConnectivityStatus.FAILED.value,
+                    "details": {"error": type(exc).__name__},
+                }
+            return {
+                "status": ConnectivityStatus.PASSED.value,
+                "details": {
+                    "transport": "models_endpoint",
+                    "model_count": len(models),
+                },
+            }
+
+        api_key = os.environ.get(self.api_key_env)
+        if not api_key:
+            return {
+                "status": ConnectivityStatus.FAILED.value,
+                "details": {"error": "api_key_not_configured"},
+            }
+        if self.api_style == "responses":
+            url = f"{self.base_url}/responses"
+            payload = {"model": self.model, "input": self.probe_prompt}
+        else:
+            url = f"{self.base_url}/chat/completions"
+            payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": self.probe_prompt}],
+            }
+        raw = json.dumps(payload).encode("utf-8")
+        request = Request(
+            url,
+            data=raw,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
         try:
-            models = self.discover_models()
-        except Exception as exc:
+            data = self._read_json(request)
+        except Exception as exc:  # noqa: BLE001
             return {
                 "status": ConnectivityStatus.FAILED.value,
                 "details": {"error": type(exc).__name__},
             }
+        reported = self._extract_reported_model(data)
         return {
             "status": ConnectivityStatus.PASSED.value,
             "details": {
-                "transport": "models_endpoint",
-                "model_count": len(models),
+                "transport": "completion_endpoint",
+                "configured_model": self.model,
+                # The same probe answers what actually served the request.
+                "observed_model": reported,
             },
         }
 

@@ -163,6 +163,26 @@ python -m model_council ledger balance <PROVIDER_ID> --config config.example.jso
 账本分别标记 `actual`、`provider_reported`、`estimated` 和 `unavailable`。
 未知值不会被当成零；存在 hard budget 而历史消费不可度量时，下一次调用会被保守阻断。
 
+### 输入 token 底噪：工具型 Agent 约 1.6 万
+
+**这是实测结论，不是估算。** 2026-10-14 的一次真实观察：发给 `codex exec` 的
+prompt 只有 **78 字节**，而服务端实际计费的输入 token 是 **16,078**（其中
+15,232 命中缓存）。输出只有 12 token。
+
+差异几乎全部来自**宿主工具自己注入的系统提示和工具定义**——与你的任务大小无关。
+
+由此得出三条硬约束，未来任何真实调用范围都必须遵守：
+
+1. **`max_input_tokens` 必须 ≥ 20000**，否则必然 fail closed。这正是 Board 14
+   第五次实验失败的原因（报"完整输入用量超过冻结的总量上限"）；
+2. **不要用"prompt 字节数 × 系数"估算输入 token**，会低估两个数量级；
+   底噪是**每次调用固定**的，只有超过底噪的部分才随任务增长；
+3. **缓存命中不能当作预算依据**。这次命中了 15,232 token，但缓存是否命中不由我们
+   控制，**预算必须按未缓存的量算**。
+
+适配器会把服务端回报的 `prompt_tokens` 记进调用元数据的 `prompt_tokens` 字段，
+所以每次调用之后都能核对当次底噪是多少，不必依赖这条记录。
+
 初始化并查看设置注册中心：
 
 ```powershell
@@ -778,6 +798,25 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - `chat_completions`
 
 并非所有声称兼容 OpenAI API 的服务都完整支持这两种接口，需要按提供商实际行为验证。
+
+**`/models` 端点不可用的 Provider**：有些服务对 `/models` 直接返回拒绝（实测遇到过
+403 + Cloudflare 1010），但完成请求完全正常。这种情况把
+`models_endpoint_available` 设为 `false`，连通性检查就会改用补全端点，而不是报一个
+假的失败：
+
+```json
+{
+  "base_url": "https://provider.example/v1",
+  "model": "model-name",
+  "api_key_env": "PROVIDER_API_KEY",
+  "api_style": "responses",
+  "models_endpoint_available": false
+}
+```
+
+这个模式下的探针**会发一次有界的真实补全请求**，所以它是显式声明而非默认行为。
+好处是它顺带回答"实际服务的是哪个模型"——响应里的 `model` 字段会被记为
+`observed_model`，与 `configured_model` 分开保存。
 
 ## 安全边界
 
