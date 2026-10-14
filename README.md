@@ -724,6 +724,41 @@ python -m model_council supervisor observation-probe `
 磁盘和工具。它改变的是**信任边界**：记录不再建立在自由格式的调用方 JSON 上，
 任何来源凭证的不一致都可被检出。声称"伪造已不可能"是假的。
 
+### 两种探测，以及本机诚实的上限
+
+| 探测 | 能确立 | 代价 |
+|---|---|---|
+| **版本探测** | `process`、`version` | 零成本，不发外部请求 |
+| **真实回合** | `process`、`protocol`、`connectivity`（`version` 需另测） | **一次真实模型调用** |
+
+真实回合由服务自己构造参数：prompt 是模块内固定的合成 token 任务，**调用方不能替换**；
+并且强制 `--sandbox read-only`、`--ephemeral`、跳过仓库检查、关闭附加子系统。响应文本
+**只用于分类，从不留存**。
+
+两者可以合并成一份记录（`combine_probe_records`），合并后取**最旧**的测量时间——
+更早测到的事实不能靠后一次探测变新。合并**只接受探测产出**，因为把收据和声称混在一起
+就毁了整份记录。
+
+**本机实测结果（2026-10-14，真实 codex 0.154.0）**：
+
+```
+observed : process(exit_code=0)  version(0.154.0)  protocol(jsonl_events=3)
+           connectivity(synthetic_token_returned)
+unknown  : actual_model   permission
+n/a      : login
+prompt_tokens: 16046
+```
+
+两个事实**有意保持 unknown**：
+
+- **`actual_model`** —— Codex 的事件流里**没有模型字段**，而配置的中转站端点
+  对直接请求返回 Cloudflare 403，所以服务端侧的模型身份也拿不到。**本机无法从任一侧观测它。**
+  填成配置值正是项目第一条原则禁止的事。
+- **`permission`** —— 运行请求的是只读，但**工具没有回报实际沙箱**。
+  把请求值记成观测值是对工具下的断言，不是测量。
+
+这就是本机诚实的上限：**七个事实里四个可观测，两个不可观测，一个不适用。**
+
 ## Agent 版本与发现目录
 
 发现目录是**配置数据**，不是代码。加一个工具不需要改模块：

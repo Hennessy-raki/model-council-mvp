@@ -10,9 +10,12 @@ from model_council.observation import (
     OBSERVATION_KIND,
     PROVENANCE_OPERATOR_AUTHORED,
     PROVENANCE_PROBE,
+    TURN_PROMPT,
     ObservationError,
     ObservationProbeService,
     ObservationService,
+    ObservationTurnService,
+    combine_probe_records,
     run_probe_command,
 )
 from model_council.registry import RegistryService
@@ -720,6 +723,321 @@ class ObservationProjectionTests(unittest.TestCase):
             ["supervisor", "show", "--config", str(self.config_path)]
         )
         self.assertEqual(len(full["observation_records"]), 1)
+
+
+def turn_runner(
+    *,
+    exit_code=0,
+    token="OBSERVE-20261014-OK",
+    event_types=("thread.started", "turn.started", "item.completed", "turn.completed"),
+    usage=None,
+    started_at=None,
+    finished_at=None,
+):
+    """A fake turn runner that mimics a captured Codex event stream."""
+
+    def run(executable, executable_arguments):
+        import hashlib
+        import json as _json
+
+        command = [executable, *executable_arguments]
+        events = []
+        for kind in event_types:
+            event = {"type": kind}
+            if kind == "item.completed" and token is not None:
+                event["item"] = {"id": "item_0", "type": "agent_message", "text": token}
+            if kind == "turn.completed" and usage is not None:
+                event["usage"] = usage
+            events.append(event)
+        raw = ("\n".join(_json.dumps(e) for e in events) + "\n").encode("utf-8")
+        return {
+            "exit_code": exit_code,
+            "started_at": started_at or measured_at(0),
+            "finished_at": finished_at or measured_at(0),
+            "events": events,
+            "output_sha256": hashlib.sha256(raw).hexdigest(),
+            "command_digest": hashlib.sha256(
+                _json.dumps(command, ensure_ascii=False).encode("utf-8")
+            ).hexdigest(),
+            "stderr_bytes": 0,
+        }
+
+    return run
+
+
+def turn_record(service=None, **kwargs):
+    runner_kwargs = {
+        key: kwargs.pop(key)
+        for key in list(kwargs)
+        if key in {
+            "exit_code",
+            "token",
+            "event_types",
+            "usage",
+            "started_at",
+            "finished_at",
+        }
+    }
+    service = service or ObservationTurnService()
+    return service.turn(
+        agent_id=kwargs.pop("agent_id", "manager-agent"),
+        model_id=kwargs.pop("model_id", "manager-model"),
+        provider_id=kwargs.pop("provider_id", PROVIDER),
+        executable=kwargs.pop("executable", "probe-tool"),
+        max_age_seconds=kwargs.pop("max_age_seconds", 604800),
+        authentication_mode=kwargs.pop("authentication_mode", "api_key"),
+        runner=turn_runner(**runner_kwargs),
+    )
+
+
+class TurnObservationTests(unittest.TestCase):
+    """A real turn establishes more than a version query, but not everything."""
+
+    def setUp(self):
+        self.service = ObservationTurnService()
+
+    def test_a_completed_turn_establishes_process_protocol_and_connectivity(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(
+                usage={"input_tokens": 18049, "output_tokens": 12}
+            ),
+        )
+        self.assertEqual(result["status"], "recorded")
+        summary = result["summary"]
+        self.assertIn("process", summary["observed"])
+        self.assertIn("protocol", summary["observed"])
+        self.assertIn("connectivity", summary["observed"])
+        self.assertEqual(summary["not_applicable"], ["login"])
+
+    def test_the_model_identity_is_never_filled_in_from_configuration(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(),
+        )
+        fact = result["record"]["facts"]["actual_model"]
+        self.assertEqual(fact["status"], "unknown")
+        self.assertIsNone(fact["value"])
+        self.assertIsNone(fact["source"])
+
+    def test_a_wrong_answer_does_not_establish_connectivity(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(token="SOMETHING-ELSE"),
+        )
+        self.assertNotIn("connectivity", result["summary"]["observed"])
+        self.assertIn("connectivity", result["summary"]["unknown"])
+
+    def test_a_missing_answer_does_not_establish_connectivity(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(token=None),
+        )
+        self.assertNotIn("connectivity", result["summary"]["observed"])
+
+    def test_a_silent_tool_leaves_permission_unknown(self):
+        # The run is requested read-only, but the requested value is not the
+        # observed one, so it is not recorded as observed.
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(),
+        )
+        self.assertEqual(
+            result["record"]["facts"]["permission"]["status"],
+            "unknown",
+        )
+
+    def test_the_measurement_time_is_the_turn_finish_time(self):
+        moment = measured_at(-500)
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(started_at=moment, finished_at=moment),
+        )
+        self.assertEqual(result["record"]["measured_at"], moment)
+
+    def test_the_prompt_is_owned_by_the_service_not_the_caller(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(),
+        )
+        provenance = result["record"]["provenance"]
+        self.assertEqual(provenance["mode"], "real_turn")
+        self.assertEqual(
+            provenance["prompt_sha256"],
+            __import__("hashlib").sha256(
+                TURN_PROMPT.encode("utf-8")
+            ).hexdigest(),
+        )
+        self.assertEqual(provenance["prompt_bytes"], len(TURN_PROMPT.encode("utf-8")))
+
+    def test_token_counts_are_recorded_and_survive_the_sensitive_key_filter(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(
+                usage={"input_tokens": 18049, "output_tokens": 12}
+            ),
+        )
+        evidence = result["record"]["evidence"]
+        self.assertEqual(evidence["prompt_tokens"], 18049)
+        self.assertEqual(evidence["output_tokens"], 12)
+
+    def test_the_command_is_built_by_the_service(self):
+        captured = {}
+
+        def recording_runner(executable, executable_arguments):
+            base = turn_runner()(executable, executable_arguments)
+            captured["executable"] = executable
+            captured["arguments"] = executable_arguments
+            return base
+
+        self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            executable_arguments=("--config-profile", "x"),
+            runner=recording_runner,
+        )
+        self.assertEqual(captured["executable"], "probe-tool")
+        self.assertEqual(captured["arguments"], ("--config-profile", "x"))
+
+    def test_a_probe_failure_is_recorded_without_a_matching_token(self):
+        result = self.service.turn(
+            agent_id="manager-agent",
+            model_id="manager-model",
+            provider_id=PROVIDER,
+            executable="probe-tool",
+            runner=turn_runner(exit_code=1, token=None, event_types=()),
+        )
+        self.assertNotIn("connectivity", result["summary"]["observed"])
+        self.assertNotIn("protocol", result["summary"]["observed"])
+        self.assertIn("process", result["summary"]["observed"])
+
+
+class CombineProbeRecordsTests(unittest.TestCase):
+    """Merging receipts is allowed; merging a claim with a receipt is not."""
+
+    def test_two_receipts_combine_into_the_union_of_their_facts(self):
+        version_result = probe_record()
+        turn_result = turn_record()
+        combined = combine_probe_records([version_result, turn_result])
+
+        self.assertEqual(combined["status"], "recorded")
+        observed = combined["summary"]["observed"]
+        for name in ("process", "version", "protocol", "connectivity"):
+            self.assertIn(name, observed)
+        self.assertIn("actual_model", combined["summary"]["unknown"])
+        self.assertEqual(
+            combined["record"]["provenance"]["mode"],
+            "combined_probes",
+        )
+
+    def test_the_combined_record_is_as_fresh_as_its_oldest_input(self):
+        older = measured_at(-4000)
+        newer = measured_at(-100)
+        combined = combine_probe_records(
+            [
+                probe_record(started_at=older, finished_at=older),
+                turn_record(started_at=newer, finished_at=newer),
+            ]
+        )
+        self.assertEqual(combined["record"]["measured_at"], older)
+
+    def test_a_caller_supplied_record_cannot_be_merged(self):
+        claimed = ObservationService().build(submission())
+        with self.assertRaises(ObservationError) as caught:
+            combine_probe_records([claimed, probe_record()])
+        self.assertIn("probe-produced", str(caught.exception))
+
+    def test_a_tampered_input_is_refused(self):
+        good = probe_record()
+        forged = dict(good)
+        forged["record_sha256"] = "0" * 64
+        with self.assertRaises(ObservationError):
+            combine_probe_records([forged])
+
+    def test_mismatched_identities_are_refused(self):
+        with self.assertRaises(ObservationError) as caught:
+            combine_probe_records(
+                [
+                    probe_record(),
+                    turn_record(agent_id="worker-agent", model_id="worker-model"),
+                ]
+            )
+        self.assertIn("different identity", str(caught.exception))
+
+    def test_an_empty_or_invalid_input_is_refused(self):
+        for value in ([], "nope", [None]):
+            with self.subTest(value=value):
+                with self.assertRaises(ObservationError):
+                    combine_probe_records(value)
+
+    def test_the_provenance_keeps_each_contributing_digest(self):
+        version_result = probe_record()
+        turn_result = turn_record()
+        combined = combine_probe_records([version_result, turn_result])
+        contributing = combined["record"]["provenance"]["contributing_records"]
+        self.assertEqual(len(contributing), 2)
+        digests = {item["record_sha256"] for item in contributing}
+        self.assertEqual(
+            digests,
+            {version_result["record_sha256"], turn_result["record_sha256"]},
+        )
+
+    def test_a_combined_record_binds_and_reads_back_as_current(self):
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        store = CouncilStore(Path(temp.name) / "c.db")
+        registry = RegistryService(store)
+        registry.upsert_provider(PROVIDER, display_name="L", kind="local")
+        registry.upsert_model("manager-model", provider_id=PROVIDER, display_name="M")
+        registry.upsert_agent(
+            "manager-agent",
+            adapter_type="mock",
+            provider_id=PROVIDER,
+            model_id="manager-model",
+            role="manager",
+        )
+        supervisor = SupervisorService(store, registry)
+        supervisor.configure_role(
+            role_key="manager",
+            agent_id="manager-agent",
+            model_id="manager-model",
+            launch_mode="spawn",
+            transport="cli",
+            check_profile={"fixture": "local"},
+        )
+        combined = combine_probe_records([probe_record(), turn_record()])
+        bound = supervisor.bind_observation_record("manager", combined)
+        self.assertEqual(bound["integrity_status"], "current")
+        self.assertEqual(
+            bound["record"]["provenance"]["mode"],
+            "combined_probes",
+        )
 
 
 if __name__ == "__main__":

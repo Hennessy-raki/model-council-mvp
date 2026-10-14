@@ -57,8 +57,31 @@ PROBE_CANNOT_ESTABLISH = (
     "connectivity",
 )
 
+# A real turn can establish more, but still not the model identity: the Codex CLI
+# stream carries no model field, and the relay endpoint rejects a direct request
+# with a Cloudflare interstitial, so the serving model cannot be observed from
+# either side on this machine. That limitation is data, not an omission.
+TURN_PROVIDES = (
+    "process",
+    "version",
+    "permission",
+    "protocol",
+    "connectivity",
+)
+TURN_CANNOT_ESTABLISH = ("actual_model",)
+
+# The prompt is owned by this module rather than supplied by the caller. A
+# reproducibility guarantee is worthless if the caller can choose what was sent,
+# and a fixed synthetic prompt is what makes the record comparable across runs.
+TURN_PROMPT = (
+    "Return exactly the following ASCII token and nothing else: OBSERVE-20261014-OK"
+)
+TURN_EXPECTED_TOKEN = "OBSERVE-20261014-OK"
+
 PROBE_TIMEOUT_SECONDS = 30
+TURN_TIMEOUT_SECONDS = 180
 PROBE_OUTPUT_LIMIT_BYTES = 65536
+TURN_OUTPUT_LIMIT_BYTES = 262144
 
 # Facts that can be observed without contacting anything.
 OFFLINE_FACTS = (
@@ -376,6 +399,7 @@ class ObservationService:
             "output_bytes",
             "prompt_tokens",
             "output_tokens",
+            "prompt_token_sources",
             "thread_id",
             "exit_code",
         }
@@ -426,7 +450,13 @@ class ObservationService:
             "max_total_tokens",
             "prompt_tokens",
             "output_tokens",
+            "prompt_token_sources",
+            "token_source",
+            "token_sources",
         }:
+            # Token counts are measurements, not credentials. They are named
+            # explicitly so the substring check below cannot mistake them for a
+            # secret, which it otherwise does because the word contains "token".
             return False
         return any(
             part in normalized
@@ -450,6 +480,379 @@ class ObservationService:
             separators=(",", ":"),
         )
         return sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def run_turn_command(
+    executable: str,
+    executable_arguments: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Run one bounded, read-only real turn and capture its event stream.
+
+    The argument list is built here, not by the caller. That matters for two
+    reasons: the prompt cannot be swapped for something that carries project
+    content, and the read-only, ephemeral, no-repository flags cannot be
+    relaxed by whoever asks for the observation.
+
+    The tool's response text is parsed for classification only. It is never
+    stored: the record keeps hashes, byte counts and the one synthetic token the
+    task asked for.
+    """
+    from .store import utc_now
+
+    command = [
+        executable,
+        *executable_arguments,
+        "exec",
+        "--json",
+        "--ephemeral",
+        "--skip-git-repo-check",
+        "--sandbox",
+        "read-only",
+        "--color",
+        "never",
+        # Close the optional subsystems that made unauthenticated catalog
+        # requests during the first live pilot.
+        "--disable",
+        "plugins",
+        "--disable",
+        "remote_plugin",
+        "--disable",
+        "apps",
+    ]
+    command_digest = sha256(
+        json.dumps(command, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    started_at = utc_now()
+    try:
+        completed = subprocess.run(
+            command,
+            input=TURN_PROMPT.encode("utf-8"),
+            shell=False,
+            capture_output=True,
+            timeout=TURN_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {
+            "exit_code": None,
+            "started_at": started_at,
+            "finished_at": utc_now(),
+            "events": [],
+            "output_sha256": sha256(b"").hexdigest(),
+            "command_digest": command_digest,
+            "error": "turn_failed",
+        }
+    raw = (completed.stdout or b"")[:TURN_OUTPUT_LIMIT_BYTES]
+    events: list[dict[str, Any]] = []
+    for line in raw.decode("utf-8", "replace").splitlines():
+        candidate = line.strip()
+        if not candidate.startswith("{"):
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            events.append(parsed)
+    return {
+        "exit_code": completed.returncode,
+        "started_at": started_at,
+        "finished_at": utc_now(),
+        "events": events,
+        "output_sha256": sha256(raw).hexdigest(),
+        "command_digest": command_digest,
+        "stderr_bytes": len(completed.stderr or b""),
+    }
+
+
+def combine_probe_records(
+    results: list[dict[str, Any]],
+    *,
+    max_age_seconds: int = 604800,
+) -> dict[str, Any]:
+    """Merge several probe records for one identity into a single record.
+
+    A version query establishes two facts and a real turn establishes three, and
+    neither covers the union. Merging them is legitimate because both are
+    receipts from processes this system ran; it is not legitimate to merge a
+    receipt with a caller-supplied claim, so every input must be probe-produced
+    and every input is checked to carry the same identity.
+
+    The provenance keeps each contributing record's own digests, so a merged
+    record still says where every fact came from.
+    """
+    service = ObservationService()
+    if not isinstance(results, list) or not results:
+        raise ObservationError("combining requires at least one probe result")
+    records: list[dict[str, Any]] = []
+    for index, result in enumerate(results):
+        if not isinstance(result, dict):
+            raise ObservationError(f"merge input {index} is not an object")
+        record = result.get("record")
+        digest = result.get("record_sha256")
+        if not isinstance(record, dict) or not isinstance(digest, str):
+            raise ObservationError(f"merge input {index} is incomplete")
+        if not service.verify(record, digest):
+            raise ObservationError(f"merge input {index} has an invalid digest")
+        provenance = record.get("provenance")
+        if (
+            not isinstance(provenance, dict)
+            or provenance.get("kind") != PROVENANCE_PROBE
+        ):
+            raise ObservationError(
+                f"merge input {index} is not probe-produced; only receipts may "
+                "be merged"
+            )
+        records.append(record)
+
+    identity = records[0].get("identity")
+    if not isinstance(identity, dict):
+        raise ObservationError("merge input has no identity")
+    for index, record in enumerate(records[1:], start=1):
+        if record.get("identity") != identity:
+            raise ObservationError(
+                f"merge input {index} has a different identity"
+            )
+
+    merged: dict[str, dict[str, Any]] = {
+        name: {"status": STATUS_UNKNOWN, "source": None}
+        for name in CANONICAL_LIFECYCLE_CHECKS
+    }
+    measured_at = ""
+
+    def better(candidate: dict[str, Any], current: dict[str, Any]) -> bool:
+        # A concrete observation wins over a placeholder; a second concrete
+        # value does not silently overwrite the first, because two probes
+        # disagreeing is a fact worth surfacing rather than resolving.
+        if current.get("status") == STATUS_OBSERVED:
+            return False
+        if candidate.get("status") == STATUS_OBSERVED:
+            return True
+        if candidate.get("status") == STATUS_NOT_APPLICABLE:
+            return current.get("status") == STATUS_UNKNOWN
+        return False
+
+    for record in records:
+        facts = record.get("facts")
+        if isinstance(facts, dict):
+            for name, item in facts.items():
+                if name not in merged or not isinstance(item, dict):
+                    continue
+                if better(item, merged[name]):
+                    merged[name] = dict(item)
+        candidate_time = record.get("measured_at")
+        if isinstance(candidate_time, str) and candidate_time:
+            # The combined record is only as fresh as its oldest input, because
+            # a fact measured earlier cannot be made current by a later probe.
+            if measured_at == "" or candidate_time < measured_at:
+                measured_at = candidate_time
+
+    digests = [
+        {
+            "kind": record.get("provenance", {}).get("mode", "version_probe"),
+            "record_sha256": result["record_sha256"],
+            "measured_at": record.get("measured_at"),
+        }
+        for record, result in zip(records, results)
+    ]
+    evidence: dict[str, Any] = {"retained": False}
+    prompt_tokens = [
+        record.get("evidence", {}).get("prompt_tokens")
+        for record in records
+        if isinstance(record.get("evidence"), dict)
+    ]
+    observed_prompt_tokens = [
+        value for value in prompt_tokens if isinstance(value, int)
+    ]
+    if observed_prompt_tokens:
+        evidence["prompt_tokens"] = max(observed_prompt_tokens)
+        evidence["prompt_token_sources"] = len(observed_prompt_tokens)
+    return service._build(
+        {
+            "agent_id": identity.get("agent_id"),
+            "model_id": identity.get("model_id"),
+            "provider_id": identity.get("provider_id"),
+            "measured_at": measured_at,
+            "facts": merged,
+            "evidence": evidence,
+        },
+        max_age_seconds=max_age_seconds,
+        provenance={
+            "kind": PROVENANCE_PROBE,
+            "mode": "combined_probes",
+            "contributing_records": digests,
+            "contributed": len(records),
+        },
+    )
+
+
+class ObservationTurnService(ObservationService):
+    """Produce a record from one real, read-only, synthetic turn.
+
+    The probe service establishes two facts because a version query reveals two.
+    A real turn reveals more, and this service derives them from the captured
+    event stream: the process exit, the sandbox the tool actually reported, the
+    protocol it actually spoke, and whether the synthetic token came back.
+
+    It does not establish the model identity, because the stream does not carry
+    one. Rather than filling that in from configuration, the fact is left
+    unknown, which is the only honest answer available on this machine.
+    """
+
+    def turn(
+        self,
+        *,
+        agent_id: str,
+        model_id: str,
+        provider_id: str,
+        executable: str,
+        executable_arguments: tuple[str, ...] = (),
+        max_age_seconds: int = 604800,
+        runner: Any = None,
+        authentication_mode: str = "api_key",
+    ) -> dict[str, Any]:
+        if not isinstance(executable, str) or not executable.strip():
+            raise ObservationError("a turn probe requires an executable path")
+        run = runner or run_turn_command
+        captured = run(executable, executable_arguments)
+        if not isinstance(captured, dict):
+            raise ObservationError("a turn runner must return an object")
+
+        exit_code = captured.get("exit_code")
+        started_at = captured.get("started_at")
+        finished_at = captured.get("finished_at")
+        output_sha256 = captured.get("output_sha256")
+        command_digest = captured.get("command_digest")
+        events = captured.get("events")
+        if not isinstance(output_sha256, str) or not isinstance(
+            command_digest, str
+        ):
+            raise ObservationError("a turn runner must report both digests")
+        if not isinstance(started_at, str) or not isinstance(finished_at, str):
+            raise ObservationError("a turn runner must report its own times")
+        if not isinstance(events, list):
+            events = []
+
+        observed_kinds = set()
+        token_returned = False
+        token_mismatch = False
+        usage: dict[str, Any] = {}
+        sandbox = None
+        protocol_events = 0
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            kind = event.get("type")
+            if isinstance(kind, str):
+                observed_kinds.add(kind)
+            if kind in ("thread.started", "turn.started", "turn.completed"):
+                protocol_events += 1
+            if kind == "turn.completed":
+                candidate = event.get("usage")
+                if isinstance(candidate, dict):
+                    usage = candidate
+            payload = event.get("item")
+            if isinstance(payload, dict) and payload.get("type") == "agent_message":
+                text = payload.get("text")
+                if isinstance(text, str):
+                    if text.strip() == TURN_EXPECTED_TOKEN:
+                        token_returned = True
+                    else:
+                        token_mismatch = True
+            for source in (event, payload):
+                if not isinstance(source, dict):
+                    continue
+                sandbox_value = source.get("sandbox")
+                if isinstance(sandbox_value, str) and sandbox_value:
+                    sandbox = sandbox_value
+                if "sandbox" in source and isinstance(source["sandbox"], str):
+                    sandbox = source["sandbox"]
+
+        facts: dict[str, dict[str, Any]] = {
+            name: {"status": STATUS_UNKNOWN, "source": None}
+            for name in CANONICAL_LIFECYCLE_CHECKS
+        }
+        if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+            facts["process"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_LOCAL_PROCESS,
+                "value": f"exit_code={exit_code}",
+            }
+        if protocol_events:
+            facts["protocol"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_TOOL_OUTPUT,
+                "value": f"jsonl_events={protocol_events}",
+            }
+        if token_returned and not token_mismatch:
+            # The turn completed and answered the one synthetic question, so the
+            # path from prompt to response was exercised. This is connectivity
+            # evidence, not model-identity evidence.
+            facts["connectivity"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_SERVICE_RESPONSE,
+                "value": "synthetic_token_returned",
+            }
+        if isinstance(sandbox, str):
+            facts["permission"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_TOOL_OUTPUT,
+                "value": sandbox,
+            }
+        else:
+            # The run was requested read-only and the tool did not echo the
+            # sandbox. Recording the requested value as observed would be a
+            # claim about the tool, so it stays unknown.
+            facts["permission"] = {"status": STATUS_UNKNOWN, "source": None}
+        if authentication_mode == "api_key":
+            facts["login"] = {"status": STATUS_NOT_APPLICABLE, "source": None}
+        if not token_returned:
+            # A turn that produced no matching answer did not exercise the path,
+            # so connectivity is not established even if the process exited.
+            facts["connectivity"] = {"status": STATUS_UNKNOWN, "source": None}
+        # `actual_model` is deliberately left unknown: the event stream carries
+        # no model field, and a configured model is not evidence about which one
+        # served the request.
+        facts["actual_model"] = {"status": STATUS_UNKNOWN, "source": None}
+
+        prompt_tokens = usage.get("input_tokens") if isinstance(usage, dict) else None
+        output_tokens = usage.get("output_tokens") if isinstance(usage, dict) else None
+        evidence = {
+            "retained": False,
+            "exit_code": exit_code if isinstance(exit_code, int) else None,
+            "prompt_tokens": (
+                prompt_tokens if isinstance(prompt_tokens, int) else None
+            ),
+            "output_tokens": (
+                output_tokens if isinstance(output_tokens, int) else None
+            ),
+        }
+        provenance = {
+            "kind": PROVENANCE_PROBE,
+            "mode": "real_turn",
+            "command_digest": command_digest,
+            "output_sha256": output_sha256,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "prompt_sha256": sha256(
+                TURN_PROMPT.encode("utf-8")
+            ).hexdigest(),
+            "prompt_bytes": len(TURN_PROMPT.encode("utf-8")),
+            "event_count": len(events),
+            "event_types": sorted(observed_kinds),
+            "argument_count": len(executable_arguments),
+        }
+        return self._build(
+            {
+                "agent_id": agent_id,
+                "model_id": model_id,
+                "provider_id": provider_id,
+                "measured_at": finished_at,
+                "facts": facts,
+                "evidence": evidence,
+            },
+            max_age_seconds=max_age_seconds,
+            provenance=provenance,
+        )
 
 
 class ObservationProbeService(ObservationService):

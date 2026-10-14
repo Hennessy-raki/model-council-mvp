@@ -93,7 +93,19 @@ multi-model execution service.
   `connectivity` stay unknown. Report:
   `docs/reports/2026-10-14-board-31-probe-produced-observation-records.md`.
 
-Measured state at 2026-10-14, after Board 31: 288 offline tests across 28 test
+- Board 32 is complete for the real-observation slice. A real, read-only,
+  ephemeral turn now establishes what a version query cannot: process, protocol
+  and connectivity, in addition to the version. The turn builds its own argument
+  list and its own synthetic prompt, keeps the response text out of the record,
+  and requires the exact expected token before connectivity counts. Two receipts
+  can be merged into one record, with the oldest measurement time winning and
+  with caller-supplied claims refused as merge inputs. Measured on this machine,
+  four of the seven facts are observable, two are not, and one does not apply:
+  `actual_model` is unreachable from both the tool's stream and the relay
+  endpoint, and `permission` is not echoed by the tool. Report:
+  `docs/reports/2026-10-14-board-32-real-turn-observation.md`.
+
+Measured state at 2026-10-14, after Board 32: 306 offline tests across 28 test
 files, 179 tracked files, 47 SQLite tables, 45 indexes and 33 recorded privacy
 entries. Re-measure these rather than trusting them; they change with every
 board.
