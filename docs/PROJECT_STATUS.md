@@ -83,7 +83,7 @@ multi-model execution service.
   `docs/reports/2026-10-14-board-30-observed-evidence-qualification-record.md`.
 
 Measured state at 2026-10-14, after Board 30: 284 offline tests across 28 test
-files, 173 tracked files, 47 SQLite tables, 45 indexes and 33 recorded privacy
+files, 179 tracked files, 47 SQLite tables, 45 indexes and 33 recorded privacy
 entries. Re-measure these rather than trusting them; they change with every
 board.
 
