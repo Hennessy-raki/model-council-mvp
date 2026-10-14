@@ -1036,6 +1036,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="local JSON containing {package, package_sha256}",
     )
 
+    supervisor_authorization_bind = supervisor_commands.add_parser(
+        "authorization-bind",
+        help=(
+            "bind one built authorization package to a role; this stores the "
+            "package and grants no execution authority"
+        ),
+    )
+    supervisor_authorization_bind.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_authorization_bind.add_argument(
+        "--package-file",
+        required=True,
+        help=(
+            "local JSON containing the built result "
+            "{package, package_sha256, facts}"
+        ),
+    )
+    supervisor_authorization_bind.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_authorization_show = supervisor_commands.add_parser(
+        "authorization-show",
+        help="read-only view of bound authorization packages and their integrity",
+    )
+    supervisor_authorization_show.add_argument(
+        "--role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_authorization_show.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
     experiment = subparsers.add_parser(
         "experiment",
         help="prepare and simulate controlled local multi-Agent experiments",
@@ -1709,6 +1745,29 @@ def main(argv: list[str] | None = None) -> None:
                     raise SystemExit(2)
                 return
         elif args.command == "supervisor":
+            if args.supervisor_command == "authorization-bind":
+                config = load_config(args.config)
+                supervisor = _load_supervisor(config)
+                payload = supervisor.bind_authorization_package(
+                    args.role,
+                    _load_json_object(args.package_file, "--package-file"),
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
+            if args.supervisor_command == "authorization-show":
+                config = load_config(args.config)
+                supervisor = _load_supervisor(config)
+                payload = (
+                    supervisor.authorization_package(args.role)
+                    if args.role
+                    else {
+                        "authorization_packages": (
+                            supervisor.authorization_packages()
+                        )
+                    }
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
             if args.supervisor_command == "qualification-preflight":
                 payload = QualificationPreflightService().evaluate(
                     _load_json_object(args.candidate_file, "--candidate-file")
@@ -1738,6 +1797,9 @@ def main(argv: list[str] | None = None) -> None:
                     "lifecycle_events": supervisor.lifecycle_events(),
                     "qualification_preflights": (
                         supervisor.qualification_preflights()
+                    ),
+                    "authorization_packages": (
+                        supervisor.authorization_packages()
                     ),
                     "manager_platform_events": supervisor.events(),
                 }

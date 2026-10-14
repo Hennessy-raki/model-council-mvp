@@ -532,6 +532,25 @@ class CouncilStore:
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS supervisor_authorization_packages (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL UNIQUE,
+                    agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+                    model_id TEXT NOT NULL REFERENCES models(id),
+                    provider_id TEXT NOT NULL REFERENCES providers(id),
+                    package_sha256 TEXT NOT NULL,
+                    fact_digest TEXT NOT NULL,
+                    package_json TEXT NOT NULL,
+                    facts_json TEXT NOT NULL,
+                    recorded_sha256 TEXT NOT NULL,
+                    captured_team_snapshot_id TEXT
+                        REFERENCES supervisor_team_snapshots(id),
+                    captured_approval_id TEXT
+                        REFERENCES supervisor_start_approvals(id),
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS supervisor_start_approvals (
                     id TEXT PRIMARY KEY,
                     snapshot_id TEXT NOT NULL
@@ -707,6 +726,8 @@ class CouncilStore:
                     ON supervisor_platform_events(manager_agent_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_supervisor_agent_events_session
                     ON supervisor_agent_events(session_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_supervisor_authorization_role
+                    ON supervisor_authorization_packages(role_key, updated_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiments_status
                     ON controlled_experiments(status, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiment_events

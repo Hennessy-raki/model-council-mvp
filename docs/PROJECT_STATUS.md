@@ -52,6 +52,11 @@ multi-model execution service.
   commands. It does not qualify a real Agent, start a process or authorize a
   new model call. Report:
   `docs/reports/2026-10-14-board-24-real-agent-qualification-authorization-implementation.md`.
+- Board 26 is complete for the local offline binding slice: a built package can
+  be bound to one role, captured against the current team snapshot, re-validated
+  on every read and projected read-only through the CLI and the loopback Web
+  view. Binding creates no start approval and grants no authority. Report:
+  `docs/reports/2026-10-14-board-26-authorization-package-binding-and-projection.md`.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider

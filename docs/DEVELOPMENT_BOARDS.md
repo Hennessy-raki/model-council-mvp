@@ -499,3 +499,26 @@ Board 25 adds no external call, process start, Provider, network, repository,
 worktree, Git-publish or Artifact-purge authority. Board 24's frozen scope is
 unchanged, and its implementation still requires a separate new board number.
 
+### Board 26: Authorization package binding and read-only projection
+
+Status: complete for the local offline binding slice
+
+- persist one bound authorization package per role together with its facts,
+  digests, identity and captured team snapshot;
+- re-derive the package digest, the bound facts and the registry identity on
+  every read, so a tampered package is `invalid` and a contradicted one is
+  `stale` rather than silently acceptable;
+- report whether the captured team snapshot is still the latest one;
+- project the result read-only through the CLI and the loopback product surface;
+- refuse to bind a package that claims execution authority, carries a
+  mismatched identity, or whose facts do not reproduce its digest;
+- fix the Board 24 fact-shape mismatch so a freshly stored package does not
+  report stale on first read.
+
+Report:
+`docs/reports/2026-10-14-board-26-authorization-package-binding-and-projection.md`
+
+Board 26 creates no start approval, starts no process, contacts no endpoint and
+adds no execution authority. Binding a package is a review record, not a
+permission.
+

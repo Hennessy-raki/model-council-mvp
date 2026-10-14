@@ -190,6 +190,67 @@ class AuthorizationPackageService:
             return False
         return self._digest(package) == digest
 
+    @staticmethod
+    def normalize_facts(facts: dict[str, Any]) -> dict[str, Any]:
+        """Complete a fact bucket set so its digest is reproducible.
+
+        `_classify_facts` fills every canonical evidence kind with `unknown`
+        when no observation was supplied, and only adds `confirmed` when the
+        candidate carried one. Reading stored facts back must apply the same
+        completion, otherwise a freshly built package would look stale the
+        first time it was re-read.
+        """
+        declared = facts.get("declared")
+        observed = facts.get("observed")
+        confirmed = facts.get("confirmed")
+        declared = dict(declared) if isinstance(declared, dict) else {}
+        observed = dict(observed) if isinstance(observed, dict) else {}
+        confirmed = dict(confirmed) if isinstance(confirmed, dict) else {}
+        for kind in REQUIRED_EVIDENCE_KINDS:
+            observed.setdefault(kind, "unknown")
+        return {
+            "declared": declared,
+            "observed": observed,
+            "confirmed": confirmed,
+        }
+
+    def recompute_package(
+        self,
+        package: dict[str, Any],
+        facts: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Rebuild one stored package from its facts and re-derive its digest.
+
+        A stored package is only trustworthy if its digest still matches what
+        the bound facts produce. Re-deriving from the facts is therefore the
+        stale-on-drift check: a changed observation cannot keep an earlier
+        approval valid, because the digest it was approved under no longer
+        reproduces.
+        """
+        if not isinstance(package, dict) or not isinstance(facts, dict):
+            return None
+        normalized = self.normalize_facts(facts)
+        rebuilt = {
+            key: value for key, value in package.items() if key != "fact_digest"
+        }
+        rebuilt["fact_digest"] = self._digest(normalized)
+        observed = normalized["observed"]
+        missing = [
+            kind
+            for kind in REQUIRED_EVIDENCE_KINDS
+            if observed.get(kind) is None or observed.get(kind) == "unknown"
+        ]
+        return {
+            "package_sha256": self._digest(rebuilt),
+            "status": (
+                STATUS_USER_CONFIRMATION_REQUIRED
+                if missing
+                else STATUS_ELIGIBLE_FOR_REVIEW
+            ),
+            "missing_observations": missing,
+            "facts": normalized,
+        }
+
     # ---------------------------------------------------------------- fields
 
     def _reject_unknown_fields(

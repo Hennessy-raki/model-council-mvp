@@ -546,24 +546,41 @@ class SupervisorService:
                     "integrity_status": "invalid",
                     "integrity_code": "identity_record_mismatch",
                 }
+        return self._registry_identity_integrity(
+            preflight["agent_id"],
+            preflight["model_id"],
+            preflight["provider_id"],
+        )
+
+    def _registry_identity_integrity(
+        self,
+        agent_id: str,
+        model_id: str,
+        provider_id: str,
+    ) -> dict[str, Any]:
+        """Verify that a stored Agent/Model/Provider trio is still registered.
+
+        Shared by the qualification preflight and the authorization package so
+        that both fail closed on the same registry drift.
+        """
         with self.store.connect() as conn:
             agent = conn.execute(
                 """
                 SELECT id, provider_id, model_id, enabled
                 FROM agent_profiles WHERE id = ?
                 """,
-                (preflight["agent_id"],),
+                (agent_id,),
             ).fetchone()
             model = conn.execute(
                 """
                 SELECT id, provider_id, enabled
                 FROM models WHERE id = ?
                 """,
-                (preflight["model_id"],),
+                (model_id,),
             ).fetchone()
             provider = conn.execute(
                 "SELECT id, enabled FROM providers WHERE id = ?",
-                (preflight["provider_id"],),
+                (provider_id,),
             ).fetchone()
         if agent is None or model is None or provider is None:
             return {
@@ -578,9 +595,9 @@ class SupervisorService:
                 "integrity_code": "registry_identity_disabled",
             }
         if (
-            agent["provider_id"] != preflight["provider_id"]
-            or agent["model_id"] != preflight["model_id"]
-            or model["provider_id"] != preflight["provider_id"]
+            agent["provider_id"] != provider_id
+            or agent["model_id"] != model_id
+            or model["provider_id"] != provider_id
         ):
             return {
                 "integrity_status": "invalid",
@@ -590,6 +607,254 @@ class SupervisorService:
             "integrity_status": "current",
             "integrity_code": None,
         }
+
+    def authorization_package(self, role_key: str) -> dict[str, Any] | None:
+        """Read one stored authorization package and re-derive its status."""
+        self._validate_role(role_key)
+        with self.store.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM supervisor_authorization_packages
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._authorization_package_status(
+            _decode_authorization_package(row)
+        )
+
+    def authorization_packages(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM supervisor_authorization_packages
+                ORDER BY role_key
+                """
+            ).fetchall()
+        return [
+            self._authorization_package_status(
+                _decode_authorization_package(row)
+            )
+            for row in rows
+        ]
+
+    def bind_authorization_package(
+        self,
+        role_key: str,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Bind one built authorization package to one configured role.
+
+        The package is stored with its facts, because the facts are what the
+        digest is derived from. Reading it back re-derives that digest, which is
+        how a later contradiction marks an earlier approval stale.
+
+        Binding grants nothing: it creates no start approval, no process and no
+        execution authority.
+        """
+        self._validate_role(role_key)
+        if not isinstance(result, dict):
+            raise SupervisorError("authorization package result must be an object")
+        status = result.get("status")
+        if status not in {
+            "eligible_for_separate_review",
+            "user_confirmation_required",
+        }:
+            raise SupervisorError(
+                "only a built authorization package can be bound"
+            )
+        if result.get("execution_authorized") is not False:
+            raise SupervisorError(
+                "an authorization package cannot authorize execution"
+            )
+        package = result.get("package")
+        facts = result.get("facts")
+        recorded = result.get("package_sha256")
+        if not isinstance(package, dict) or not isinstance(facts, dict):
+            raise SupervisorError("authorization package is incomplete")
+        if not isinstance(recorded, str):
+            raise SupervisorError("authorization package digest is missing")
+        service = _authorization_service()
+        if not service.verify(package, recorded):
+            raise SupervisorError("authorization package digest is invalid")
+        recomputed = service.recompute_package(package, facts)
+        if recomputed is None or recomputed["package_sha256"] != recorded:
+            raise SupervisorError(
+                "authorization package facts do not reproduce its digest"
+            )
+        identity = package.get("identity")
+        if not isinstance(identity, dict):
+            raise SupervisorError("authorization package identity is missing")
+        binding = self.binding(role_key)
+        if (
+            identity.get("agent_id") != binding["agent_id"]
+            or identity.get("model_id") != binding["model_id"]
+        ):
+            raise SupervisorError(
+                "authorization package identity does not match role"
+            )
+        provider_id = identity.get("provider_id")
+        if not isinstance(provider_id, str):
+            raise SupervisorError("authorization package Provider is missing")
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT provider_id FROM agent_profiles WHERE id = ?",
+                (binding["agent_id"],),
+            ).fetchone()
+        if row is None or provider_id != row["provider_id"]:
+            raise SupervisorError(
+                "authorization package Provider does not match role Agent"
+            )
+        snapshot = self.latest_snapshot()
+        if snapshot is None:
+            raise SupervisorError(
+                "a current team snapshot is required before binding"
+            )
+        now = utc_now()
+        package_id = str(uuid4())
+        with self.store.connect() as conn:
+            previous = conn.execute(
+                """
+                SELECT package_sha256, captured_team_snapshot_id
+                FROM supervisor_authorization_packages
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+            if previous is not None and (
+                previous["package_sha256"] != recorded
+                or previous["captured_team_snapshot_id"] != snapshot["id"]
+            ):
+                self._mark_pending_approvals_stale(
+                    conn,
+                    failure="authorization package changed after approval",
+                )
+            conn.execute(
+                """
+                INSERT INTO supervisor_authorization_packages(
+                    id, role_key, agent_id, model_id, provider_id,
+                    package_sha256, fact_digest, package_json, facts_json,
+                    recorded_sha256, captured_team_snapshot_id,
+                    captured_approval_id, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'current', ?, ?)
+                ON CONFLICT(role_key) DO UPDATE SET
+                    id = excluded.id,
+                    agent_id = excluded.agent_id,
+                    model_id = excluded.model_id,
+                    provider_id = excluded.provider_id,
+                    package_sha256 = excluded.package_sha256,
+                    fact_digest = excluded.fact_digest,
+                    package_json = excluded.package_json,
+                    facts_json = excluded.facts_json,
+                    recorded_sha256 = excluded.recorded_sha256,
+                    captured_team_snapshot_id =
+                        excluded.captured_team_snapshot_id,
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    package_id,
+                    role_key,
+                    str(identity["agent_id"]),
+                    str(identity["model_id"]),
+                    provider_id,
+                    recorded,
+                    str(package.get("fact_digest", "")),
+                    _dump(sanitize_for_storage(package)),
+                    _dump(sanitize_for_storage(facts)),
+                    recorded,
+                    snapshot["id"],
+                    now,
+                    now,
+                ),
+            )
+        return self.authorization_package(role_key)
+
+    def _authorization_package_status(
+        self,
+        item: dict[str, Any],
+    ) -> dict[str, Any]:
+        package = item.get("package")
+        facts = item.get("facts")
+        recorded = item.get("recorded_sha256")
+        if not isinstance(package, dict) or not isinstance(facts, dict):
+            integrity = {
+                "integrity_status": "invalid",
+                "integrity_code": "package_missing",
+            }
+        else:
+            service = _authorization_service()
+            if not service.verify(package, recorded):
+                integrity = {
+                    "integrity_status": "invalid",
+                    "integrity_code": "package_digest_mismatch",
+                }
+            else:
+                recomputed = service.recompute_package(package, facts)
+                if recomputed is None:
+                    integrity = {
+                        "integrity_status": "invalid",
+                        "integrity_code": "facts_invalid",
+                    }
+                elif recomputed["package_sha256"] != item["package_sha256"]:
+                    integrity = {
+                        "integrity_status": "stale",
+                        "integrity_code": "bound_facts_drifted",
+                        "missing_observations": recomputed[
+                            "missing_observations"
+                        ],
+                    }
+                else:
+                    identity = package.get("identity")
+                    if not isinstance(identity, dict):
+                        integrity = {
+                            "integrity_status": "invalid",
+                            "integrity_code": "identity_missing",
+                        }
+                    else:
+                        registry = self._registry_identity_integrity(
+                            str(identity.get("agent_id", "")),
+                            str(identity.get("model_id", "")),
+                            str(identity.get("provider_id", "")),
+                        )
+                        if registry["integrity_status"] != "current":
+                            integrity = registry
+                        else:
+                            integrity = {
+                                "integrity_status": "current",
+                                "integrity_code": None,
+                            }
+        item.update(integrity)
+        # `status` is the record lifecycle stored in the row; the package's own
+        # build status is reported separately so the two cannot be confused.
+        package = item.get("package")
+        if isinstance(package, dict):
+            service = _authorization_service()
+            recomputed = service.recompute_package(package, item.get("facts") or {})
+            if recomputed is not None:
+                item["package_status"] = recomputed["status"]
+                item["missing_observations"] = recomputed[
+                    "missing_observations"
+                ]
+                item["user_confirmation_required"] = bool(
+                    recomputed["missing_observations"]
+                )
+        item.setdefault("package_status", "unknown")
+        item.setdefault("missing_observations", [])
+        item.setdefault("user_confirmation_required", True)
+        snapshot_id = item.get("captured_team_snapshot_id")
+        latest = self.latest_snapshot()
+        item["snapshot_status"] = (
+            "not_captured"
+            if not snapshot_id
+            else "current"
+            if latest is not None and latest["id"] == snapshot_id
+            else "superseded"
+        )
+        item["execution_authorized"] = False
+        return item
 
     def transition_agent(self, role_key: str, operation: str) -> dict[str, Any]:
         """Run one deterministic local lifecycle transition."""
@@ -1264,6 +1529,17 @@ class SupervisorService:
             ).fetchall()
         return [_decode_snapshot(row) for row in rows]
 
+    def latest_snapshot(self) -> dict[str, Any] | None:
+        """Return the most recently captured team snapshot, if any."""
+        with self.store.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM supervisor_team_snapshots
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return _decode_snapshot(row[-1]) if row else None
+
     def snapshot_record(self, snapshot_id: str) -> dict[str, Any]:
         with self.store.connect() as conn:
             row = conn.execute(
@@ -1831,6 +2107,25 @@ def _decode_qualification_preflight(row) -> dict[str, Any]:
     item = dict(row)
     item["scope"] = json.loads(item.pop("scope_json"))
     return item
+
+
+def _decode_authorization_package(row) -> dict[str, Any]:
+    item = dict(row)
+    item["package"] = json.loads(item.pop("package_json"))
+    item["facts"] = json.loads(item.pop("facts_json"))
+    return item
+
+
+def _authorization_service():
+    """Import the package service lazily.
+
+    `authorization.py` imports constants from this module, so importing it at
+    module level here would be circular. The import is therefore deferred to the
+    first call, which is safe because nothing runs at import time.
+    """
+    from .authorization import AuthorizationPackageService
+
+    return AuthorizationPackageService()
 
 
 def _decode_snapshot(row) -> dict[str, Any]:

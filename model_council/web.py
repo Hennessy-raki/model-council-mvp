@@ -135,6 +135,9 @@ class LocalSettingsApplication:
                     "qualification_preflights": (
                         self.supervisor.qualification_preflights()
                     ),
+                    "authorization_packages": (
+                        self.supervisor.authorization_packages()
+                    ),
                     "events": self.supervisor.events(),
                 },
         }
@@ -934,6 +937,9 @@ INDEX_HTML = """<!doctype html>
         <h2>Agent qualification preflight</h2>
         <p class="small">These are local scope summaries only. They do not qualify a real Agent or authorize execution.</p>
         ${table(supervisor.qualification_preflights || [], [{key:"updated_at",label:"Updated"},{key:"role_key",label:"Role"},{key:"agent_id",label:"Agent"},{key:"model_id",label:"Model"},{key:"provider_id",label:"Provider"},{key:"status",label:"Status"},{key:"integrity_status",label:"Integrity"},{key:"integrity_code",label:"Integrity code"},{key:"scope_sha256",label:"Scope SHA-256"}])}
+        <h2>Real-Agent qualification authorization package</h2>
+        <p class="small">A bound package is a reviewable request, not a permission. It starts no process and authorizes no call. A package whose bound facts or team snapshot have drifted reports stale or superseded.</p>
+        ${table(supervisor.authorization_packages || [], [{key:"updated_at",label:"Updated"},{key:"role_key",label:"Role"},{key:"agent_id",label:"Agent"},{key:"model_id",label:"Model"},{key:"provider_id",label:"Provider"},{key:"package_status",label:"Package status"},{key:"user_confirmation_required",label:"Needs confirmation"},{key:"integrity_status",label:"Integrity"},{key:"integrity_code",label:"Integrity code"},{key:"snapshot_status",label:"Team snapshot"},{key:"package_sha256",label:"Package SHA-256"}])}
         <h2>Workspace evidence</h2>
         <h3>Leases and permissions</h3>
         ${table(state.workspaces.leases, [{key:"updated_at",label:"Updated"},{key:"id",label:"Lease"},{key:"agent_id",label:"Agent"},{key:"status",label:"Status"},{key:"target_branch",label:"Target"},{key:"base_sha",label:"Base SHA"},{key:"permissions",label:"Permissions",json:true}])}

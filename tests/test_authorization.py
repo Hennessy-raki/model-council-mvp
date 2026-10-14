@@ -252,6 +252,44 @@ class AuthorizationPackageTests(unittest.TestCase):
         with self.assertRaises(AuthorizationPackageError):
             self.service.build(["not", "an", "object"])
 
+    def test_stored_package_recomputes_to_the_same_digest(self):
+        for observations in (None, FULL_OBSERVATIONS):
+            built = self.service.build(
+                base_candidate(),
+                declared={"agent_id": "codex-architect"},
+                observations=observations,
+            )
+            recomputed = self.service.recompute_package(
+                built["package"],
+                built["facts"],
+            )
+            self.assertIsNotNone(recomputed)
+            self.assertEqual(
+                recomputed["package_sha256"],
+                built["package_sha256"],
+                "a freshly stored package must not look stale on first read",
+            )
+            self.assertEqual(recomputed["status"], built["status"])
+
+    def test_recompute_detects_drifted_bound_facts(self):
+        built = self.service.build(base_candidate(), observations=FULL_OBSERVATIONS)
+        drifted = {
+            key: dict(value) if isinstance(value, dict) else value
+            for key, value in built["facts"].items()
+        }
+        drifted["observed"]["actual_model"] = {"model_id": "some-other-model"}
+        recomputed = self.service.recompute_package(built["package"], drifted)
+        self.assertNotEqual(
+            recomputed["package_sha256"],
+            built["package_sha256"],
+            "drifted facts must not reproduce the approved digest",
+        )
+
+    def test_recompute_rejects_malformed_facts(self):
+        built = self.service.build(base_candidate())
+        self.assertIsNone(self.service.recompute_package(built["package"], []))
+        self.assertIsNone(self.service.recompute_package("nope", built["facts"]))
+
 
 if __name__ == "__main__":
     unittest.main()
