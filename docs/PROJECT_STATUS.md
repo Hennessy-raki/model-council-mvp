@@ -82,7 +82,18 @@ multi-model execution service.
   snapshot, so a later measurement change makes the snapshot stale. Report:
   `docs/reports/2026-10-14-board-30-observed-evidence-qualification-record.md`.
 
-Measured state at 2026-10-14, after Board 30: 284 offline tests across 28 test
+- Board 31 is complete for the local offline slice. An observation record now
+  carries provenance: `probe_run` when the facts were derived from a process
+  this system ran, or `operator_authored` when they were supplied by a caller.
+  Binding refuses a caller-supplied record by default, and a non-mock role
+  cannot be marked ready unless its record is probe-produced. The probe captures
+  its own start and finish times, so the measurement time cannot be chosen, and
+  it reports only the facts it can establish: a version probe yields `process`
+  and `version`, while `actual_model`, `permission`, `protocol` and
+  `connectivity` stay unknown. Report:
+  `docs/reports/2026-10-14-board-31-probe-produced-observation-records.md`.
+
+Measured state at 2026-10-14, after Board 31: 288 offline tests across 28 test
 files, 179 tracked files, 47 SQLite tables, 45 indexes and 33 recorded privacy
 entries. Re-measure these rather than trusting them; they change with every
 board.

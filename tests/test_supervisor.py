@@ -490,33 +490,44 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(service.approval(approval["id"])["status"], "stale")
 
     def _observation(self, agent_id="manager-agent", model_id="manager-model", measured_at=None):
-        """A measured observation for one role.
+        """A probe-produced observation for one role.
 
         Board 30 requires a current observation alongside the declared
         preflight: a scope says what would be observed, and only a measurement
-        says what was. Tests that need a ready non-mock role therefore bind both.
+        says what was. Board 31 additionally requires that the measurement came
+        from a probe this system ran, so a caller-supplied claim is no longer
+        enough to make a non-mock role ready. The probe runner below mimics a
+        captured run, so the facts are derived from output rather than asserted.
         """
-        from model_council.observation import ObservationService
         from model_council.store import utc_now
+        from model_council.observation import ObservationProbeService
 
-        facts = {
-            "process": {"status": "observed", "source": "local_process", "value": "exit_code=0"},
-            "version": {"status": "observed", "source": "tool_output", "value": "0.154.0"},
-            "permission": {"status": "observed", "source": "tool_output", "value": "read_only"},
-            "protocol": {"status": "observed", "source": "tool_output", "value": "jsonl_events"},
-            "actual_model": {"status": "unknown", "source": None},
-            "connectivity": {"status": "observed", "source": "service_response", "value": "passed"},
-            "login": {"status": "not_applicable", "source": None},
-        }
-        return ObservationService().build(
-            {
-                "agent_id": agent_id,
-                "model_id": model_id,
-                "provider_id": "local-fake",
-                "measured_at": measured_at or utc_now(),
-                "facts": facts,
-                "evidence": {"retained": False, "prompt_tokens": 16078},
+        moment = measured_at or utc_now()
+
+        def runner(executable, version_arguments):
+            import hashlib
+            import json as _json
+
+            command = [executable, *version_arguments]
+            raw = b"probe-tool 0.154.0\n"
+            return {
+                "exit_code": 0,
+                "started_at": moment,
+                "finished_at": moment,
+                "output_text": raw.decode("utf-8"),
+                "output_sha256": hashlib.sha256(raw).hexdigest(),
+                "command_digest": hashlib.sha256(
+                    _json.dumps(command, ensure_ascii=False).encode("utf-8")
+                ).hexdigest(),
             }
+
+        return ObservationProbeService().probe(
+            agent_id=agent_id,
+            model_id=model_id,
+            provider_id="local-fake",
+            executable="probe-tool",
+            version_arguments=("--version",),
+            runner=runner,
         )
 
     def test_non_mock_role_requires_matching_preflight_and_binds_snapshot_provenance(self):

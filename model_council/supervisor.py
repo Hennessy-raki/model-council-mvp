@@ -900,8 +900,17 @@ class SupervisorService:
         self,
         role_key: str,
         result: dict[str, Any],
+        *,
+        allow_operator_authored: bool = False,
     ) -> dict[str, Any]:
         """Bind one measured observation to one configured role.
+
+        A caller-supplied record is a claim; a probe-produced record is a
+        receipt. By default only a receipt is accepted, because otherwise a
+        caller could assert that a fact was observed and the assertion would be
+        indistinguishable from a measurement. The override exists for tests and
+        for an operator who explicitly wants to record an unverified claim, and
+        using it is visible in the stored provenance.
 
         Binding records a measurement. It grants nothing: no start approval, no
         process and no execution authority follow from it.
@@ -918,6 +927,21 @@ class SupervisorService:
         service = _observation_service()
         if not service.verify(record, recorded):
             raise SupervisorError("observation record digest is invalid")
+        provenance = record.get("provenance")
+        provenance_kind = (
+            provenance.get("kind") if isinstance(provenance, dict) else None
+        )
+        if provenance_kind not in ("probe_run", "operator_authored"):
+            raise SupervisorError(
+                "observation record has no usable provenance; a claim without a "
+                "recorded origin cannot be distinguished from an assertion"
+            )
+        if provenance_kind != "probe_run" and not allow_operator_authored:
+            raise SupervisorError(
+                "observation record is operator-authored rather than produced by "
+                "a probe; bind a probe record, or say explicitly that an "
+                "unverified claim is intended"
+            )
         identity = record.get("identity")
         if not isinstance(identity, dict):
             raise SupervisorError("observation identity is missing")
@@ -2104,6 +2128,17 @@ class SupervisorService:
                         f"{role_key} has no current real-Agent observation; "
                         "record one before the team can be marked ready"
                     )
+                # An operator-authored record is a claim about what was measured.
+                # Readiness needs a receipt: a record produced by a probe this
+                # system ran, so that "observed" is not merely asserted.
+                if (
+                    _provenance_kind(observation.get("record") or {})
+                    != "probe_run"
+                ):
+                    raise SupervisorError(
+                        f"{role_key} observation is not probe-produced; a "
+                        "caller-supplied claim cannot qualify a real Agent"
+                    )
             result.append({"binding": binding, "report": report})
         return result
 
@@ -2437,6 +2472,15 @@ def _observation_service():
     from .observation import ObservationService
 
     return ObservationService()
+
+
+def _provenance_kind(record: dict[str, Any]) -> str | None:
+    """Read the provenance label from one stored record, without importing."""
+    provenance = record.get("provenance")
+    if not isinstance(provenance, dict):
+        return None
+    kind = provenance.get("kind")
+    return kind if isinstance(kind, str) else None
 
 
 def _authorization_service():

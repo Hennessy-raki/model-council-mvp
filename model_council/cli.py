@@ -1110,6 +1110,42 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         default=str(default_config_path()),
     )
+    supervisor_observation_probe = supervisor_commands.add_parser(
+        "observation-probe",
+        help=(
+            "run one bounded version probe and emit an observation record whose "
+            "facts come from the captured output; this is the only way to "
+            "produce a record that can qualify a real Agent"
+        ),
+    )
+    supervisor_observation_probe.add_argument(
+        "--agent-id",
+        required=True,
+    )
+    supervisor_observation_probe.add_argument(
+        "--model-id",
+        required=True,
+    )
+    supervisor_observation_probe.add_argument(
+        "--provider-id",
+        required=True,
+    )
+    supervisor_observation_probe.add_argument(
+        "--executable",
+        required=True,
+        help="the tool to ask for its version; it is never sent project context",
+    )
+    supervisor_observation_probe.add_argument(
+        "--version-argument",
+        action="append",
+        default=None,
+        help="repeatable; defaults to a single --version",
+    )
+    supervisor_observation_probe.add_argument(
+        "--max-age-seconds",
+        type=int,
+        default=604800,
+    )
 
     experiment = subparsers.add_parser(
         "experiment",
@@ -1804,6 +1840,22 @@ def main(argv: list[str] | None = None) -> None:
                             supervisor.authorization_packages()
                         )
                     }
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
+            if args.supervisor_command == "observation-probe":
+                # No project configuration is loaded: the probe asks one tool
+                # for its version and sends it nothing else.
+                from .observation import ObservationProbeService
+
+                arguments = args.version_argument or ["--version"]
+                payload = ObservationProbeService().probe(
+                    agent_id=args.agent_id,
+                    model_id=args.model_id,
+                    provider_id=args.provider_id,
+                    executable=args.executable,
+                    version_arguments=tuple(arguments),
+                    max_age_seconds=args.max_age_seconds,
                 )
                 print(json.dumps(payload, ensure_ascii=False, indent=2))
                 return

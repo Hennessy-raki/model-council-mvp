@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from hashlib import sha256
+from pathlib import Path
 from typing import Any
 
 from .qualification import (
@@ -11,10 +13,19 @@ from .qualification import (
     PERSONAL_PATH_RE,
 )
 from .supervisor import CANONICAL_LIFECYCLE_CHECKS
+from .versions import version_from_output
 
 
 OBSERVATION_KIND = "real_agent_qualification_observation"
 OBSERVATION_VERSION = 1
+
+# Whether the recorded facts were supplied by a caller or derived from a process
+# this system ran. The two are not equally strong evidence, so they are never
+# recorded under the same label: a caller-supplied record is a claim, and a
+# probe-produced record is a receipt.
+PROVENANCE_PROBE = "probe_run"
+PROVENANCE_OPERATOR_AUTHORED = "operator_authored"
+PROVENANCE_KINDS = (PROVENANCE_PROBE, PROVENANCE_OPERATOR_AUTHORED)
 
 # How a fact was obtained. A value that a tool reports about itself is a weaker
 # claim than one the service reports about the request it served, and the two
@@ -29,6 +40,25 @@ SOURCES = (
     SOURCE_LOCAL_PROCESS,
     SOURCE_OPERATOR_CONFIRMED,
 )
+# Only these may appear in a record produced by a probe. An operator-authored
+# record may still use the others, but a tool-produced record cannot claim a
+# service response or an operator confirmation, because the probe saw neither.
+PROBE_SOURCES = (SOURCE_TOOL_OUTPUT, SOURCE_LOCAL_PROCESS)
+
+# Facts a version probe can actually establish. Everything else stays unknown:
+# permission, protocol and connectivity need a real turn, and `actual_model` is
+# not reported by a CLI host at all, which the 2026-10-14 observation showed.
+PROBE_PROVIDES = ("process", "version")
+PROBE_CANNOT_ESTABLISH = (
+    "login",
+    "actual_model",
+    "permission",
+    "protocol",
+    "connectivity",
+)
+
+PROBE_TIMEOUT_SECONDS = 30
+PROBE_OUTPUT_LIMIT_BYTES = 65536
 
 # Facts that can be observed without contacting anything.
 OFFLINE_FACTS = (
@@ -70,6 +100,11 @@ class ObservationService:
     it was measured. A value without a measurement time is not evidence about
     the present, so an age limit is part of the record rather than an optional
     extra.
+
+    A record built here is marked `operator_authored`, because the facts are
+    supplied by the caller. That is not a defect of this method; it is its
+    honest description. `ObservationProbeService` is what produces a record
+    whose facts came from a process this system actually ran.
     """
 
     def build(
@@ -78,6 +113,25 @@ class ObservationService:
         *,
         max_age_seconds: int = 604800,
         now: str | None = None,
+    ) -> dict[str, Any]:
+        return self._build(
+            submitted,
+            max_age_seconds=max_age_seconds,
+            provenance={
+                "kind": PROVENANCE_OPERATOR_AUTHORED,
+                "note": (
+                    "facts were supplied by the caller and are not derived from "
+                    "a process this system ran"
+                ),
+            },
+        )
+
+    def _build(
+        self,
+        submitted: dict[str, Any],
+        *,
+        max_age_seconds: int,
+        provenance: dict[str, Any],
     ) -> dict[str, Any]:
         if not isinstance(submitted, dict):
             raise ObservationError("an observation must be an object")
@@ -113,9 +167,15 @@ class ObservationService:
             "max_age_seconds": max_age_seconds,
             "facts": facts,
             "evidence": evidence,
+            "provenance": provenance,
         }
         record["fact_digest"] = self._digest(
-            {"identity": identity, "measured_at": measured_at, "facts": facts}
+            {
+                "identity": identity,
+                "measured_at": measured_at,
+                "facts": facts,
+                "provenance": provenance,
+            }
         )
         return {
             "status": "recorded" if summary["observed"] else "incomplete",
@@ -313,6 +373,7 @@ class ObservationService:
             "retained",
             "response_sha256",
             "response_bytes",
+            "output_bytes",
             "prompt_tokens",
             "output_tokens",
             "thread_id",
@@ -389,6 +450,167 @@ class ObservationService:
             separators=(",", ":"),
         )
         return sha256(serialized.encode("utf-8")).hexdigest()
+
+
+class ObservationProbeService(ObservationService):
+    """Produce a record by running one bounded probe and reading its output.
+
+    The difference from the plain builder is where the facts come from. Here the
+    caller supplies the identity and the command to run, and nothing else: the
+    fact values are derived from the captured output by this class, and the
+    record carries the command digest and the output hash. A caller therefore
+    cannot assert that a fact was observed; it can only run something and accept
+    what came back.
+
+    This does not make forgery impossible, and claiming otherwise would be
+    dishonest. A local operator owns the process, the disk and the tool, so a
+    determined operator can always fake evidence. What changes is the trust
+    boundary: the record no longer rests on free-form caller JSON, and any
+    inconsistency in the captured provenance is reportable.
+    """
+
+    def probe(
+        self,
+        *,
+        agent_id: str,
+        model_id: str,
+        provider_id: str,
+        executable: str,
+        version_arguments: tuple[str, ...] = ("--version",),
+        max_age_seconds: int = 604800,
+        runner: Any = None,
+    ) -> dict[str, Any]:
+        if not isinstance(executable, str) or not executable.strip():
+            raise ObservationError("a probe requires an executable path")
+        if not isinstance(version_arguments, tuple) or any(
+            not isinstance(item, str) for item in version_arguments
+        ):
+            raise ObservationError("version_arguments must be a tuple of strings")
+        run = runner or run_probe_command
+        captured = run(executable, version_arguments)
+        if not isinstance(captured, dict):
+            raise ObservationError("a probe runner must return an object")
+
+        exit_code = captured.get("exit_code")
+        started_at = captured.get("started_at")
+        finished_at = captured.get("finished_at")
+        output_sha256 = captured.get("output_sha256")
+        command_digest = captured.get("command_digest")
+        if not isinstance(output_sha256, str) or not isinstance(
+            command_digest, str
+        ):
+            raise ObservationError("a probe runner must report both digests")
+        if not isinstance(started_at, str) or not isinstance(finished_at, str):
+            raise ObservationError("a probe runner must report its own times")
+
+        output_text = captured.get("output_text") or ""
+        reported_version = (
+            version_from_output(output_text)
+            if isinstance(output_text, str)
+            else None
+        )
+        facts: dict[str, dict[str, Any]] = {}
+        for name in CANONICAL_LIFECYCLE_CHECKS:
+            facts[name] = {"status": STATUS_UNKNOWN, "source": None}
+        if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+            facts["process"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_LOCAL_PROCESS,
+                "value": f"exit_code={exit_code}",
+            }
+        if reported_version is not None:
+            facts["version"] = {
+                "status": STATUS_OBSERVED,
+                "source": SOURCE_TOOL_OUTPUT,
+                "value": reported_version,
+            }
+        # Everything a version probe cannot establish stays unknown rather than
+        # being filled in from configuration. `actual_model` is the important
+        # one: a CLI host does not report it, and the fact that a probe ran is
+        # not evidence about which model would serve a request.
+        for name in PROBE_CANNOT_ESTABLISH:
+            facts.setdefault(name, {"status": STATUS_UNKNOWN, "source": None})
+
+        evidence = {
+            "retained": False,
+            "exit_code": exit_code if isinstance(exit_code, int) else None,
+            "output_bytes": (
+                len(output_text.encode("utf-8"))
+                if isinstance(output_text, str)
+                else None
+            ),
+        }
+        provenance = {
+            "kind": PROVENANCE_PROBE,
+            "command_digest": command_digest,
+            "output_sha256": output_sha256,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            # Deliberately not the executable path: the probe knows it, the
+            # record does not need to carry a machine path.
+            "argument_count": len(version_arguments),
+        }
+        return self._build(
+            {
+                "agent_id": agent_id,
+                "model_id": model_id,
+                "provider_id": provider_id,
+                # The measurement time is the probe's own finish time, not a
+                # value the caller chose.
+                "measured_at": finished_at,
+                "facts": facts,
+                "evidence": evidence,
+            },
+            max_age_seconds=max_age_seconds,
+            provenance=provenance,
+        )
+
+
+def run_probe_command(
+    executable: str,
+    version_arguments: tuple[str, ...],
+) -> dict[str, Any]:
+    """Run one argument-array, shell-free, time-limited probe.
+
+    The probe sends no project context; it asks the tool to identify itself. Its
+    own start and finish times are captured here so the measurement time in the
+    record cannot be chosen by the caller, and the output is hashed before it is
+    parsed.
+    """
+    from .store import utc_now
+
+    command = [executable, *version_arguments]
+    command_digest = sha256(
+        json.dumps(command, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    started_at = utc_now()
+    try:
+        completed = subprocess.run(
+            command,
+            shell=False,
+            capture_output=True,
+            timeout=PROBE_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {
+            "exit_code": None,
+            "started_at": started_at,
+            "finished_at": utc_now(),
+            "output_text": "",
+            "output_sha256": sha256(b"").hexdigest(),
+            "command_digest": command_digest,
+            "error": "probe_failed",
+        }
+    raw = (completed.stdout or b"") + b"\n" + (completed.stderr or b"")
+    raw = raw[:PROBE_OUTPUT_LIMIT_BYTES]
+    return {
+        "exit_code": completed.returncode,
+        "started_at": started_at,
+        "finished_at": utc_now(),
+        "output_text": raw.decode("utf-8", "replace"),
+        "output_sha256": sha256(raw).hexdigest(),
+        "command_digest": command_digest,
+    }
 
 
 def _parse_timestamp(text: str):

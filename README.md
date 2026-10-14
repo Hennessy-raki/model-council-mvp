@@ -689,6 +689,41 @@ python -m model_council supervisor authorization-show [--role manager]
 
 绑定**不创建启动审批、不启动进程、不授予任何权限**。
 
+### 观测记录：只有探测产出才能给真实 Agent 定资质
+
+一份"观测记录"里如果事实是调用方填的，那它**是一条声称**，不是一次测量。系统现在把两者分开：
+
+| 来源 | 含义 | 能否用于就绪判定 |
+|---|---|---|
+| `probe_run` | 由本系统实际运行的探测产出，事实从捕获的输出推导 | ✅ 可以 |
+| `operator_authored` | 事实由调用方提供 | ❌ **默认拒绝** |
+
+产生可用的记录只有一条路——跑一次探测：
+
+```powershell
+python -m model_council supervisor observation-probe `
+  --agent-id codex-architect --model-id codex-configured-default `
+  --provider-id codex-local --executable <TOOL_PATH>
+```
+
+探测是**参数数组、`shell=False`、有超时（30 秒）**，只问工具自己的版本，**不发送任何项目上下文**。
+它的开始与结束时间由探测自己记录，**测量时间不能由调用方指定**。
+
+记录里带来源凭证：命令摘要、输出哈希、起止时间。而且探测**只报告它能确立的事实**：
+
+```
+实测结果（2026-10-14，真实 codex）：
+  observed : process, version
+  unknown  : actual_model, connectivity, login, permission, protocol
+```
+
+`actual_model` **故意保持 unknown**——版本探测确立不了它，而"探测跑过"不是"哪个模型会服务请求"的证据。
+把它填成配置值正是项目第一条原则禁止的事。要确立它需要一次真实回合，那是单独授权的事。
+
+**诚实边界**：这套机制**不能阻止**一个有权限的操作者事后伪造证据——本机操作者拥有进程、
+磁盘和工具。它改变的是**信任边界**：记录不再建立在自由格式的调用方 JSON 上，
+任何来源凭证的不一致都可被检出。声称"伪造已不可能"是假的。
+
 ## Agent 版本与发现目录
 
 发现目录是**配置数据**，不是代码。加一个工具不需要改模块：

@@ -8,8 +8,12 @@ import unittest
 
 from model_council.observation import (
     OBSERVATION_KIND,
+    PROVENANCE_OPERATOR_AUTHORED,
+    PROVENANCE_PROBE,
     ObservationError,
+    ObservationProbeService,
     ObservationService,
+    run_probe_command,
 )
 from model_council.registry import RegistryService
 from model_council.store import CouncilStore, utc_now
@@ -57,6 +61,63 @@ def submission(**overrides):
     }
     value.update(overrides)
     return value
+
+
+def probe_runner(
+    *,
+    exit_code=0,
+    output="probe-tool 0.154.0\n",
+    started_at=None,
+    finished_at=None,
+):
+    """A fake probe runner that mimics a real captured run.
+
+    It returns the same shape as `run_probe_command`, so the probe service
+    derives its facts from captured output exactly as it would in production.
+    Using this instead of a hand-built record keeps the tests on the path that
+    the readiness gate now requires.
+    """
+
+    def run(executable, version_arguments):
+        import hashlib
+        import json as _json
+
+        command = [executable, *version_arguments]
+        raw = output.encode("utf-8")
+        return {
+            "exit_code": exit_code,
+            "started_at": started_at or measured_at(0),
+            "finished_at": finished_at or measured_at(0),
+            "output_text": output,
+            "output_sha256": hashlib.sha256(raw).hexdigest(),
+            "command_digest": hashlib.sha256(
+                _json.dumps(command, ensure_ascii=False).encode("utf-8")
+            ).hexdigest(),
+        }
+
+    return run
+
+
+def probe_record(
+    service=None,
+    *,
+    agent_id="manager-agent",
+    model_id="manager-model",
+    provider_id=PROVIDER,
+    max_age_seconds=604800,
+    **runner_kwargs,
+):
+    """One probe-produced record, ready to bind."""
+    service = service or ObservationProbeService()
+    return service.probe(
+        agent_id=agent_id,
+        model_id=model_id,
+        provider_id=provider_id,
+        executable="probe-tool",
+        version_arguments=("--version",),
+        max_age_seconds=max_age_seconds,
+        runner=probe_runner(**runner_kwargs),
+    )
 
 
 class ObservationRecordTests(unittest.TestCase):
@@ -328,7 +389,7 @@ class ObservationBindingTests(unittest.TestCase):
 
     def test_a_bound_record_is_current_and_grants_nothing(self):
         supervisor = self._ready_supervisor()
-        built = self.service.build(submission())
+        built = probe_record()
         bound = supervisor.bind_observation_record("manager", built)
 
         self.assertEqual(bound["record_sha256"], built["record_sha256"])
@@ -340,9 +401,10 @@ class ObservationBindingTests(unittest.TestCase):
 
     def test_expired_measurements_read_back_as_stale(self):
         supervisor = self._ready_supervisor()
-        built = self.service.build(
-            submission(measured_at=measured_at(-8 * 24 * 3600))
-        )
+        # The measurement time is the probe's own finish time, so an old record
+        # comes from an old run rather than from a chosen timestamp.
+        old = measured_at(-8 * 24 * 3600)
+        built = probe_record(started_at=old, finished_at=old)
         supervisor.bind_observation_record("manager", built)
 
         read_back = supervisor.observation_record("manager")
@@ -351,7 +413,7 @@ class ObservationBindingTests(unittest.TestCase):
 
     def test_a_tampered_record_is_invalid(self):
         supervisor = self._ready_supervisor()
-        built = self.service.build(submission())
+        built = probe_record()
         supervisor.bind_observation_record("manager", built)
 
         tampered = json.loads(json.dumps(built["record"]))
@@ -372,15 +434,13 @@ class ObservationBindingTests(unittest.TestCase):
 
     def test_binding_rejects_a_mismatched_identity(self):
         supervisor = self._ready_supervisor()
-        built = self.service.build(
-            submission(agent_id="worker-agent", model_id="worker-model")
-        )
+        built = probe_record(agent_id="worker-agent", model_id="worker-model")
         with self.assertRaises(SupervisorError):
             supervisor.bind_observation_record("manager", built)
 
     def test_binding_rejects_an_invalid_digest(self):
         supervisor = self._ready_supervisor()
-        built = self.service.build(submission())
+        built = probe_record()
         forged = dict(built)
         forged["record_sha256"] = "0" * 64
         with self.assertRaises(SupervisorError):
@@ -391,6 +451,45 @@ class ObservationBindingTests(unittest.TestCase):
         blocked = self.service.build(submission(measured_at=None))
         with self.assertRaises(SupervisorError):
             supervisor.bind_observation_record("manager", blocked)
+
+    def test_binding_rejects_an_operator_authored_record_by_default(self):
+        supervisor = self._ready_supervisor()
+        claimed = self.service.build(submission())
+        with self.assertRaises(SupervisorError) as caught:
+            supervisor.bind_observation_record("manager", claimed)
+        self.assertIn("operator-authored", str(caught.exception))
+
+    def test_an_operator_authored_record_can_be_bound_only_on_request(self):
+        supervisor = self._ready_supervisor()
+        claimed = self.service.build(submission())
+        bound = supervisor.bind_observation_record(
+            "manager", claimed, allow_operator_authored=True
+        )
+        self.assertEqual(bound["integrity_status"], "current")
+        self.assertEqual(
+            bound["record"]["provenance"]["kind"],
+            PROVENANCE_OPERATOR_AUTHORED,
+        )
+
+    def test_a_record_without_provenance_is_refused(self):
+        supervisor = self._ready_supervisor()
+        built = probe_record()
+        stripped = dict(built)
+        record = json.loads(json.dumps(built["record"]))
+        record.pop("provenance", None)
+        # Re-digest so the only rejection reason left is the missing provenance.
+        stripped["record"] = record
+        stripped["record_sha256"] = ObservationService()._digest(record)
+        with self.assertRaises(SupervisorError) as caught:
+            supervisor.bind_observation_record("manager", stripped)
+        self.assertIn("provenance", str(caught.exception))
+
+    def test_probe_records_are_marked_as_probe_produced(self):
+        built = probe_record()
+        self.assertEqual(
+            built["record"]["provenance"]["kind"],
+            PROVENANCE_PROBE,
+        )
 
     def test_a_non_mock_role_is_not_ready_without_an_observation(self):
         # An empty profile keeps the qualification requirement in force: a
@@ -408,7 +507,7 @@ class ObservationBindingTests(unittest.TestCase):
             supervisor.snapshot()
         self.assertIn("observation", str(caught.exception))
 
-        supervisor.bind_observation_record("manager", self.service.build(submission()))
+        supervisor.bind_observation_record("manager", probe_record())
         snapshot = supervisor.snapshot()
         role = next(
             item
@@ -426,24 +525,15 @@ class ObservationBindingTests(unittest.TestCase):
             "manager", self._qualification()
         )
         supervisor.check_team()
-        supervisor.bind_observation_record(
-            "manager", self.service.build(submission())
-        )
+        supervisor.bind_observation_record("manager", probe_record())
         snapshot = supervisor.snapshot()
 
-        # Re-bind with a different measurement; the captured snapshot no longer
+        # Re-bind with a different probe result; the captured snapshot no longer
         # describes the current evidence.
-        changed = self.service.build(
-            submission(
-                measured_at=measured_at(1),
-                facts=observed_facts(
-                    version={
-                        "status": "observed",
-                        "source": "tool_output",
-                        "value": "0.155.0",
-                    }
-                ),
-            )
+        changed = probe_record(
+            started_at=measured_at(2),
+            finished_at=measured_at(2),
+            output="probe-tool 0.155.0\n",
         )
         supervisor.bind_observation_record("manager", changed)
         with self.assertRaises(SupervisorError):
@@ -598,7 +688,7 @@ class ObservationProjectionTests(unittest.TestCase):
 
     def test_observation_show_projects_a_bound_record(self):
         supervisor = self._supervisor_with_manager()
-        built = self.service.build(submission())
+        built = probe_record()
         supervisor.bind_observation_record("manager", built)
 
         shown = self._capture(
@@ -625,9 +715,7 @@ class ObservationProjectionTests(unittest.TestCase):
 
     def test_supervisor_show_includes_the_observation_projection(self):
         supervisor = self._supervisor_with_manager()
-        supervisor.bind_observation_record(
-            "manager", self.service.build(submission())
-        )
+        supervisor.bind_observation_record("manager", probe_record())
         full = self._capture(
             ["supervisor", "show", "--config", str(self.config_path)]
         )
