@@ -754,3 +754,37 @@ this host, the entry is annotated with
   only means the current high-confidence patterns found nothing.
 - Blocks development: no.
 
+### PRIV-033: Rewriting a value does not remove its earlier bytes from SQLite
+
+- Date found: 2026-10-14
+- Channel: raw bytes of an ignored runtime SQLite file
+- Priority: high
+- Data class: any previously stored value, including absolute paths and OS build
+  strings, lasting in the file after the row was updated
+- Status: resolved
+- Observation: after 78 cells were redacted, a byte-level scan of the same files
+  still found 19 occurrences of the real user path. Every one of them was
+  unreachable through SQL queries:
+  `SELECT *` over all tables returned zero matches, `PRAGMA freelist_count`
+  reported 0, and `PRAGMA integrity_check` was `ok`. SQLite keeps a freed page's
+  old bytes in the file because `secure_delete` is off by default, so a
+  row-level update is not a data-removal operation.
+- Resolution:
+  - `scripts/redact_runtime_state.py` was added with a `--dry-run` report and a
+    `--compact` rebuild, so that the values already stored on this host can be
+    removed deliberately rather than left in place;
+  - the local runtime directories were then redacted in place: 78 cells across
+    two databases plus one private text file, with every table, row and
+    relationship preserved.
+- Evidence: after the rebuild, a byte-level walk over every file under
+  `runtime/` and `runtime-*` — including `.db-wal`, `.db-shm` and text files —
+  returns zero occurrences of the real user path or an OS build string. Row
+  counts are unchanged at 516, 102 and 789, and `PRAGMA integrity_check`
+  returns `ok` for all three. `privacy_scan.py --local-state` reports no
+  machine-identifying values.
+- Generalisation for future work: whenever machine-identifying data is removed
+  from a local database, verify with a byte-level scan of the file, not with a
+  SQL query. A row-level deletion or update is not sufficient.
+- Blocks development: no.
+
+
