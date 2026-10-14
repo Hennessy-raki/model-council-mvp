@@ -522,3 +522,37 @@ Board 26 creates no start approval, starts no process, contacts no endpoint and
 adds no execution authority. Binding a package is a review record, not a
 permission.
 
+### Board 27: Version preference engine and configuration-driven discovery
+
+Status: complete for the local offline slice
+
+- compare installed Agent versions deterministically, with the operator's
+  stated rule applied at two levels: a stable release outranks a pre-release of
+  the same number when comparing two versions, and any stable release is
+  preferred over any pre-release when ranking candidates;
+- keep that rule a settable parameter, and let an explicit user preference
+  always override the computed recommendation;
+- report `undecidable` rather than guessing when versions have no comparable
+  form, and never set `auto_switch`, because a recommendation is evidence for a
+  decision the operator still makes;
+- replace the hardcoded four-vendor discovery list with a catalogue supplied
+  through configuration, so adding a tool never requires editing the module;
+- probe each installed form with an argument-array, shell-free, time-limited
+  command and record the versions it reports;
+- record a GUI-only application for visibility and manual handoff while stating
+  that it is not invocable, and never register an Agent profile for it.
+
+Plan and reports: the changes, their verification and the defects found while
+building them are recorded in the commits that carry them and in
+
+```text
+docs/reports/2026-10-14-board-27-version-preference-and-discovery.md
+```
+
+Board 27 starts no process beyond a version query, contacts no endpoint, and
+creates no binding.
+
+Note on numbering: Board 27 is the version and discovery board. It is not the
+retired Board 24 scope, which was implemented under its own number, and it is
+not the deferred transport board 16.
+

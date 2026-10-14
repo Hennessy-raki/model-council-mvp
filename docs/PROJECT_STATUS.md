@@ -57,6 +57,18 @@ multi-model execution service.
   on every read and projected read-only through the CLI and the loopback Web
   view. Binding creates no start approval and grants no authority. Report:
   `docs/reports/2026-10-14-board-26-authorization-package-binding-and-projection.md`.
+- Board 27 is complete for the local offline slice: a version comparison engine
+  applies the operator's stated preference at the level of comparing two
+  versions and at the level of ranking candidates, an explicit user preference
+  always overrides the recommendation, and the discovery catalogue moved from a
+  hardcoded four-vendor list into configuration so that a GUI-only application
+  can be recorded without being treated as invocable. Report:
+  `docs/reports/2026-10-14-board-27-version-preference-and-discovery.md`.
+
+Measured state at 2026-10-14, after Board 27: 234 offline tests across 26 test
+files, 22320 lines under `model_council/`, 9726 lines under `tests/`, 173
+tracked files, 46 SQLite tables, 44 indexes and 33 recorded privacy entries.
+Re-measure these rather than trusting them; they change with every board.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider

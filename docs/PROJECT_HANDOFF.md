@@ -1,6 +1,41 @@
 # Project Handoff
 
-Last updated: 2026-09-03
+Last updated: 2026-10-14
+
+## Read the status page first
+
+`docs/PROJECT_STATUS.md` carries the authoritative board list, the honest
+boundary statement for each board and the measured counts. This handoff explains
+the history and the design reasoning; it is not the place to check what is
+currently true. Where the two disagree, the status page wins.
+
+## Checkpoint added on 2026-10-14
+
+A second development owner resumed the project and added Boards 24 through 27.
+The earlier sections of this file were written before those boards and several
+statements in them describe a state that has since moved. The new work is:
+
+- the real-Agent qualification authorization package was implemented, bound to a
+  role, and projected read-only through the CLI and the loopback Web view;
+- the privacy model was widened from "do not publish" to "not recoverable from
+  this host by another party", which added a local-state scan scope and removed
+  absolute paths from newly persisted Artifact records;
+- machine-identifying values were removed from the existing local runtime
+  databases, with the earlier bytes cleared by rebuilding each file;
+- the hardcoded discovery list was replaced with a configuration-driven
+  catalogue, and a version preference engine ranks multiple installs of the same
+  Agent.
+
+Reports:
+
+```text
+docs/reports/2026-10-14-board-25-foundation-audit-and-trust-surface.md
+docs/reports/2026-10-14-board-24-real-agent-qualification-authorization-implementation.md
+docs/reports/2026-10-14-board-26-authorization-package-binding-and-projection.md
+docs/reports/2026-10-14-board-27-version-preference-and-discovery.md
+```
+
+## Earlier continuation checkpoint
 
 The latest continuation checkpoint is:
 

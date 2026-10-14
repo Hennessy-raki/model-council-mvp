@@ -1,6 +1,12 @@
 # Privacy Issue Register
 
-Last updated: 2026-08-31
+Last updated: 2026-10-14
+
+The canonical operator requirement, restated on 2026-10-14, is that information
+about this machine must not be recoverable by another party, because personal
+privacy in the hands of a malicious party is hard to recover from. Read the
+triage policy below before changing any privacy control; it records which
+channels are machine-enforced and which are operator procedure.
 
 Every privacy-related observation must be recorded here, even when it does not
 block development. Remediation effort is proportional to whether personal,

@@ -74,12 +74,38 @@ Do not commit:
 
 ## Current priority
 
+Read `docs/PROJECT_STATUS.md` for the authoritative board list and the measured
+counts; that file is updated with each board and this section only summarises
+where the project stands as of 2026-10-14.
+
 Productization Boards 1 through 12 are complete as the public `0.2.0rc1`
-release candidate. Board 13 is complete for local private incubation only:
-it adds a separate Supervisor, team-readiness evidence, SHA-256-bound start
-approval and a local fake Manager platform. Read the Board 13 plan/report and
-`docs/PRIVACY_ISSUES.md` before changing a readiness, approval or start
-boundary.
+release candidate. Boards 13 through 27 are complete only in the local
+checkout: the Supervisor and team readiness controls, the controlled local
+experiment harness, project-run authorization, deterministic lifecycle
+verification, bounded CLI lifecycle, offline qualification preflight and
+binding, qualification integrity, the real-Agent qualification authorization
+package, the package binding and read-only projection, and the version and
+discovery work.
+
+Four of those boards are recent and worth reading directly:
+
+- Board 25 audited Boards 1 through 23 instead of inheriting their acceptance
+  claims, and widened the privacy model to cover offline copies of this host.
+  Read its report before changing any privacy control.
+- Board 24 implemented the previously frozen real-Agent qualification
+  authorization package. It produces a reviewable request; it authorizes
+  nothing.
+- Board 26 made a package bindable, captured against the current team snapshot,
+  and re-validated on every read. A tampered package is `invalid`, a contradicted
+  one is `stale`.
+- Board 27 replaced the hardcoded discovery list with a configuration-driven
+  catalogue and added a version preference engine. A recommendation never
+  replaces a binding, and an explicit user preference always wins.
+
+The privacy requirement is wider than publication. `docs/PRIVACY_ISSUES.md`
+carries the triage policy and the two scan scopes: the publication gate
+(`--history`) and the local-state inspection (`--local-state`). An ignored file
+on disk is still recoverable from a copy of the machine, so both matter.
 
 Board 11 is complete. The sole candidate is DeepSeek `deepseek-v4-flash` in
 the `synthetic_evaluator` role. One explicitly authorized synthetic manifest

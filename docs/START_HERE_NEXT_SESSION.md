@@ -65,6 +65,47 @@ Board 24 is scope-frozen for offline preparation of a real-Agent
 qualification authorization package. It does not start or qualify an Agent.
 Actual Model identity and the exact working directory remain unresolved.
 
+## Checkpoint after the 2026-10-14 boards
+
+A second development owner resumed the project on 2026-10-14 and added four
+boards. Read this section before acting on any earlier statement in this file,
+because several earlier statements describe a state that has since moved.
+
+- **Board 25** independently audited Boards 1 through 23 instead of inheriting
+  their acceptance claims, and recomputed the local disclosure surface against
+  the owner's restated requirement that no information about this machine be
+  recoverable by another party. It added `--local-state` to the privacy scanner
+  and removed machine-identifying values from newly persisted Artifact records.
+- **Board 24**'s frozen offline scope was then implemented: a deterministic,
+  privacy-safe authorization package, the read-only `authorization build` and
+  `authorization verify` commands, and a working-directory reference by category
+  and environment-variable name rather than by value.
+- **Board 26** made a built package bindable to one role, captured against the
+  current team snapshot, re-validated on every read, and projected read-only
+  through the CLI and the loopback Web view.
+- **Board 27** added a version comparison engine with an operator-controlled
+  preference, and replaced the hardcoded four-vendor discovery list with a
+  configuration-driven catalogue that can record a GUI-only Agent without
+  claiming it is invocable.
+
+Two environment facts changed since Board 23 and are worth re-measuring rather
+than trusting: the Codex CLI reports a different version than the recorded
+0.150.1, and the machine now has several Agent applications that the earlier
+four-name discovery could not see. The version engine reports the first; the
+configuration-driven catalogue handles the second.
+
+The reports for the new boards are:
+
+```text
+docs/reports/2026-10-14-board-25-foundation-audit-and-trust-surface.md
+docs/reports/2026-10-14-board-24-real-agent-qualification-authorization-implementation.md
+docs/reports/2026-10-14-board-26-authorization-package-binding-and-projection.md
+```
+
+Board 27's changes are recorded in `docs/DEVELOPMENT_BOARDS.md` and in the two
+commits that carry them. None of these boards authorizes an external call, and
+the consumed Board 8, 11 and 14 approvals remain terminal.
+
 The latest scope and completion reports are:
 
 ```text
@@ -248,10 +289,12 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and fifty-one tests after the
-Board 23 qualification integrity coverage. Re-measure the exact count from the
+The complete offline suite contains two hundred and thirty-four tests after the
+Board 27 discovery and version work. Re-measure the exact count from the
 current suite output instead of trusting this number; it changes with every
-board. The latest detailed continuation
+board. The measured total, the package line count and the tracked-file count
+are recorded together in `docs/reports/` for the board that most recently
+changed them. The latest detailed continuation
 checkpoint is:
 
 ```text

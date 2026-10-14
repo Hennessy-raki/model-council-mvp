@@ -14,23 +14,48 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
 
 当前版本已经具备：
 
+**协作闭环**
+
 - 管理员模型生成结构化任务计划；
 - 多个工作模型并行执行；
 - 任务依赖和分波调度；
 - 独立审查模型复核所有成果；
 - 管理员模型综合最终答案；
-- SQLite 持久化运行、任务和消息；
-- SHA-256 内容寻址的 Artifact 文件库；
-- `mock`、任意 `cli` 和 OpenAI-compatible HTTP 三类适配器；
-- Codex `--json` JSONL 事件解析和最终消息提取；
-- CLI 线程、usage、事件、耗时、退出码和 stderr 诊断；
-- 不调用模型的 Adapter `doctor` 检查；
-- Provider、Model、Agent和角色设置注册中心；
-- `manual`、`auto`、`hybrid`三种角色分配模式；
-- 配置同步、用户覆盖保护和敏感字段脱敏；
-- 模型能力和边界声明；
-- 超时、失败记录和确定性调度；
-- 不依赖第三方 Python 包的可运行演示。
+- SQLite 持久化运行、任务、消息和 Artifact 元数据；
+- SHA-256 内容寻址的 Artifact 文件库（持久化路径相对根目录，不含本机绝对路径）。
+
+**模型接入**
+
+- `mock`、任意 `cli`、OpenAI-compatible HTTP、Codex App Server 和 A2A 五类适配器；
+- Codex `--json` JSONL 事件解析、最终消息提取、线程与 usage 诊断；
+- 不调用模型的 Adapter `doctor` 检查。
+
+**控制平面**
+
+- Provider、Model、Agent 和角色设置注册中心；
+- `manual`、`auto`、`hybrid` 三种角色分配模式；
+- 启动发现：可执行、认证、权限、连通性与**版本**分项记录；
+- 配置驱动的发现目录，可登记 GUI-only 应用并明确标注不可调用；
+- 版本比较与推荐：正式版优先，推荐可被用户偏好覆盖，且永不自动替换绑定；
+- 用量、费用与余额台账，区分实际、Provider 上报、估算与不可用；
+- 聊天记录以外的确定性路由、能力与预算约束、不可变的路由决策证据。
+
+**审批与隔离**
+
+- 仅回环地址的本地产品界面与统一审批中心；
+- Codex App Server 的精确出站上下文（prompt + cwd + 模型 + 沙箱）单次审批；
+- 隔离 Git worktree、显式读写测试合并权限、有界修复与恢复；
+- 真实 Agent 资质授权包：可由用户审查、可绑定角色、事实漂移即失效。
+
+**门禁**
+
+- 本地隐私扫描：当前树、可达历史、以及被忽略的本地运行数据三个口径；
+- 发布候选校验；
+- 隐私安全的本地备份与精确恢复；
+- 不依赖第三方 Python 包的可运行演示（零依赖，只需 Python 3.11+）。
+
+截至 2026-10-14 实测：**234 项离线测试全部通过**，46 张 SQLite 表，33 条已登记的
+隐私条目。这些数字每块板都会变，请以实测为准。
 
 ## 架构
 
@@ -608,8 +633,79 @@ published `0.2.0rc1` release candidate. See
 ```powershell
 python -m unittest discover -s tests -v
 python scripts/privacy_scan.py --history
+python scripts/privacy_scan.py --local-state
 python scripts/release_verify.py
 ```
+
+`--local-state` 会检查被 `.gitignore` 排除的 `runtime/` 与 `runtime-*`。默认的
+`--history` 只看 Git 跟踪与非忽略路径，因此那些目录对它完全不可见；两者是不同
+的口径，发布门禁用前者，搬迁工作目录前用后者。
+
+## Real-Agent qualification authorization package
+
+这是"到真实调用之间"的最后一个离线环节：把一次未来真实 Agent 资质的请求做成
+**可审查、可摘要、可失效**的对象。它不启动任何东西。
+
+```powershell
+python -m model_council authorization build --candidate-file <声明.json>
+python -m model_council authorization verify --package-file <包.json>
+python -m model_council supervisor authorization-bind manager --package-file <包.json>
+python -m model_council supervisor authorization-show [--role manager]
+```
+
+`build` 是纯校验，不落盘。`bind` 才会写一条本地记录，并捕获当前团队快照。
+
+三个必须知道的行为：
+
+- **工作目录只以"类别 + 环境变量名"出现**，例如
+  `{"category": "synthetic_workspace", "env_var": "MODEL_COUNCIL_SYNTHETIC_CWD"}`，
+  所以跟踪文件里永远不会出现本机绝对路径；
+- **缺证据时状态是 `user_confirmation_required`**，这是构造性的：七个生命周期
+  事实默认 `unknown`，没有提供观测值就不会变成可审查，
+  也就是说默认产出的是**一个问你的问题**，不是放行；
+- **事实状态绑进了包摘要**，任何观测值变化都会改变 `package_sha256`。
+  重新读取时会重新推导，所以被篡改的包报 `invalid`、事实漂移的报 `stale`、
+  团队快照过期的报 `superseded`。
+
+绑定**不创建启动审批、不启动进程、不授予任何权限**。
+
+## Agent 版本与发现目录
+
+发现目录是**配置数据**，不是代码。加一个工具不需要改模块：
+
+```json
+"discovery_targets": [
+  {"key": "myagent", "display_name": "My Agent",
+   "command_candidates": ["myagent.cmd", "myagent"],
+   "version_arguments": ["--version"],
+   "extra_path_patterns": ["C:/Programs/MyAgent/*.exe"]}
+],
+"gui_only_targets": [
+  {"key": "some-desktop-app", "display_name": "Some Desktop App",
+   "command_candidates": [], "version_arguments": [],
+   "interface_kind": "gui_only"}
+]
+```
+
+`interface_kind` 只有两个取值：`cli`（控制面可以自己调用）与 `gui_only`
+（不可以，只登记可见性与手工移交）。声明成 `cli` 却没有任何命令会在**配置加载时
+直接报错**，不会静默通过。
+
+同一 Agent 存在多个安装时，会各自探测版本并按规则推荐：
+
+| 层级 | 规则 |
+| --- | --- |
+| 比较两个版本 | 正式版只胜过**同号**的候选版：`1.35.0` > `1.35.0-rc.1` |
+| 排序候选集 | 只要存在正式版，就不推荐任何候选版：`1.34.9` 胜过 `1.35.0-rc.1` |
+
+排序规则可关闭（退化为纯数字比较）。**推荐永远不是替换**：任何结果都带
+`auto_switch: false`，且显式指定的 `preferred_version` 一定优先于推荐，
+会记为 `user_preference` 并把被压过的版本列进 `alternatives`。
+
+无法比较的版本（例如 `latest` 与 `1.35.0` 混在一起）返回 `undecidable`，
+**不给推荐、不猜**。
+
+版本探测是参数数组、`shell=False`、有超时，只问工具自己的版本，不发送任何项目上下文。
 
 ## 接入 Codex
 
@@ -692,19 +788,50 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 - API 密钥只读取环境变量；
 - 每个任务都有明确的目标 agent；
 - Artifact 通过哈希定位，消息只传引用；
+- 本地持久化的 Artifact 路径是**相对于 Artifact 根目录**的，不写本机绝对路径；
 - 当前版本不会未经持久化权限修改用户主检出，也不会未经单次精确审批合并或丢弃 Git worktree；
 - 真实 agent 的系统权限仍由对应 CLI、沙箱和操作系统控制。
 
+隐私有两个不同口径，不要混用：
+
+| 命令 | 作用范围 | 用途 |
+| --- | --- | --- |
+| `privacy_scan.py` | Git 已跟踪 + 未忽略的未跟踪文件 | 每次板块完成的公开门禁 |
+| `privacy_scan.py --history` | 加上可达的全部历史 blob 与提交者域名 | 公开推送前的门禁 |
+| `privacy_scan.py --local-state` | 加上被忽略的 `runtime/`、`runtime-*` | 搬迁、归档或迁移工作目录之前 |
+
+第三个口径是被忽略的本地运行数据。它不进 Git，但**仍可从这台机器或它的任何副本读出**，
+所以在本机隐私要求下也是一个需要检查的面。
+
 ## 目前刻意未做
 
-- A2A 网络服务器；
-- MCP 工具代理；
-- Codex App Server 持久会话；
-- 第二个真实 Agent 家族的客观评估；
-- 审批中心、运行比较、备份和发布准备；
-- Web/Electron 图形界面；
-- 自动价格目录刷新、货币换算和按时间窗口预算；
-- 人工审批页面；
-- 多轮争论和动态重新规划。
+判断"未做"时请注意区分三种状态，混为一谈会误判项目进度。
 
-这些属于下一阶段。当前目标是先验证最关键闭环：管理员分工、多个模型交换成果、独立复核、最终整合。
+**尚未实现**
+
+- 自动价格目录刷新、货币换算和按时间窗口预算；价格表目前是操作者声明的；
+- 多轮争论与动态重新规划：管理者只做一次规划、一次综合，worker 失败后不重规划；
+- worker 之间的交互式问答：目前只能通过已存结果和最终上下文传递；
+- 通用上下文摘要，需要先有经审查的留存与披露政策；
+- 远程节点认证与签名；
+- Artifact 保留与清除策略（需要独立的冻结板块与单独授权）；
+- Electron 打包与更广的操作台工作流。
+
+**已实现但只对本地假服务器验证过**
+
+- A2A 与 MCP 的真实第三方端点：协议客户端与审批都已实现，但没有验证过任何真实远端；
+- Codex App Server：已对仓库内的假服务器完整验证，并有过一次真实只读合成运行。
+
+**已实现但没有生产入口**
+
+- `RepairService.run_local_until_terminal()` 与 `WorkspaceService.invoke_cli()`：
+  两条路径目前只被测试使用，是明确标注的本地回调与假 CLI 演练，
+  不是遗漏的接线。
+
+**已决定不启动**
+
+- Board 16 的本地传输可靠性加固：只观察到一次不可复现的 Windows 回环中断，
+  除非先拿到可复现的失败测试，否则不启动。
+
+当前阶段的目标仍是那个最关键闭环：管理员分工、多个模型交换成果、独立复核、最终整合。
+真正没有验证过的不是这些机制，而是**它们面对真实 Agent 时的行为**。
