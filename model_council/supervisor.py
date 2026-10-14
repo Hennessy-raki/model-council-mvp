@@ -868,6 +868,204 @@ class SupervisorService:
         item["execution_authorized"] = False
         return item
 
+    def observation_record(self, role_key: str) -> dict[str, Any] | None:
+        """Read one stored observation and re-derive whether it still holds."""
+        self._validate_role(role_key)
+        with self.store.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM supervisor_observation_records
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._observation_status(_decode_observation_record(row))
+
+    def observation_records(self) -> list[dict[str, Any]]:
+        with self.store.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM supervisor_observation_records
+                ORDER BY role_key
+                """
+            ).fetchall()
+        return [
+            self._observation_status(_decode_observation_record(row))
+            for row in rows
+        ]
+
+    def bind_observation_record(
+        self,
+        role_key: str,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Bind one measured observation to one configured role.
+
+        Binding records a measurement. It grants nothing: no start approval, no
+        process and no execution authority follow from it.
+        """
+        self._validate_role(role_key)
+        if not isinstance(result, dict):
+            raise SupervisorError("an observation result must be an object")
+        if result.get("status") not in {"recorded", "incomplete"}:
+            raise SupervisorError("only a built observation record can be bound")
+        record = result.get("record")
+        recorded = result.get("record_sha256")
+        if not isinstance(record, dict) or not isinstance(recorded, str):
+            raise SupervisorError("observation record is incomplete")
+        service = _observation_service()
+        if not service.verify(record, recorded):
+            raise SupervisorError("observation record digest is invalid")
+        identity = record.get("identity")
+        if not isinstance(identity, dict):
+            raise SupervisorError("observation identity is missing")
+        binding = self.binding(role_key)
+        if (
+            identity.get("agent_id") != binding["agent_id"]
+            or identity.get("model_id") != binding["model_id"]
+        ):
+            raise SupervisorError("observation identity does not match role")
+        provider_id = identity.get("provider_id")
+        if not isinstance(provider_id, str):
+            raise SupervisorError("observation Provider is missing")
+        with self.store.connect() as conn:
+            row = conn.execute(
+                "SELECT provider_id FROM agent_profiles WHERE id = ?",
+                (binding["agent_id"],),
+            ).fetchone()
+        if row is None or provider_id != row["provider_id"]:
+            raise SupervisorError(
+                "observation Provider does not match role Agent"
+            )
+        measured_at = record.get("measured_at")
+        max_age = record.get("max_age_seconds")
+        if not isinstance(measured_at, str) or not isinstance(max_age, int):
+            raise SupervisorError("observation lacks a usable measurement time")
+        now = utc_now()
+        record_id = str(uuid4())
+        # A snapshot is captured when one exists, but binding a measurement does
+        # not require one: the record precedes the snapshot that later binds it.
+        # Requiring a snapshot here would make observation impossible, because a
+        # non-mock role cannot be snapshotted before it has been observed.
+        snapshot = self.latest_snapshot()
+        with self.store.connect() as conn:
+            previous = conn.execute(
+                """
+                SELECT record_sha256 FROM supervisor_observation_records
+                WHERE role_key = ?
+                """,
+                (role_key,),
+            ).fetchone()
+            if previous is not None and previous["record_sha256"] != recorded:
+                self._mark_pending_approvals_stale(
+                    conn,
+                    failure="observation record changed after approval",
+                )
+            conn.execute(
+                """
+                INSERT INTO supervisor_observation_records(
+                    id, role_key, agent_id, model_id, provider_id,
+                    record_sha256, fact_digest, measured_at, max_age_seconds,
+                    record_json, recorded_sha256, captured_team_snapshot_id,
+                    status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'current', ?, ?)
+                ON CONFLICT(role_key) DO UPDATE SET
+                    id = excluded.id,
+                    agent_id = excluded.agent_id,
+                    model_id = excluded.model_id,
+                    provider_id = excluded.provider_id,
+                    record_sha256 = excluded.record_sha256,
+                    fact_digest = excluded.fact_digest,
+                    measured_at = excluded.measured_at,
+                    max_age_seconds = excluded.max_age_seconds,
+                    record_json = excluded.record_json,
+                    recorded_sha256 = excluded.recorded_sha256,
+                    captured_team_snapshot_id =
+                        excluded.captured_team_snapshot_id,
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    record_id,
+                    role_key,
+                    str(identity["agent_id"]),
+                    str(identity["model_id"]),
+                    provider_id,
+                    recorded,
+                    str(record.get("fact_digest", "")),
+                    measured_at,
+                    max_age,
+                    _dump(sanitize_for_storage(record)),
+                    recorded,
+                    snapshot["id"] if snapshot else None,
+                    now,
+                    now,
+                ),
+            )
+        return self.observation_record(role_key)
+
+    def _observation_status(self, item: dict[str, Any]) -> dict[str, Any]:
+        record = item.get("record")
+        recorded = item.get("recorded_sha256")
+        if not isinstance(record, dict):
+            integrity = {
+                "integrity_status": "invalid",
+                "integrity_code": "record_missing",
+            }
+        else:
+            service = _observation_service()
+            if not service.verify(record, recorded):
+                integrity = {
+                    "integrity_status": "invalid",
+                    "integrity_code": "record_digest_mismatch",
+                }
+            else:
+                reason = service.stale_reason(record, utc_now())
+                if reason is not None:
+                    integrity = {
+                        "integrity_status": "stale",
+                        "integrity_code": reason,
+                    }
+                else:
+                    identity = record.get("identity")
+                    if not isinstance(identity, dict):
+                        integrity = {
+                            "integrity_status": "invalid",
+                            "integrity_code": "identity_missing",
+                        }
+                    else:
+                        registry = self._registry_identity_integrity(
+                            str(identity.get("agent_id", "")),
+                            str(identity.get("model_id", "")),
+                            str(identity.get("provider_id", "")),
+                        )
+                        integrity = (
+                            registry
+                            if registry["integrity_status"] != "current"
+                            else {
+                                "integrity_status": "current",
+                                "integrity_code": None,
+                            }
+                        )
+        item.update(integrity)
+        facts = record.get("facts") if isinstance(record, dict) else None
+        if isinstance(facts, dict):
+            item["summary"] = _observation_service()._summarise(facts)
+        else:
+            item.setdefault("summary", None)
+        snapshot_id = item.get("captured_team_snapshot_id")
+        latest = self.latest_snapshot()
+        item["snapshot_status"] = (
+            "not_captured"
+            if not snapshot_id
+            else "current"
+            if latest is not None and latest["id"] == snapshot_id
+            else "superseded"
+        )
+        return item
+
     def transition_agent(self, role_key: str, operation: str) -> dict[str, Any]:
         """Run one deterministic local lifecycle transition."""
         self._validate_role(role_key)
@@ -1518,6 +1716,15 @@ class SupervisorService:
                         )
                         or {}
                     ).get("integrity_status"),
+                    "observation_record_id": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("id"),
+                    "observation_record_sha256": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("record_sha256"),
+                    "observation_measured_at": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("measured_at"),
                 }
                 for item in team
             ],
@@ -1881,6 +2088,22 @@ class SupervisorService:
                     raise SupervisorError(
                         f"{role_key} qualification preflight is stale or invalid"
                     )
+                # A declared scope describes what would be observed. It is not a
+                # measurement, so it cannot stand in for one. A non-mock role
+                # additionally needs a current observation record, and a record
+                # whose measurement time has passed is stale rather than merely
+                # old.
+                observation = self.observation_record(role_key)
+                if (
+                    observation is None
+                    or observation["integrity_status"] != "current"
+                    or observation["agent_id"] != binding["agent_id"]
+                    or observation["model_id"] != binding["model_id"]
+                ):
+                    raise SupervisorError(
+                        f"{role_key} has no current real-Agent observation; "
+                        "record one before the team can be marked ready"
+                    )
             result.append({"binding": binding, "report": report})
         return result
 
@@ -1927,6 +2150,15 @@ class SupervisorService:
                         )
                         or {}
                     ).get("integrity_status"),
+                    "observation_record_id": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("id"),
+                    "observation_record_sha256": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("record_sha256"),
+                    "observation_measured_at": (
+                        self.observation_record(item["binding"]["role_key"]) or {}
+                    ).get("measured_at"),
                 }
                 for item in team
             ],
@@ -2192,6 +2424,19 @@ def _decode_authorization_package(row) -> dict[str, Any]:
     item["package"] = json.loads(item.pop("package_json"))
     item["facts"] = json.loads(item.pop("facts_json"))
     return item
+
+
+def _decode_observation_record(row) -> dict[str, Any]:
+    item = dict(row)
+    item["record"] = json.loads(item.pop("record_json"))
+    return item
+
+
+def _observation_service():
+    """Import the observation service lazily to avoid an import cycle."""
+    from .observation import ObservationService
+
+    return ObservationService()
 
 
 def _authorization_service():

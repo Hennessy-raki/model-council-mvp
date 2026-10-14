@@ -489,6 +489,36 @@ class SupervisorTests(unittest.TestCase):
             service.start_project_run(approval["id"], "Frozen lifecycle goal")
         self.assertEqual(service.approval(approval["id"])["status"], "stale")
 
+    def _observation(self, agent_id="manager-agent", model_id="manager-model", measured_at=None):
+        """A measured observation for one role.
+
+        Board 30 requires a current observation alongside the declared
+        preflight: a scope says what would be observed, and only a measurement
+        says what was. Tests that need a ready non-mock role therefore bind both.
+        """
+        from model_council.observation import ObservationService
+        from model_council.store import utc_now
+
+        facts = {
+            "process": {"status": "observed", "source": "local_process", "value": "exit_code=0"},
+            "version": {"status": "observed", "source": "tool_output", "value": "0.154.0"},
+            "permission": {"status": "observed", "source": "tool_output", "value": "read_only"},
+            "protocol": {"status": "observed", "source": "tool_output", "value": "jsonl_events"},
+            "actual_model": {"status": "unknown", "source": None},
+            "connectivity": {"status": "observed", "source": "service_response", "value": "passed"},
+            "login": {"status": "not_applicable", "source": None},
+        }
+        return ObservationService().build(
+            {
+                "agent_id": agent_id,
+                "model_id": model_id,
+                "provider_id": "local-fake",
+                "measured_at": measured_at or utc_now(),
+                "facts": facts,
+                "evidence": {"retained": False, "prompt_tokens": 16078},
+            }
+        )
+
     def test_non_mock_role_requires_matching_preflight_and_binds_snapshot_provenance(self):
         self.registry.upsert_agent(
             "manager-agent",
@@ -513,6 +543,10 @@ class SupervisorTests(unittest.TestCase):
         preflight = self._qualification()
         bound = service.bind_qualification_preflight("manager", preflight)
         self.assertEqual(bound["status"], "current")
+        observation = service.bind_observation_record(
+            "manager", self._observation()
+        )
+        self.assertEqual(observation["integrity_status"], "current")
         self.assertEqual(service.check_role("manager")["status"], "ready")
         service.check_team()
         snapshot = service.snapshot()
@@ -522,6 +556,16 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(
             manager_role["qualification_preflight_sha256"],
             preflight["scope_sha256"],
+        )
+        # The measured record is bound into the snapshot too, so a later
+        # measurement change makes the snapshot stale rather than silently valid.
+        self.assertEqual(
+            manager_role["observation_record_sha256"],
+            observation["record_sha256"],
+        )
+        self.assertEqual(
+            manager_role["observation_measured_at"],
+            observation["measured_at"],
         )
         approval = service.request_project_run(snapshot["id"], "Qualified goal")
         manager_scope = next(
@@ -612,6 +656,7 @@ class SupervisorTests(unittest.TestCase):
         )
         service = self._service()
         service.bind_qualification_preflight("manager", self._qualification())
+        service.bind_observation_record("manager", self._observation())
         service.check_team()
         snapshot = service.snapshot()
         approval = service.request_project_run(snapshot["id"], "Qualified goal")

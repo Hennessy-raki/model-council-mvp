@@ -74,8 +74,16 @@ multi-model execution service.
   completion endpoint instead of reporting a false failure. Report:
   `docs/reports/2026-10-14-board-29-gaps-from-first-real-observation.md`.
 
-Measured state at 2026-10-14, after Board 29: 253 offline tests across 27 test
-files, 173 tracked files, 46 SQLite tables, 44 indexes and 33 recorded privacy
+- Board 30 is complete for the local offline slice. A measured observation is now
+  a first-class record: it requires an explicit measurement time and lifetime,
+  records how each fact was obtained, is re-derived on every read, and is
+  required before a non-mock role can be marked ready. A tampered record is
+  `invalid`, an expired one is `stale`. The record is bound into the team
+  snapshot, so a later measurement change makes the snapshot stale. Report:
+  `docs/reports/2026-10-14-board-30-observed-evidence-qualification-record.md`.
+
+Measured state at 2026-10-14, after Board 30: 284 offline tests across 28 test
+files, 173 tracked files, 47 SQLite tables, 45 indexes and 33 recorded privacy
 entries. Re-measure these rather than trusting them; they change with every
 board.
 

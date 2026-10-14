@@ -728,6 +728,26 @@ class CouncilStore:
                     ON supervisor_agent_events(session_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_supervisor_authorization_role
                     ON supervisor_authorization_packages(role_key, updated_at);
+                CREATE TABLE IF NOT EXISTS supervisor_observation_records (
+                    id TEXT PRIMARY KEY,
+                    role_key TEXT NOT NULL UNIQUE,
+                    agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+                    model_id TEXT NOT NULL REFERENCES models(id),
+                    provider_id TEXT NOT NULL REFERENCES providers(id),
+                    record_sha256 TEXT NOT NULL,
+                    fact_digest TEXT NOT NULL,
+                    measured_at TEXT NOT NULL,
+                    max_age_seconds INTEGER NOT NULL,
+                    record_json TEXT NOT NULL,
+                    recorded_sha256 TEXT NOT NULL,
+                    captured_team_snapshot_id TEXT
+                        REFERENCES supervisor_team_snapshots(id),
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_supervisor_observation_role
+                    ON supervisor_observation_records(role_key, updated_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiments_status
                     ON controlled_experiments(status, requested_at);
                 CREATE INDEX IF NOT EXISTS idx_controlled_experiment_events

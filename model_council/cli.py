@@ -1072,6 +1072,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_config_path()),
     )
 
+    supervisor_observation_bind = supervisor_commands.add_parser(
+        "observation-bind",
+        help=(
+            "bind one measured real-Agent observation to a role; this records "
+            "a measurement and grants no execution authority"
+        ),
+    )
+    supervisor_observation_bind.add_argument(
+        "role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_observation_bind.add_argument(
+        "--observation-file",
+        required=True,
+        help=(
+            "local JSON containing a built observation result "
+            "{record, record_sha256, ...}"
+        ),
+    )
+    supervisor_observation_bind.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+    supervisor_observation_show = supervisor_commands.add_parser(
+        "observation-show",
+        help=(
+            "read-only view of bound observations and whether each measurement "
+            "is still current"
+        ),
+    )
+    supervisor_observation_show.add_argument(
+        "--role",
+        choices=("manager", "worker", "reviewer"),
+    )
+    supervisor_observation_show.add_argument(
+        "--config",
+        default=str(default_config_path()),
+    )
+
     experiment = subparsers.add_parser(
         "experiment",
         help="prepare and simulate controlled local multi-Agent experiments",
@@ -1768,6 +1807,31 @@ def main(argv: list[str] | None = None) -> None:
                 )
                 print(json.dumps(payload, ensure_ascii=False, indent=2))
                 return
+            if args.supervisor_command == "observation-bind":
+                config = load_config(args.config)
+                supervisor = _load_supervisor(config)
+                payload = supervisor.bind_observation_record(
+                    args.role,
+                    _load_json_object(
+                        args.observation_file, "--observation-file"
+                    ),
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
+            if args.supervisor_command == "observation-show":
+                config = load_config(args.config)
+                supervisor = _load_supervisor(config)
+                payload = (
+                    supervisor.observation_record(args.role)
+                    if args.role
+                    else {
+                        "observation_records": (
+                            supervisor.observation_records()
+                        )
+                    }
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                return
             if args.supervisor_command == "qualification-preflight":
                 payload = QualificationPreflightService().evaluate(
                     _load_json_object(args.candidate_file, "--candidate-file")
@@ -1800,6 +1864,9 @@ def main(argv: list[str] | None = None) -> None:
                     ),
                     "authorization_packages": (
                         supervisor.authorization_packages()
+                    ),
+                    "observation_records": (
+                        supervisor.observation_records()
                     ),
                     "manager_platform_events": supervisor.events(),
                 }
