@@ -9,6 +9,7 @@ from model_council.discovery import (
     KNOWN_LOCAL_AGENTS,
     LocalAgentTarget,
     DiscoveryService,
+    gui_targets_from_config,
     target_from_config,
     targets_from_config,
 )
@@ -277,6 +278,141 @@ class VersionCandidateTests(unittest.TestCase):
                 "SELECT * FROM supervisor_team_bindings"
             ).fetchall()
         self.assertEqual(bindings, [])
+
+
+class GuiOnlyTargetTests(unittest.TestCase):
+    """A desktop application must never look invocable."""
+
+    def setUp(self):
+        self.temp = TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.store = CouncilStore(Path(self.temp.name) / "council.db")
+        self.registry = RegistryService(self.store)
+        self.probes: list[str] = []
+
+    def _service(self, gui_targets):
+        def probe(executable, bound):
+            self.probes.append(executable)
+            return "1.0.0"
+
+        return DiscoveryService(
+            None,
+            self.registry,
+            adapters={},
+            known_targets=(),
+            gui_targets=gui_targets,
+            version_probe=probe,
+        )
+
+    def _gui_target(self, key="zcode", name="ZCode"):
+        return LocalAgentTarget(
+            key,
+            name,
+            (),
+            version_arguments=(),
+            interface_kind="gui_only",
+        )
+
+    def test_a_gui_target_is_recorded_as_not_invocable(self):
+        service = self._service((self._gui_target(),))
+        service.scan()
+
+        record = self.registry.discovery_record("known:zcode")
+        self.assertIsNotNone(record)
+        self.assertEqual(record["target_kind"], "gui_only_application")
+        self.assertEqual(record["adapter_type"], "manual")
+        self.assertIsNone(record["agent_id"])
+        self.assertIsNone(record["resolved_executable"])
+        self.assertFalse(record["capabilities"]["invocable"])
+        self.assertTrue(record["capabilities"]["manual_setup"])
+        self.assertFalse(record["capabilities"]["version_probe"])
+        self.assertEqual(record["details"]["interface_kind"], "gui_only")
+        self.assertTrue(record["details"]["requires_manual_handoff"])
+
+    def test_no_command_is_probed_for_a_gui_target(self):
+        service = self._service((self._gui_target(),))
+        service.scan()
+        self.assertEqual(self.probes, [])
+
+    def test_a_gui_target_creates_no_runnable_agent(self):
+        service = self._service((self._gui_target(),))
+        service.scan()
+        # No Agent profile is registered for a GUI-only entry, so nothing can be
+        # routed to it. A CLI target in the same run would register one, which
+        # is why the assertion is scoped to the GUI key rather than to the
+        # total count.
+        with self.store.connect() as conn:
+            profiles = conn.execute(
+                "SELECT id FROM agent_profiles"
+            ).fetchall()
+            discovered = conn.execute(
+                """
+                SELECT agent_id FROM agent_discovery
+                WHERE id = 'known:zcode'
+                """
+            ).fetchone()
+        self.assertEqual(profiles, [])
+        self.assertIsNone(discovered["agent_id"])
+
+    def test_install_locations_are_preserved_across_scans(self):
+        target = self._gui_target()
+        service = self._service((target,))
+        service.scan()
+        with self.store.connect() as conn:
+            conn.execute(
+                """
+                UPDATE agent_discovery
+                SET details_json = ?
+                WHERE id = 'known:zcode'
+                """,
+                (
+                    json.dumps(
+                        {
+                            "interface_kind": "gui_only",
+                            "install_locations": ["/fake/ZCode.exe"],
+                        }
+                    ),
+                ),
+            )
+        service.scan()
+        record = self.registry.discovery_record("known:zcode")
+        self.assertEqual(
+            record["details"]["install_locations"],
+            ["/fake/ZCode.exe"],
+        )
+
+    def test_gui_catalogue_rejects_a_cli_entry(self):
+        with self.assertRaises(ValueError):
+            gui_targets_from_config(
+                [{"key": "x", "command_candidates": ["x"]}]
+            )
+
+    def test_gui_catalogue_allows_an_empty_list(self):
+        self.assertEqual(gui_targets_from_config([]), ())
+
+    def test_a_cli_target_still_requires_a_command(self):
+        with self.assertRaises(ValueError):
+            target_from_config(
+                {"key": "x", "interface_kind": "cli"},
+                "discovery_targets[0]",
+            )
+
+    def test_an_unknown_interface_kind_is_rejected(self):
+        with self.assertRaises(ValueError):
+            target_from_config(
+                {
+                    "key": "x",
+                    "command_candidates": ["x"],
+                    "interface_kind": "magic",
+                },
+                "discovery_targets[0]",
+            )
+
+    def test_the_cli_and_gui_catalogues_stay_separate(self):
+        service = self._service((self._gui_target("zcode"),))
+        service.known_targets = ()
+        self.assertEqual(len(service.gui_targets), 1)
+        self.assertEqual(service.gui_targets[0].interface_kind, "gui_only")
 
 
 class RealProbeTests(unittest.TestCase):

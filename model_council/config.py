@@ -29,6 +29,9 @@ class CouncilConfig:
     # built-in starting catalogue". Keeping this in configuration rather than in
     # code is what stops the control plane from being bound to any one vendor.
     discovery_targets: list[dict[str, Any]] | None = None
+    # Desktop applications with no command-line interface. Recorded for
+    # visibility and manual handoff only; never invocable by the control plane.
+    gui_only_targets: list[dict[str, Any]] | None = None
 
     def card(self, name: str) -> AgentCard:
         item = self.agents[name]
@@ -63,6 +66,12 @@ def load_config(path: str | Path) -> CouncilConfig:
 
         discovery_targets = list(discovery_targets_raw)
         targets_from_config(discovery_targets)
+    gui_only_raw = data.get("gui_only_targets")
+    gui_only_targets = None if gui_only_raw is None else list(gui_only_raw)
+    if gui_only_targets is not None:
+        from .discovery import gui_targets_from_config
+
+        gui_targets_from_config(gui_only_targets)
     project_name = str(data.get("project_name", "model-council"))
     if "artifact_provenance_display" in settings:
         try:
@@ -270,6 +279,7 @@ def load_config(path: str | Path) -> CouncilConfig:
         budgets=budgets,
         mcp_servers=mcp_servers,
         discovery_targets=discovery_targets,
+        gui_only_targets=gui_only_targets,
     )
 
 

@@ -22,17 +22,30 @@ from .versions import plan_upgrade, version_from_output
 
 VERSION_PROBE_TIMEOUT_SECONDS = 15
 
+# How a target can be driven. This is recorded per target so that a desktop
+# application is never silently mixed in with something the control plane can
+# invoke, which would violate "do not mistake a registered model for a runnable
+# one".
+INTERFACE_CLI = "cli"
+INTERFACE_GUI_ONLY = "gui_only"
+INTERFACE_KINDS = (INTERFACE_CLI, INTERFACE_GUI_ONLY)
+
 
 @dataclass(frozen=True)
 class LocalAgentTarget:
     key: str
     display_name: str
-    command_candidates: tuple[str, ...]
+    # Empty for a GUI-only target: there is no command for the control plane to
+    # resolve or invoke.
+    command_candidates: tuple[str, ...] = ()
     # The argument that makes the tool print its version, and the path patterns
     # worth probing in addition to PATH. Both are data so that an operator can
     # add a tool without editing this module.
     version_arguments: tuple[str, ...] = ("--version",)
     extra_path_patterns: tuple[str, ...] = ()
+    # `cli` means the control plane can invoke the tool itself. `gui_only` means
+    # it cannot, and the Agent is recorded for visibility and manual handoff.
+    interface_kind: str = INTERFACE_CLI
 
 
 # A starting catalogue, not a closed list. An operator extends or replaces it
@@ -46,6 +59,20 @@ KNOWN_LOCAL_AGENTS = (
     LocalAgentTarget("reasonix", "Reasonix", ("reasonix.cmd", "reasonix")),
 )
 
+# Desktop applications that have no command-line interface of their own. They
+# are recorded so the operator can see what exists on the machine and hand work
+# over manually. No command is probed and no invocation path is claimed.
+KNOWN_GUI_ONLY_AGENTS = (
+    LocalAgentTarget(
+        "zcode",
+        "ZCode",
+        (),
+        version_arguments=(),
+        extra_path_patterns=(),
+        interface_kind=INTERFACE_GUI_ONLY,
+    ),
+)
+
 
 def target_from_config(item: Any, label: str) -> LocalAgentTarget:
     """Build one discovery target from configuration data."""
@@ -57,12 +84,21 @@ def target_from_config(item: Any, label: str) -> LocalAgentTarget:
     display_name = item.get("display_name")
     if display_name is not None and not isinstance(display_name, str):
         raise ValueError(f"{label}.display_name must be a string")
-    commands = item.get("command_candidates")
-    if not isinstance(commands, list) or not commands:
-        raise ValueError(f"{label}.command_candidates must be a non-empty list")
-    if any(not isinstance(value, str) or not value for value in commands):
+    commands = item.get("command_candidates", [])
+    if not isinstance(commands, list) or any(
+        not isinstance(value, str) or not value for value in commands
+    ):
         raise ValueError(
-            f"{label}.command_candidates must contain non-empty strings"
+            f"{label}.command_candidates must be a list of non-empty strings"
+        )
+    interface_kind = item.get("interface_kind", INTERFACE_CLI)
+    if interface_kind not in INTERFACE_KINDS:
+        choices = ", ".join(INTERFACE_KINDS)
+        raise ValueError(f"{label}.interface_kind must be one of: {choices}")
+    if interface_kind == INTERFACE_CLI and not commands:
+        raise ValueError(
+            f"{label}.command_candidates must name at least one command for a "
+            "cli target"
         )
     arguments = item.get("version_arguments", ["--version"])
     if not isinstance(arguments, list) or any(
@@ -82,6 +118,7 @@ def target_from_config(item: Any, label: str) -> LocalAgentTarget:
         command_candidates=tuple(commands),
         version_arguments=tuple(arguments),
         extra_path_patterns=tuple(patterns),
+        interface_kind=interface_kind,
     )
 
 
@@ -96,6 +133,32 @@ def targets_from_config(value: Any) -> tuple[LocalAgentTarget, ...]:
     )
 
 
+def gui_targets_from_config(value: Any) -> tuple[LocalAgentTarget, ...]:
+    """Build the GUI-only part of the catalogue.
+
+    GUI-only entries live in their own list so that a declared application can
+    never be mistaken for something the control plane can invoke. An entry here
+    is recorded for visibility and manual handoff only.
+    """
+    if value is None:
+        return KNOWN_GUI_ONLY_AGENTS
+    if not isinstance(value, list):
+        raise ValueError("gui_only_targets must be a list")
+    if not value:
+        return ()
+    targets = []
+    for index, item in enumerate(value):
+        label = f"gui_only_targets[{index}]"
+        target = target_from_config(item, label)
+        if target.interface_kind != INTERFACE_GUI_ONLY:
+            raise ValueError(
+                f"{label}.interface_kind must be {INTERFACE_GUI_ONLY!r} in "
+                "gui_only_targets"
+            )
+        targets.append(target)
+    return tuple(targets)
+
+
 class DiscoveryService:
     """Local Agent discovery without automatic routing or project disclosure."""
 
@@ -106,6 +169,7 @@ class DiscoveryService:
         adapters: dict[str, AgentAdapter] | None = None,
         known_targets: tuple[LocalAgentTarget, ...] | None = None,
         version_probe: Any = None,
+        gui_targets: tuple[LocalAgentTarget, ...] | None = None,
     ):
         self.config = config
         self.registry = registry
@@ -125,6 +189,11 @@ class DiscoveryService:
                 config.discovery_targets if config else None
             )
         self.known_targets = known_targets
+        if gui_targets is None:
+            gui_targets = gui_targets_from_config(
+                config.gui_only_targets if config else None
+            )
+        self.gui_targets = gui_targets
         self.version_probe = version_probe or self._probe_version
 
     def version_candidates(
@@ -220,6 +289,11 @@ class DiscoveryService:
             )
         for target in self.known_targets:
             self._scan_known_target(
+                target,
+                existing.get(self._known_record_id(target.key)),
+            )
+        for target in self.gui_targets:
+            self._scan_gui_target(
                 target,
                 existing.get(self._known_record_id(target.key)),
             )
@@ -411,6 +485,61 @@ class DiscoveryService:
                 "versions_detected": ranking["versions_detected"],
                 "undetected": ranking["undetected"],
                 "version_plan": ranking["plan"],
+            },
+            source="discovery",
+        )
+
+    def _scan_gui_target(
+        self,
+        target: LocalAgentTarget,
+        existing: dict[str, Any] | None,
+    ) -> None:
+        """Record a GUI-only Agent without claiming any invocation path.
+
+        This exists so the operator can see what is installed. It registers no
+        runnable Agent, resolves no command, probes no version and creates no
+        binding: a desk application is not mistaken for something the control
+        plane can drive.
+        """
+        existing_paths = []
+        if existing and isinstance(existing.get("details"), dict):
+            value = existing["details"].get("install_locations")
+            if isinstance(value, list):
+                existing_paths = [item for item in value if isinstance(item, str)]
+        self.registry.upsert_discovery_record(
+            record_id=self._known_record_id(target.key),
+            agent_id=None,
+            display_name=target.display_name,
+            target_kind="gui_only_application",
+            adapter_type="manual",
+            executable_status=ExecutableStatus.UNKNOWN,
+            authentication_status=AuthenticationStatus.UNKNOWN,
+            permission_status=PermissionStatus.UNKNOWN,
+            connectivity_status=(
+                existing["connectivity_status"]
+                if existing
+                else ConnectivityStatus.NOT_CHECKED
+            ),
+            resolved_executable=None,
+            models=[],
+            capabilities={
+                "executable_check": False,
+                "authentication_check": False,
+                "permission_check": False,
+                "model_discovery": False,
+                "connectivity_test": False,
+                "manual_setup": True,
+                "invocable": False,
+                "version_probe": False,
+            },
+            details={
+                "interface_kind": INTERFACE_GUI_ONLY,
+                "install_locations": existing_paths,
+                "requires_manual_handoff": True,
+                "note": (
+                    "no command-line interface; the operator drives this "
+                    "application by hand"
+                ),
             },
             source="discovery",
         )
