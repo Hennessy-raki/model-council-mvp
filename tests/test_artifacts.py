@@ -137,6 +137,51 @@ class ArtifactStoreTests(unittest.TestCase):
             self.assertEqual(migrated[0]["id"], "legacy-artifact")
             self.assertIsNone(migrated[0]["provenance"]["producer"])
 
+    def test_persisted_artifact_path_is_machine_independent(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = CouncilStore(root / "council.db")
+            run_id = store.create_run("privacy")
+            artifacts = ArtifactStore(root / "artifacts", store)
+            ref = artifacts.put_text(run_id, None, "a.md", "machine safe")
+            rows = store.artifacts_for_run(run_id)
+            self.assertEqual(len(rows), 1)
+            stored = rows[0]["path"]
+            self.assertFalse(
+                Path(stored).is_absolute(),
+                "the persisted Artifact path must not embed a machine path",
+            )
+            self.assertNotIn(":", stored)
+            self.assertTrue(stored.startswith(ref.sha256[:2] + "/"))
+            self.assertEqual(
+                artifacts.read_text(ref),
+                "machine safe",
+            )
+
+    def test_legacy_absolute_artifact_path_still_resolves(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = CouncilStore(root / "council.db")
+            run_id = store.create_run("legacy")
+            artifacts = ArtifactStore(root / "artifacts", store)
+            ref = artifacts.put_text(run_id, None, "a.md", "legacy content")
+            legacy = Path(ref.path)
+            self.assertTrue(legacy.is_absolute())
+            self.assertEqual(
+                artifacts.read_text(ref),
+                "legacy content",
+            )
+            self.assertEqual(
+                artifacts.resolve_path(str(legacy)),
+                legacy.resolve(),
+            )
+            self.assertEqual(
+                artifacts.resolve_path(
+                    legacy.relative_to(root / "artifacts").as_posix()
+                ),
+                legacy,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

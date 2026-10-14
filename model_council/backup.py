@@ -372,7 +372,12 @@ class BackupService:
         issues = []
         for row in rows:
             try:
-                source = Path(row["path"]).resolve(strict=True)
+                stored = Path(row["path"])
+                if not stored.is_absolute():
+                    # Artifacts created after the machine-independent path
+                    # change store a path relative to the artifact root.
+                    stored = self.artifact_root / stored
+                source = stored.resolve(strict=True)
             except OSError:
                 if not allow_unavailable:
                     raise BackupError(

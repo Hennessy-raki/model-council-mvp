@@ -8,7 +8,6 @@ from pathlib import Path
 
 
 MAX_TEXT_BYTES = 2_000_000
-PROTECTED_HISTORY_PREFIXES = ("runtime-board14/",)
 ALLOWED_EMAIL_DOMAINS = {
     "example.com",
     "example.org",
@@ -50,6 +49,31 @@ PATTERNS = (
         "aws_access_key",
         re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     ),
+    (
+        "os_build_fingerprint",
+        re.compile(
+            r"(?i)\b(?:Windows|Mac OS X|Darwin)\s+\d+(?:\.\d+){1,4}"
+            r"(?:\s*;\s*[A-Za-z0-9_]+)*"
+        ),
+    ),
+)
+
+
+# Local runtime state is excluded from Git, so the repository scan above never
+# reads it. The operator requirement is that no machine-identifying information
+# should be recoverable from this host by a third party, and an ignored file on
+# disk is still recoverable if the machine or the directory is ever copied. The
+# scan below therefore inspects those directories explicitly.
+RUNTIME_STATE_DIRECTORIES = ("runtime",)
+RUNTIME_STATE_GLOBS = ("runtime-*",)
+RUNTIME_STATE_MAX_BYTES = 64 * 1024 * 1024
+BINARY_STATE_PATTERNS = (
+    ("windows_user_path", re.compile(rb"(?i)[A-Z]:[\\/]+Users[\\/]+(?![<%$])[^\\/\s\"']+")),
+    ("openai_style_secret", re.compile(rb"\bsk-[A-Za-z0-9_-]{20,}\b")),
+    ("github_token", re.compile(rb"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
+    ("aws_access_key", re.compile(rb"\bAKIA[0-9A-Z]{16}\b")),
+    ("private_key", re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
+    ("os_build_fingerprint", re.compile(rb"(?i)\bWindows\s+\d+(?:\.\d+){1,4}")),
 )
 EMAIL_PATTERN = re.compile(
     r"\b[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
@@ -126,12 +150,6 @@ def scan_history(root: Path) -> list[Finding]:
         if len(parts) != 2:
             continue
         object_id, path = parts
-        if any(
-            path == prefix.rstrip("/")
-            or path.startswith(prefix)
-            for prefix in PROTECTED_HISTORY_PREFIXES
-        ):
-            continue
         allowed_objects.add(object_id)
     for object_id in allowed_objects:
         object_type = subprocess.run(
@@ -175,6 +193,70 @@ def scan_history(root: Path) -> list[Finding]:
     return findings
 
 
+def runtime_state_directories(root: Path) -> list[Path]:
+    directories: list[Path] = []
+    for name in RUNTIME_STATE_DIRECTORIES:
+        candidate = root / name
+        if candidate.is_dir():
+            directories.append(candidate)
+    for pattern in RUNTIME_STATE_GLOBS:
+        for candidate in sorted(root.glob(pattern)):
+            if candidate.is_dir() and candidate not in directories:
+                directories.append(candidate)
+    return directories
+
+
+def scan_local_state(root: Path) -> tuple[list[Finding], list[Path]]:
+    """Scan ignored local runtime state for recoverable machine identity.
+
+    Findings here are recorded, not enforced, because this scanner is also run
+    as a release gate and local state legitimately contains runtime records that
+    were never meant for publication. The purpose is visibility: the operator
+    must be able to see what a third party could recover from this host.
+    """
+    findings: list[Finding] = []
+    scanned: list[Path] = []
+    for directory in runtime_state_directories(root):
+        scanned.append(directory)
+        for path in sorted(directory.rglob("*")):
+            if not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > RUNTIME_STATE_MAX_BYTES:
+                    continue
+                raw = path.read_bytes()
+            except OSError:
+                continue
+            label = path.relative_to(root).as_posix()
+            if b"\0" in raw:
+                findings.extend(scan_binary_state(label, raw))
+                continue
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                findings.extend(scan_binary_state(label, raw))
+                continue
+            findings.extend(scan_text(label, text))
+    return findings, scanned
+
+
+def scan_binary_state(label: str, raw: bytes) -> list[Finding]:
+    """Scan a binary file (for example SQLite) as raw bytes.
+
+    Local runtime databases and archives are not UTF-8 text, so a text pass
+    would miss them entirely. Matching the byte stream directly finds the same
+    machine-identifying values without needing to parse every file format.
+    """
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    for kind, pattern in BINARY_STATE_PATTERNS:
+        if pattern.search(raw):
+            if kind not in seen:
+                seen.add(kind)
+                findings.append(Finding(label, 0, kind))
+    return findings
+
+
 def scan_commit_authors(root: Path) -> list[Finding]:
     output = subprocess.run(
         ["git", "log", "--all", "--format=%H%x00%ae"],
@@ -215,11 +297,38 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also scan reachable historical blobs and commit-author domains",
     )
+    parser.add_argument(
+        "--local-state",
+        action="store_true",
+        help=(
+            "also report machine-identifying values recoverable from ignored "
+            "local runtime state; these findings are reported but do not fail "
+            "the scan, because local runtime data is legitimate and is not "
+            "published"
+        ),
+    )
     args = parser.parse_args(argv)
     root = args.root.resolve()
     findings = scan_repository(root)
     if args.history:
         findings.extend(scan_history(root))
+    if args.local_state:
+        state_findings, scanned = scan_local_state(root)
+        print("Local runtime state inspection (informational):")
+        if not scanned:
+            print("  no runtime state directories found")
+        for directory in scanned:
+            print(f"  scanned {directory.relative_to(root).as_posix()}")
+        if state_findings:
+            for item in state_findings:
+                print(f"  local-state {item.path}: {item.kind}")
+            print(
+                f"  {len(state_findings)} machine-identifying value(s) are "
+                "recoverable from this host. Remove the runtime directory "
+                "before archiving, copying or migrating the working tree."
+            )
+        else:
+            print("  no machine-identifying values found")
     if findings:
         for item in findings:
             print(f"{item.path}:{item.line}: {item.kind}")

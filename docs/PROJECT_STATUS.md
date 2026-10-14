@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-09-09
+Last updated: 2026-10-14
 
 ## Status boundary
 
@@ -9,6 +9,17 @@ configure or accept a recommendation for a team of heterogeneous Agent+Model
 members, verify each member before work, explicitly authorize the exact run,
 and receive an auditable, source-aware and budget-aware result. This status
 page describes implementation state against that goal; it does not replace it.
+
+The canonical privacy requirement is that information about this machine must
+not be recoverable by another party. That is wider than "do not publish": an
+ignored file on disk is still recoverable from any copy, archive or migration of
+the working tree. See the triage policy in `docs/PRIVACY_ISSUES.md`.
+
+Board 25 (2026-10-14) independently audited Boards 1 through 23 rather than
+inheriting their acceptance claims, widened the leakage model to offline copies,
+removed machine-identifying values from newly persisted Artifact records, and
+extended the privacy gate to inspect ignored local runtime state. Its report is
+`docs/reports/2026-10-14-board-25-foundation-audit-and-trust-surface.md`.
 
 Model Council is a local-first control plane with substantial offline control,
 privacy and product-interface coverage. It is not a generally authorized

@@ -9,10 +9,29 @@ risk.
 
 ## Triage policy
 
+The canonical operator requirement, stated by the project owner on 2026-10-14, is
+that information about this machine must not be recoverable by anyone else. The
+concern driving it is that personal privacy, once held by a malicious party, is
+hard to recover from. This is **wider than "do not publish"**: an ignored file on
+disk is still recoverable if the machine, the account or the directory is ever
+copied, synced, archived, migrated or read by malware.
+
+Every privacy-related observation must be recorded here, even when it does not
+block development. Remediation effort is proportional to how much a malicious
+party would gain from the data.
+
+| Channel | Covered by |
+| --- | --- |
+| Public Git history and GitHub | current-tree, staged-diff and reachable-history scans |
+| Local ignored runtime state on disk | `privacy_scan.py --local-state` (added 2026-10-14) |
+| Backups, archives, migration or copying of the working tree | operator procedure: remove `runtime*/` before moving the tree |
+| Outbound context sent to an external model or endpoint | exact single-use outbound approvals |
+| Terminal output, screenshots and chat transcripts | operator review; not machine-enforced |
+
 | Priority | Meaning | Required action |
 | --- | --- | --- |
 | critical | Credential, private key, private repository content or directly exploitable access material may be exposed | Stop affected work; revoke/rotate access; remove public data and reachable history; investigate recipient retention before continuing |
-| high | Personal identity, home path, machine-identifying data, private project metadata or runtime state may reach GitHub or another party | Record and fix the deterministic cause before the board closes; verify the block or redaction locally; run the full-history public scan |
+| high | Personal identity, home path, machine-identifying data, private project metadata or runtime state may reach GitHub, another party **or an offline copy of this host** | Record and fix the deterministic cause before the board closes; verify the block or redaction locally; run the full-history public scan and the local-state inspection |
 | medium | Correlatable or operational metadata may leave the machine but does not directly identify a person, machine or private project | Record; fix when inexpensive or when it compounds another risk; may be scheduled without blocking unrelated work |
 | low | Privacy-adjacent behavior carries no personal, machine-specific, credential or private-project data | Record; defer or accept with rationale; do not delay the active board solely for this item |
 
@@ -20,6 +39,12 @@ A live revalidation is required only when the privacy control depends on
 external-service behavior. A deterministic local control that blocks the
 transport before process or network startup may close with automated local
 evidence.
+
+Accepted-risk entries written before 2026-10-14 justified acceptance on the
+grounds that the data stays in ignored local runtime state. That reasoning covers
+the publication channel only. Where a residual value is still recoverable from
+this host, the entry is annotated with
+`recoverable locally: yes` and remains open for reduction.
 
 ## Register
 
@@ -605,3 +630,127 @@ evidence.
   projection requires the same privacy review.
 - Blocks development: no; real Agent qualification and external execution
   remain separately scoped.
+
+### PRIV-029: History scanner carried a no-op path exemption
+
+- Date found: 2026-10-14
+- Channel: local repository privacy gate (`scripts/privacy_scan.py`)
+- Priority: medium
+- Data class: no observed personal, machine-specific, credential or
+  private-project data
+- Status: resolved
+- Resolution:
+  - `PROTECTED_HISTORY_PREFIXES = ("runtime-board14/",)` and its skip branch in
+    `scan_history()` were removed;
+  - verification before removal: `git log --all --name-only` and
+    `git rev-list --objects --all` both return zero paths under
+    `runtime-board14/`, so the exemption never skipped an object;
+  - verification after removal: `python scripts/privacy_scan.py --history`
+    still passes with no findings, which proves the exemption was masking
+    nothing.
+- Residual risk: none identified. The removal can only ever add objects to the
+  scan, never remove them.
+- Rationale for removal: a hard-coded skip prefix that never matches today is
+  still a standing hazard, because any future commit under that path would be
+  silently excluded from the history disclosure gate. A gate that can be
+  conditionally blind is weaker than one that scans everything.
+- Blocks development: no.
+
+### PRIV-030: Local runtime state is outside Git but still on disk
+
+- Date found: 2026-10-14
+- Channel: local filesystem and any future archive, backup or migration of the
+  working directory
+- Priority: medium
+- Data class: local run records including exact prompts, Agent and Model
+  identities, absolute working-directory paths, approval history and bounded
+  evidence, held in `runtime/`, `runtime-board14/state/` and
+  `runtime-board8-pilot/state/`
+- Status: recorded; mitigation decision deferred to the operator
+- Observation:
+  - the register's accepted-risk entries (PRIV-005, PRIV-010, PRIV-011,
+    PRIV-012, PRIV-013, PRIV-014, PRIV-015, PRIV-016, PRIV-017) all rest on the
+    same reasoning: the data stays in ignored local runtime state and therefore
+    is not disclosed;
+  - that reasoning addresses the Git and GitHub disclosure channel only. It
+    does not address copying, archiving, migrating or transferring the working
+    directory itself;
+  - machine checks on 2026-10-14 found no OneDrive directory, no redirected
+    Documents known folder and no active third-party sync process, so this is a
+    latent rather than an active exposure path.
+- Residual risk: any future backup, migration or directory archive that
+  includes `runtime*/` would carry personal paths and private project evidence
+  with it.
+- Blocks development: no; the canonical requirement to keep machine information
+  out of public artifacts remains satisfied.
+
+### PRIV-031: Runtime databases stored absolute Artifact paths
+
+- Date found: 2026-10-14
+- Channel: ignored local runtime SQLite, recoverable from an offline copy of
+  this host
+- Priority: high
+- Data class: absolute paths containing the real user name and the full project
+  directory structure
+- Status: resolved
+- Observation: `ArtifactStore.put_text` persisted `str(target.resolve())`,
+  which embedded `C:\Users\<user>\...` in `artifacts.path`. The first runtime
+  database held 70 rows in that form, and the Board 8 pilot database additionally
+  held `codexHome`, `cwd` and a `userAgent` OS build string in
+  `interoperability_endpoints.observations_json` and
+  `interoperability_events.payload_json`. Nothing here reached Git; the exposure
+  was to any future copy, archive or migration of the working tree.
+- Resolution:
+  - `ArtifactStore` now persists a path relative to its own root, computed by
+    `_record_path`; Artifacts are located by SHA-256 below a fixed root, so the
+    absolute prefix was never required;
+  - `ArtifactStore.resolve_path` accepts both the new relative form and legacy
+    absolute values, so previously written databases keep working;
+  - `backup.py` resolves a non-absolute stored path against the Artifact root
+    before copying;
+  - two regression tests assert that a persisted path is neither absolute nor
+    drive-qualified and that a legacy absolute path still resolves.
+- Evidence: end-to-end verification created a fresh runtime database; the
+  persisted value was `36/365a305d….md`, the file read back correctly, and the
+  database byte stream contained no `C:\Users` sequence. The full offline suite
+  passes at 153 tests.
+- Residual risk: existing local databases written before this change still hold
+  the old absolute values. They are not rewritten automatically. Remove the
+  `runtime*/` directories before archiving or migrating the working tree; the
+  local-state inspection reports them until then.
+- Recoverable locally before the fix: yes. After the fix, for newly written
+  records: no.
+- Blocks development: no.
+
+### PRIV-032: The privacy scanner never inspected local runtime state
+
+- Date found: 2026-10-14
+- Channel: all ignored runtime directories
+- Priority: high
+- Data class: whatever runtime state happens to retain, including absolute
+  paths, credential-shaped strings and machine fingerprints
+- Status: resolved
+- Observation: `scan_repository` enumerates
+  `git ls-files --cached --others --exclude-standard`, which by construction
+  skips every ignored path. The `.gitignore` rules that protect the repository
+  from committing `runtime/` and `runtime-*` also made those directories
+  invisible to the only privacy tool in the project. This is how PRIV-031 stayed
+  undetected for seven weeks.
+- Resolution:
+  - `scripts/privacy_scan.py` gained `--local-state`, which walks `runtime/` and
+    `runtime-*`, decodes text files through the existing line scanner and scans
+    binary files (including SQLite) as raw bytes;
+  - a new high-confidence pattern `os_build_fingerprint` detects OS build
+    strings of the form `<platform> <version>.<build>`, which the earlier
+    pattern set did not cover;
+  - local-state findings are reported as an informational section and do not
+    change the exit code, because the scanner is also the release gate and local
+    runtime data is legitimate; the operator decision to remove it is separate
+    from the publication gate.
+- Evidence: with the option enabled the scan reports the runtime directories it
+  inspected and the machine-identifying values recoverable from them. The
+  existing invocations without the option are unchanged.
+- Residual risk: the inspection reports presence, not absence. A clean result
+  only means the current high-confidence patterns found nothing.
+- Blocks development: no.
+

@@ -248,8 +248,10 @@ python -m compileall -q model_council tests scripts
 python scripts/privacy_scan.py --history
 ```
 
-The complete offline suite contains one hundred and fifty tests after the
-Board 23 qualification integrity coverage. The latest detailed continuation
+The complete offline suite contains one hundred and fifty-one tests after the
+Board 23 qualification integrity coverage. Re-measure the exact count from the
+current suite output instead of trusting this number; it changes with every
+board. The latest detailed continuation
 checkpoint is:
 
 ```text

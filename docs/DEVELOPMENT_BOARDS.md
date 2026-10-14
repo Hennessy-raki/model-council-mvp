@@ -463,3 +463,28 @@ Plan:
 
 Freeze record:
 `docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md`
+
+### Board 25: Foundation audit and recomputed trust surface
+
+Status: complete for the local offline audit slice
+
+- independently audit the documentation, report evidence chain, production entry
+  points, privacy gate and unpublished commits rather than inheriting earlier
+  acceptance claims;
+- recompute the local disclosure surface against the owner's restated
+  requirement that no information about this machine be recoverable by another
+  party;
+- inspect ignored local runtime state, which the privacy gate previously skipped
+  entirely;
+- remove machine-identifying values from newly written persistent Artifact
+  records while keeping previously written databases working;
+- remove a history-scan exemption that could only ever hide a future path;
+- record the widened threat model in `docs/PRIVACY_ISSUES.md`.
+
+Report:
+`docs/reports/2026-10-14-board-25-foundation-audit-and-trust-surface.md`
+
+Board 25 adds no external call, process start, Provider, network, repository,
+worktree, Git-publish or Artifact-purge authority. Board 24's frozen scope is
+unchanged, and its implementation still requires a separate new board number.
+
