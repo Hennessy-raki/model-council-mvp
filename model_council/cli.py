@@ -14,6 +14,7 @@ from .evaluation import EvaluationService
 from .experiments import ExperimentService
 from .interoperability import InteroperabilityService, MCPToolBroker
 from .outbound_context import OutboundContextService, validate_controlled_pilot
+from .authorization import AuthorizationPackageService
 from .qualification import QualificationPreflightService
 from .repair import RepairPolicy, RepairService
 from .ledger import UsageLedger
@@ -990,6 +991,51 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_config_path()),
     )
 
+    authorization = subparsers.add_parser(
+        "authorization",
+        help=(
+            "build or verify one offline real-Agent qualification "
+            "authorization package without starting an Agent or contacting "
+            "any endpoint"
+        ),
+    )
+    authorization_commands = authorization.add_subparsers(
+        dest="authorization_command",
+        required=True,
+    )
+    authorization_build = authorization_commands.add_parser(
+        "build",
+        help=(
+            "produce a deterministic, privacy-safe package from a local "
+            "declaration; the declaration is validated only and never persisted"
+        ),
+    )
+    authorization_build.add_argument(
+        "--candidate-file",
+        required=True,
+        help="local JSON declaration of the exact proposed scope",
+    )
+    authorization_build.add_argument(
+        "--declared-file",
+        help="optional local JSON of registry-declared facts",
+    )
+    authorization_build.add_argument(
+        "--observations-file",
+        help=(
+            "optional local JSON of observed facts; without it the package "
+            "stays user_confirmation_required"
+        ),
+    )
+    authorization_verify = authorization_commands.add_parser(
+        "verify",
+        help="re-check a stored package against its recorded digest",
+    )
+    authorization_verify.add_argument(
+        "--package-file",
+        required=True,
+        help="local JSON containing {package, package_sha256}",
+    )
+
     experiment = subparsers.add_parser(
         "experiment",
         help="prepare and simulate controlled local multi-Agent experiments",
@@ -1618,6 +1664,50 @@ def main(argv: list[str] | None = None) -> None:
             elif args.backup_command == "restore":
                 payload = backups.restore(args.approval_id)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
+        elif args.command == "authorization":
+            service = AuthorizationPackageService()
+            if args.authorization_command == "build":
+                payload = service.build(
+                    _load_json_object(args.candidate_file, "--candidate-file"),
+                    declared=(
+                        _load_json_object(args.declared_file, "--declared-file")
+                        if args.declared_file
+                        else None
+                    ),
+                    observations=(
+                        _load_json_object(
+                            args.observations_file,
+                            "--observations-file",
+                        )
+                        if args.observations_file
+                        else None
+                    ),
+                )
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+                if payload["status"] == "blocked":
+                    raise SystemExit(2)
+                return
+            if args.authorization_command == "verify":
+                stored = _load_json_object(args.package_file, "--package-file")
+                package = stored.get("package")
+                digest = stored.get("package_sha256")
+                if not isinstance(digest, str):
+                    digest = stored.get("expected_digest")
+                verified = service.verify(package, digest)
+                print(
+                    json.dumps(
+                        {
+                            "verified": verified,
+                            "package_sha256": digest,
+                            "execution_authorized": False,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+                if not verified:
+                    raise SystemExit(2)
+                return
         elif args.command == "supervisor":
             if args.supervisor_command == "qualification-preflight":
                 payload = QualificationPreflightService().evaluate(

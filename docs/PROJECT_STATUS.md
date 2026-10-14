@@ -46,9 +46,12 @@ multi-model execution service.
   or authorize a new model call.
 - Board 23 is complete only for local qualification provenance integrity and
   revalidation; it does not qualify a real Agent or authorize a new model call.
-- Board 24 has a frozen scope for offline real-Agent qualification
-  authorization-package preparation; implementation and execution have not
-  started.
+- Board 24's offline preparation scope is implemented as of 2026-10-14: the
+  authorization package schema, the fact classification, the stale-on-drift
+  digest and the read-only `authorization build` / `authorization verify`
+  commands. It does not qualify a real Agent, start a process or authorize a
+  new model call. Report:
+  `docs/reports/2026-10-14-board-24-real-agent-qualification-authorization-implementation.md`.
 - Its public-safe closeout is
   `docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
 - Local runtime databases, prompts, transport metadata, approvals, Provider

@@ -15,9 +15,19 @@ from .supervisor import (
 
 IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9._-]{0,63}$")
 CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
+# A personal home path is the clearest machine identifier, but it is not the
+# only one: an absolute path of any kind names real directories on this host.
+# Tracked declarations must therefore carry no absolute path at all. Runtime
+# working-directory values are referenced indirectly instead, which is what the
+# Board 24 authorization package does.
 PERSONAL_PATH_RE = re.compile(
     r"(?i)(?:[a-z]:[\\/]+users[\\/]+[^\\/]+|/(?:home|users)/[^/]+)"
 )
+ABSOLUTE_PATH_RE = re.compile(
+    r"(?i)(?:^|[^a-z0-9])(?:[a-z]:[\\/]|\\\\[^\\/\s]+[\\/]|/(?![/\s])[^/\s]+/)"
+)
+# Alias kept for callers that import the public name from this module.
+_absolute_path_re = ABSOLUTE_PATH_RE
 CREDENTIAL_VALUE_RE = re.compile(
     r"(?i)(?:bearer\s+\S+|(?:sk|pk|rk)-[a-z0-9_-]{8,}|api[_ -]?key\s*[:=])"
 )
@@ -148,6 +158,8 @@ class QualificationPreflightService:
             return
         if PERSONAL_PATH_RE.search(value):
             self._block(blockers, "personal_path_forbidden", path)
+        elif ABSOLUTE_PATH_RE.search(value):
+            self._block(blockers, "absolute_path_forbidden", path)
         if CREDENTIAL_VALUE_RE.search(value):
             self._block(blockers, "credential_value_forbidden", path)
         if "runtime-board14" in value.lower():

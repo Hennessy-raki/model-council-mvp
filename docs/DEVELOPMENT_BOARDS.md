@@ -448,7 +448,7 @@ Report:
 
 ### Board 24: Real-Agent qualification authorization package
 
-Status: scope frozen; offline preparation only, implementation not started
+Status: complete for the offline preparation scope frozen on 2026-09-09
 
 - define a deterministic, privacy-safe package for one future real-Agent
   qualification request;
@@ -463,6 +463,17 @@ Plan:
 
 Freeze record:
 `docs/reports/2026-09-09-board-24-real-agent-qualification-authorization-freeze.md`
+
+Implementation report:
+`docs/reports/2026-10-14-board-24-real-agent-qualification-authorization-implementation.md`
+
+Implemented on 2026-10-14: `model_council/authorization.py` plus the read-only
+`authorization build` and `authorization verify` CLI commands. The working
+directory is referenced by category and environment-variable name rather than by
+value, missing evidence yields `user_confirmation_required` by construction, and
+the fact state is bound into `package_sha256` so a changed observation makes a
+prior approval stale. No Agent is started, no endpoint is contacted, and no
+execution authority is created.
 
 ### Board 25: Foundation audit and recomputed trust surface
 
