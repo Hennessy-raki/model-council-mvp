@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -148,6 +149,39 @@ def version_kind(text: Any) -> str | None:
     return VERSION_KIND_RELEASE if key[2] == 0 else VERSION_KIND_PRERELEASE
 
 
+# A version token inside a larger output line. Real command output is messy:
+# `codex --version` prints 'codex-cli 0.154.0', `reasonix --version` prints
+# 'reasonix v1.35.0', and npm prints 'reasonix npm-v1.7.0-rc.1'. The token must
+# begin with a digit, with an optional single-letter tag right before it, so a
+# file extension such as '.exe' or a bare commit hash is not read as a version.
+_OUTPUT_VERSION_RE = re.compile(
+    r"(?<![\w.])"
+    r"[vV]?\d+(?:\.\d+){1,3}(?:-[A-Za-z][A-Za-z0-9.]*)?"
+    r"(?![A-Za-z0-9._-])"
+)
+
+
+def version_from_output(text: Any) -> str | None:
+    """Extract the first version-shaped token from command output.
+
+    Tools report their version in different shapes, so the value is located
+    rather than assumed to be the whole output. A leading ``v`` is kept out of
+    the returned string so that comparisons and display use one form.
+    """
+    if not isinstance(text, str) or not text:
+        return None
+    for line in text.splitlines():
+        candidate = line.strip()
+        if not candidate:
+            continue
+        for match in _OUTPUT_VERSION_RE.finditer(candidate):
+            token = match.group(0)
+            if version_kind(token) is None:
+                continue
+            return token[1:] if token[:1] in ("v", "V") else token
+    return None
+
+
 def plan_upgrade(
     candidates: Any,
     preferred_version: Any = None,
@@ -282,17 +316,17 @@ def plan_upgrade(
         if stable_pool:
             pool = stable_pool
             stable_only = len(stable_pool) != len(distinguishable)
-    reason = REASON_EXACT_SEMVER
+    # The reason names the rule that actually decided, not merely which kinds
+    # were present: with stable priority off, the numbers decide and saying
+    # otherwise would misattribute the outcome.
     if stable_only:
         reason = REASON_STABLE_OVER_PRERELEASE
-    elif len(kinds) > 1:
-        reason = REASON_STABLE_OVER_PRERELEASE
-    elif kinds == {1}:
+    elif len(kinds) == 1 and 1 in kinds:
         reason = REASON_ALL_CANDIDATES_PRERELEASE
-    elif len(pool) > 1 and all(
-        len(item["key"][1]) > 3 for item in pool
-    ):
+    elif len(pool) > 1 and all(len(item["key"][1]) > 3 for item in pool):
         reason = REASON_NUMERIC_SEGMENTS
+    else:
+        reason = REASON_EXACT_SEMVER
 
     best = pool[0]
     for item in pool[1:]:

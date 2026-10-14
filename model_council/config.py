@@ -25,6 +25,10 @@ class CouncilConfig:
     settings: dict[str, Any]
     budgets: dict[str, dict[str, Any]]
     mcp_servers: dict[str, dict[str, Any]]
+    # Operator-supplied Agent discovery catalogue. `None` means "use the
+    # built-in starting catalogue". Keeping this in configuration rather than in
+    # code is what stops the control plane from being bound to any one vendor.
+    discovery_targets: list[dict[str, Any]] | None = None
 
     def card(self, name: str) -> AgentCard:
         item = self.agents[name]
@@ -49,6 +53,16 @@ def load_config(path: str | Path) -> CouncilConfig:
     settings = _optional_object(data, "settings")
     budgets = _optional_object(data, "budgets")
     mcp_servers = _optional_object(data, "mcp_servers")
+    discovery_targets_raw = data.get("discovery_targets")
+    if discovery_targets_raw is None:
+        discovery_targets = None
+    else:
+        # Validated here so that a malformed catalogue fails at load time
+        # rather than in the middle of a discovery scan.
+        from .discovery import targets_from_config
+
+        discovery_targets = list(discovery_targets_raw)
+        targets_from_config(discovery_targets)
     project_name = str(data.get("project_name", "model-council"))
     if "artifact_provenance_display" in settings:
         try:
@@ -255,6 +269,7 @@ def load_config(path: str | Path) -> CouncilConfig:
         settings=settings,
         budgets=budgets,
         mcp_servers=mcp_servers,
+        discovery_targets=discovery_targets,
     )
 
 
