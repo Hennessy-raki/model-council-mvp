@@ -1,68 +1,18 @@
-# Model Council MVP
+# Model Council
 
-Model Council 是一个本地优先的多模型协作雏形。它不要求模型彼此建立网络连接，而是由一个管理员模型通过统一消息、共享任务库和 Artifact 文件，把不同模型的成果传递给彼此。
+**语言**：[中文](README.md) · [English](README.en.md)
 
-跨会话继续开发时，请先阅读：
+一个本地优先的多模型协作编排器。它不要求模型之间建立网络连接，而是由一个管理者模型
+通过统一消息、共享任务库和 Artifact 文件，把不同模型的成果传递给彼此。
 
-- [`AGENTS.md`](AGENTS.md)
-- [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)
-- [`docs/PROJECT_GOAL.md`](docs/PROJECT_GOAL.md)
-- [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/DEVELOPMENT_BOARDS.md`](docs/DEVELOPMENT_BOARDS.md)
-- [`docs/START_HERE_NEXT_SESSION.md`](docs/START_HERE_NEXT_SESSION.md)
-- [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
-
-当前版本已经具备：
-
-**协作闭环**
-
-- 管理员模型生成结构化任务计划；
-- 多个工作模型并行执行；
-- 任务依赖和分波调度；
-- 独立审查模型复核所有成果；
-- 管理员模型综合最终答案；
-- SQLite 持久化运行、任务、消息和 Artifact 元数据；
-- SHA-256 内容寻址的 Artifact 文件库（持久化路径相对根目录，不含本机绝对路径）。
-
-**模型接入**
-
-- `mock`、任意 `cli`、OpenAI-compatible HTTP、Codex App Server 和 A2A 五类适配器；
-- Codex `--json` JSONL 事件解析、最终消息提取、线程与 usage 诊断；
-- 不调用模型的 Adapter `doctor` 检查。
-
-**控制平面**
-
-- Provider、Model、Agent 和角色设置注册中心；
-- `manual`、`auto`、`hybrid` 三种角色分配模式；
-- 启动发现：可执行、认证、权限、连通性与**版本**分项记录；
-- 配置驱动的发现目录，可登记 GUI-only 应用并明确标注不可调用；
-- 版本比较与推荐：正式版优先，推荐可被用户偏好覆盖，且永不自动替换绑定；
-- 用量、费用与余额台账，区分实际、Provider 上报、估算与不可用；
-- 聊天记录以外的确定性路由、能力与预算约束、不可变的路由决策证据。
-
-**审批与隔离**
-
-- 仅回环地址的本地产品界面与统一审批中心；
-- Codex App Server 的精确出站上下文（prompt + cwd + 模型 + 沙箱）单次审批；
-- 隔离 Git worktree、显式读写测试合并权限、有界修复与恢复；
-- 真实 Agent 资质授权包：可由用户审查、可绑定角色、事实漂移即失效。
-
-**门禁**
-
-- 本地隐私扫描：当前树、可达历史、以及被忽略的本地运行数据三个口径；
-- 发布候选校验；
-- 隐私安全的本地备份与精确恢复；
-- 不依赖第三方 Python 包的可运行演示（零依赖，只需 Python 3.11+）。
-
-截至 2026-10-14 实测：**234 项离线测试全部通过**，46 张 SQLite 表，33 条已登记的
-隐私条目。这些数字每块板都会变，请以实测为准。
-
-## 架构
+设计上有一条主线：**认知与控制分离**。管理者模型负责提出计划和整合成果，
+而身份、依赖、权限、预算、审批、超时和持久化全部由确定性 Python 代码执行。
+**模型无法绕过编排器扩大自己的权限。**
 
 ```text
 用户目标
    |
-管理员模型 -- 生成 JSON 任务计划
+管理者模型 -- 生成 JSON 任务计划
    |
 确定性编排器 -- 校验身份、依赖、并发和边界
    |
@@ -72,470 +22,82 @@ Model Council 是一个本地优先的多模型协作雏形。它不要求模型
    |
 审查模型
    |
-管理员模型 -- 最终综合
+管理者模型 -- 最终综合
 ```
 
-管理员模型负责提出计划，Python 编排器负责执行规则。模型无法绕过编排器直接扩大权限。
+## 它解决什么问题
 
-## 立即运行
+不是"同时启动更多模型"，也不是"把多个聊天窗口放在一起"。
 
-项目只要求 Python 3.11 或更新版本。
+真实的痛点是：你手上有多个能力、速度、价格和工具条件都不同的 Agent＋模型，
+于是你必须**自己**判断谁适合做什么、自己打开和检查每个工具、自己搬运上下文和文件、
+自己核对跑的是不是配置的那个模型、自己发现登录或权限问题。做完之后，
+你还不清楚成果**到底是谁做的**、花了多少钱。
+
+Model Council 想把这条链路交给一个可信的本地控制平面，同时把
+**模型选择、数据外发、任务开始、文件修改、费用和最终交付**的决定权留给你。
+
+目标是让这个闭环可配置、可检查、可追踪、可暂停、可恢复、可审查：
+
+```text
+配置或接受推荐的一组 Agent＋Model（管理者／执行者／审查者／整合者）
+  → 逐个启动、连接或附着，并分项检查真实状态
+  → 有成员不可用就精确报告是哪个 Agent、哪个模型、哪一项失败
+  → 全部就绪后，系统向你发出「可以开始」的请求
+  → 你明确授权，冻结本次团队、任务、上下文、权限、预算和停止规则
+  → 管理者拆解任务，执行者通过结构化消息与 Artifact 交换成果
+  → 审查者独立复核，管理者整合并交付
+  → 交付物保留 Provider → Model → Agent → Role → Task → Artifact 来源链
+```
+
+## 当前状态
+
+**这是一个实验性系统，不是"任意 Agent＋任意模型开箱即用"的产品。**
+请按下面的边界理解它的成熟度。
+
+**已经扎实做出来并且可信的（有实测）**
+
+- 控制平面：注册表、确定性路由、用量与预算账本、来源追溯；
+- 授权链：每一次真实外部调用都需要**单次、精确、SHA-256 绑定、可失效**的审批。
+  没有审批就发不出调用——这条有实测；
+- 隔离工作区：显式读／写／测试／合并权限，合并在人工确认后才执行，且用 `--ff-only`；
+- 隐私门禁：三个不同口径的扫描，含可达历史与被忽略的本地运行数据；
+- 离线质量门禁：**306 项测试**，零第三方依赖，只需要 Python 3.11+。
+
+**没有验证过的（这是缺陷，不是免责声明）**
+
+- **整个协作闭环从未用两个真实模型跑过。** 系统名叫 Model Council，初心是"多个不同模型
+  协作完成真实项目"，而真实调用累计只有少数几次单 Agent 合成任务；
+- **Board 14 is complete** only for one local-private, read-only, synthetic Manager
+  execution. 那次执行**不可重放**，也**不授权**任何重复、仓库上下文、工具、写入、
+  Git 或并行。它的公共安全收尾报告在
+  [`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`](docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md)；
+- A2A 与 MCP 的真实第三方端点：协议客户端和审批都实现了，但**只对仓库内的假服务器验证过**；
+- 本机**无法观测实际模型身份**（工具的事件流没有模型字段，配置的中转站端点对直接请求
+  返回 Cloudflare 403）。系统把它记为 `unknown`，而不是用配置值顶替。
+
+完整清单见 [「本项目还有哪些缺陷」](#本项目还有哪些缺陷)。
+
+## 快速开始
+
+只要求 **Python 3.11 或更新版本，零第三方依赖**。
 
 ```powershell
-cd C:\path\to\model-council-mvp
 python -m model_council demo "设计一个支持多模型协作的本地项目管理工具"
 ```
 
-输出会写入：
+输出写入 `runtime/`（`council.db` + `artifacts/`）。
 
-```text
-runtime/
-├─ council.db
-└─ artifacts/
-```
-
-查看 agent 清单：
+不调用任何模型，先看清本机有什么：
 
 ```powershell
 python -m model_council agents --config config.example.json
-```
-
-在不调用任何模型的情况下检查 Adapter：
-
-```powershell
 python -m model_council doctor --config config.codex.example.json
-```
-
-启动发现不会调用模型：
-
-```powershell
 python -m model_council discovery scan --config config.codex.example.json
 python -m model_council discovery show --config config.codex.example.json
 ```
 
-显式发现某个 Adapter 可见的模型：
-
-```powershell
-python -m model_council discovery models manager --config config.example.json
-```
-
-连接测试必须由用户显式选择。CLI Adapter 会在空临时目录中使用固定探针，
-不传递项目目标、上下文、Agent 描述或 Artifact：
-
-```powershell
-python -m model_council discovery probe manager --config config.example.json
-```
-
-手动注册无法通过命令行发现的 GUI Agent：
-
-```powershell
-python -m model_council discovery register-gui desktop-reviewer `
-  --name "Desktop Reviewer" --provider mock-local --model mock-general `
-  --capability review --boundary "manual handoff" `
-  --config config.example.json
-```
-
-发现记录会把 executable、authentication、permission、connectivity 和 models
-分别保存。可执行文件存在不等于认证成功，配置了凭据也不等于远端验证通过。
-
-查看项目、运行和角色用量：
-
-```powershell
-python -m model_council ledger summary --config config.example.json
-python -m model_council ledger events --run <RUN_ID> --config config.example.json
-python -m model_council ledger alerts --run <RUN_ID> --config config.example.json
-```
-
-设置用户拥有的预算：
-
-```powershell
-python -m model_council ledger set-budget project-cost `
-  --scope project --metric cost --warning 5 --hard 10 --currency USD `
-  --config config.example.json
-```
-
-Provider 余额只能显式查询，而且只有 Adapter 声明支持余额 API 时才会访问：
-
-```powershell
-python -m model_council ledger balance <PROVIDER_ID> --config config.example.json
-```
-
-账本分别标记 `actual`、`provider_reported`、`estimated` 和 `unavailable`。
-未知值不会被当成零；存在 hard budget 而历史消费不可度量时，下一次调用会被保守阻断。
-
-### 输入 token 底噪：工具型 Agent 约 1.6 万
-
-**这是实测结论，不是估算。** 2026-10-14 的一次真实观察：发给 `codex exec` 的
-prompt 只有 **78 字节**，而服务端实际计费的输入 token 是 **16,078**（其中
-15,232 命中缓存）。输出只有 12 token。
-
-差异几乎全部来自**宿主工具自己注入的系统提示和工具定义**——与你的任务大小无关。
-
-由此得出三条硬约束，未来任何真实调用范围都必须遵守：
-
-1. **`max_input_tokens` 必须 ≥ 20000**，否则必然 fail closed。这正是 Board 14
-   第五次实验失败的原因（报"完整输入用量超过冻结的总量上限"）；
-2. **不要用"prompt 字节数 × 系数"估算输入 token**，会低估两个数量级；
-   底噪是**每次调用固定**的，只有超过底噪的部分才随任务增长；
-3. **缓存命中不能当作预算依据**。这次命中了 15,232 token，但缓存是否命中不由我们
-   控制，**预算必须按未缓存的量算**。
-
-适配器会把服务端回报的 `prompt_tokens` 记进调用元数据的 `prompt_tokens` 字段，
-所以每次调用之后都能核对当次底噪是多少，不必依赖这条记录。
-
-初始化并查看设置注册中心：
-
-```powershell
-python -m model_council settings sync --config config.example.json
-python -m model_council settings show --config config.example.json
-```
-
-修改角色分配：
-
-```powershell
-python -m model_council settings assign detail_executor `
-  --mode hybrid --agent implementer --model mock-general `
-  --constraints '{"required_capabilities":["implementation"]}' `
-  --config config.example.json
-```
-
-设置注册中心当前是未来本地设置界面的数据基础。JSON配置只负责提供初始值，
-用户通过CLI或未来UI保存的值不会被后续同步覆盖。
-
-运行自定义目标：
-
-```powershell
-python -m model_council run "分析并设计一个个人知识库应用" `
-  --start-approval <PROJECT_RUN_APPROVAL_ID> --config <LOCAL_CONFIG>
-```
-
-`run` is the user-facing project entry point and requires a one-time
-Supervisor project-run approval bound to the current ready team and exact goal.
-The approval is consumed before any Adapter invocation. Use the local
-Supervisor flow to create and approve it.
-
-查看最近运行：
-
-```powershell
-python -m model_council runs --config config.example.json
-```
-
-查看指定运行：
-
-```powershell
-python -m model_council status <RUN_ID> --config config.example.json
-```
-
-## Release candidate status
-
-Productization Boards 1 through 12 are complete. The prepared release
-candidate is `0.2.0rc1`; it has not been tagged or published as a GitHub
-Release. Run `python scripts/release_verify.py` from a clean synchronized
-`main` checkout before creating any release artifact.
-
-## Deterministic routing
-
-Board 5 resolves persisted roles before any Adapter invocation. Inspect the
-selected identity, evidence and rejected candidates with:
-
-```powershell
-python -m model_council routing decisions --run <RUN_ID> `
-  --config config.example.json
-```
-
-`manual` never silently falls back. `auto` selects only eligible candidates.
-`hybrid` preserves the preferred Agent and falls back only when the assignment
-is unlocked. Unknown cost and latency remain unknown rather than becoming zero.
-
-## Local settings interface
-
-Board 6 adds a dependency-free local Web control surface. It binds to loopback
-by default, reads and writes the same SQLite registry used by the CLI, and
-never invokes a model, discovery probe, Provider balance API or external
-service.
-
-```powershell
-python -m model_council web --config config.example.json
-```
-
-Open the printed local URL. The interface can edit user-owned Provider, Model,
-Agent, role, application-setting and budget records. It also displays persisted
-discovery observations, Artifact provenance, usage and cost evidence, budget
-alerts, balance snapshots, configured Adapter capabilities and deterministic
-routing explanations. Edit buttons prefill the local forms. Writes require a
-per-process session token plus trusted Host and same-origin checks. Provider and
-Agent configuration values continue to be redacted before SQLite storage.
-
-## Persistent and remote interoperability
-
-Board 7 adds persistent, audited protocol clients without enabling any real
-endpoint by default:
-
-- Codex App Server initialization, Thread start/resume, Turn execution and
-  streaming Agent-message collection;
-- A2A v1.0 Agent Card discovery, JSON-RPC message submission and Task polling;
-- MCP 2025-11-25 stdio and Streamable HTTP clients;
-- SQLite endpoint identities, sessions, protocol events and approvals;
-- single-use human approval before every MCP tool call;
-- HTTPS enforcement for non-loopback endpoints and environment-only
-  credential references.
-
-Start from `config.interop.example.json`. Every real endpoint requires
-`invoke_enabled: true`; this is separate from enabling the registry record.
-
-Inspect local interoperability state:
-
-```powershell
-python -m model_council interop show --config config.interop.example.json
-python -m model_council interop sessions --config config.interop.example.json
-python -m model_council interop approvals --config config.interop.example.json
-```
-
-MCP tool execution is deliberately two-step:
-
-```powershell
-python -m model_council interop request-tool local-tools echo `
-  --arguments '{"text":"local request"}' `
-  --config config.interop.example.json
-python -m model_council interop approve <APPROVAL_ID> `
-  --config config.interop.example.json
-python -m model_council interop call-tool <APPROVAL_ID> `
-  --config config.interop.example.json
-```
-
-Approval is consumed once before transport execution. The local settings page
-also shows endpoints, sessions, events and pending approval controls.
-
-## Controlled Codex pilot
-
-Board 8 adds a prompt-level gate in front of the existing App Server
-`invoke_enabled` gate. Start from `config.pilot.example.json`, copied to an
-untracked local file. It deliberately contains one read-only Codex architect,
-with the manager and reviewer kept on `mock`.
-
-Set `MODEL_COUNCIL_SYNTHETIC_CWD` to an existing generic synthetic directory
-outside any personal home path, for example `C:\model-council-synthetic`.
-The exact approval scope includes this resolved working directory, model,
-sandbox and approval policy in addition to the prompt.
-
-When an enabled synthetic run reaches the architect, Model Council records a
-local pending manifest and stops before App Server startup. Inspect the exact
-prompt locally, obtain explicit user authorization for that exact scope, then
-approve the displayed digest once:
-
-```powershell
-python -m model_council interop contexts --config <LOCAL_CONFIG>
-python -m model_council interop context <MANIFEST_ID> --show-prompt `
-  --config <LOCAL_CONFIG>
-python -m model_council interop context <MANIFEST_ID> `
-  --approve-sha256 <DISPLAYED_APPROVAL_SHA256> --config <LOCAL_CONFIG>
-python -m model_council run "<SAME_SYNTHETIC_GOAL>" `
-  --outbound-manifest <MANIFEST_ID> --config <LOCAL_CONFIG>
-```
-
-The initial policy allows synthetic text only: zero files, zero Artifacts and
-at most 8,192 UTF-8 bytes across prompt and transport metadata. It rejects
-repository context, credential/path patterns, personal home-directory paths
-and any changed or replayed scope.
-
-One live synthetic Codex App Server run completed functionally, but its first
-manifest covered only the Turn prompt and not the `thread/start` working
-directory. That run may therefore have disclosed its absolute synthetic
-directory path through Codex environment context. The strengthened combined
-scope gate is deterministic, runs before process startup and is covered by
-automated tests. Under the privacy triage policy, a second live validation is
-optional and does not block Board 9. No repository-content, A2A or MCP live
-verification is claimed.
-
-## Isolated Git workspaces
-
-Board 9 adds a local control plane for writing Agents without granting direct
-access to the user's primary checkout. Each lease creates one linked Git
-worktree under ignored runtime state and starts with read permission only.
-Write, test and merge permissions are enabled separately and persisted in
-SQLite.
-
-A typical local workflow is:
-
-```powershell
-python -m model_council workspace prepare C:\path\to\synthetic-repo writer `
-  --config <LOCAL_CONFIG>
-python -m model_council workspace permission <LEASE_ID> write allow `
-  --config <LOCAL_CONFIG>
-python -m model_council workspace permission <LEASE_ID> test allow `
-  --config <LOCAL_CONFIG>
-python -m model_council workspace checkpoint <LEASE_ID> `
-  --message "Apply reviewed Agent change" --config <LOCAL_CONFIG>
-python -m model_council workspace test <LEASE_ID> `
-  --command-json '["python","-m","unittest","discover","-s","tests","-v"]' `
-  --config <LOCAL_CONFIG>
-python -m model_council workspace diff <LEASE_ID> --config <LOCAL_CONFIG>
-python -m model_council workspace permission <LEASE_ID> merge allow `
-  --config <LOCAL_CONFIG>
-python -m model_council workspace request-merge <LEASE_ID> `
-  --config <LOCAL_CONFIG>
-```
-
-The pending merge displays a `scope_sha256` bound to the clean target SHA,
-Agent branch SHA, bounded diff evidence and a passing test captured at that
-exact branch state. Approve and consume it once:
-
-```powershell
-python -m model_council workspace approve <APPROVAL_ID> `
-  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
-python -m model_council workspace merge <APPROVAL_ID> `
-  --config <LOCAL_CONFIG>
-```
-
-Merge is fast-forward only and fails if the target branch, target SHA, Agent
-branch, worktree cleanliness or evidence changes. Destructive discard uses the
-same two-step approval pattern. Git and test subprocesses are argument arrays
-with `shell=False`; stdout/stderr retention is bounded while hashes cover the
-complete streams.
-
-## Bounded repair and recovery
-
-Board 10 layers a persistent reviewer-writer state machine over one active
-Board 9 lease. A session starts only after read, write and test permissions are
-present. Every iteration begins at a clean head, captures a checkpoint, runs
-the configured test, collects diff evidence and records `accept` or `repair`.
-
-Start and inspect a local manual session:
-
-```powershell
-python -m model_council repair start <LEASE_ID> `
-  "Fix the bounded synthetic task" --reviewer reviewer `
-  --test-command-json '["python","-m","unittest"]' `
-  --max-iterations 3 --max-changed-files 50 `
-  --config <LOCAL_CONFIG>
-python -m model_council repair begin <SESSION_ID> --config <LOCAL_CONFIG>
-python -m model_council repair capture <SESSION_ID> --config <LOCAL_CONFIG>
-python -m model_council repair bundle <SESSION_ID> --config <LOCAL_CONFIG>
-python -m model_council repair review <SESSION_ID> `
-  --decision repair --feedback "Address the failing evidence." `
-  --config <LOCAL_CONFIG>
-```
-
-Limits cover iterations, elapsed time, changed files, diff bytes, feedback
-bytes and optional token/cost budgets. Unknown usage blocks conservatively
-when its hard budget is enabled. A reviewer cannot accept failing tests.
-Interrupted writer/reviewer stages require explicit `repair recover` actions;
-no recovery path automatically deletes, rebases, merges or deploys.
-
-After acceptance, `repair request-merge` only creates the existing Board 9
-pending approval. The user must still inspect and approve its exact digest.
-
-Board 10 is local-only: it does not invoke an Adapter or send a review bundle
-to a model. Real writer/reviewer integration requires a later exact
-outbound-context approval.
-
-## Objective second-family evaluation
-
-Board 11 adds one DeepSeek Responses candidate in the sole
-`synthetic_evaluator` role. `config.evaluation.example.json` keeps
-`invoke_enabled` false and references only
-`MODEL_COUNCIL_DEEPSEEK_API_KEY`.
-
-The fixed evaluation asks for exactly `MC-EVAL-ORBIT-42`. It sends no files or
-Artifacts, allows at most 4,096 bytes of prompt plus transport metadata and
-rejects an HTTP response larger than 16,384 bytes. SQLite records the expected
-and observed hashes, byte counts, objective assertions, failure class and
-usage-ledger reference without copying response text into evaluation tables.
-Non-loopback endpoints require HTTPS, and HTTP redirects are rejected.
-
-Prepare and inspect the exact local scope:
-
-```powershell
-python -m model_council evaluation prepare deepseek_evaluator `
-  --config config.evaluation.example.json
-python -m model_council evaluation context <EVALUATION_ID> --show-prompt `
-  --config config.evaluation.example.json
-```
-
-Running requires a local untracked configuration with
-`invoke_enabled: true`, the credential environment variable, and an explicit
-one-time approval of the displayed scope digest:
-
-```powershell
-python -m model_council evaluation context <EVALUATION_ID> `
-  --approve-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
-python -m model_council evaluation run <EVALUATION_ID> `
-  --outbound-manifest <MANIFEST_ID> --config <LOCAL_CONFIG>
-```
-
-A prepared manifest, credential presence, Board 8 pilot approval, Board 9
-workspace permission or Board 10 repair acceptance does not authorize this
-call. Local fake-server tests exercise the complete flow without contacting an
-external service.
-
-One explicitly authorized live synthetic evaluation consumed its manifest
-once. DeepSeek returned a valid Responses result in 1,009 ms with 236
-provider-reported tokens, but the 131-byte response did not equal the required
-16-byte token. The objective evaluation therefore failed without retry or
-fallback. This outcome is retained as evidence rather than weakened into a
-pass.
-
-## Product interface and approval center
-
-Board 12 expands the loopback Web interface into the local product surface:
-
-```powershell
-python -m model_council web --config config.example.json
-```
-
-It displays the unified approval center, workspace permissions and bounded
-evidence, repair sessions and iterations, objective evaluations, pairwise run
-comparison and local backup/restore. Refresh remains read-only.
-
-Approving never consumes an action. External invocation, MCP execution,
-workspace merge/discard and restore still require their separate CLI or UI
-consumption step and the same service-level revalidation.
-
-## Local backup and restore
-
-Create the privacy-safe database-only default:
-
-```powershell
-python -m model_council backup create --config config.example.json
-```
-
-Include registered Artifacts explicitly:
-
-```powershell
-python -m model_council backup create --include-artifacts `
-  --config config.example.json
-```
-
-Restore is deliberately three-step:
-
-```powershell
-python -m model_council backup request-restore <BACKUP_ID> `
-  --config config.example.json
-python -m model_council backup approve <APPROVAL_ID> `
-  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config config.example.json
-python -m model_council backup restore <APPROVAL_ID> `
-  --config config.example.json
-```
-
-Backups stay below ignored runtime state. They never include credentials,
-environment files, repositories or worktrees. Restore creates a safety backup,
-rechecks the exact state and only adds missing hash-verified Artifacts.
-
-Compare two local runs:
-
-```powershell
-python -m model_council compare runs <LEFT_RUN_ID> <RIGHT_RUN_ID> `
-  --config config.example.json
-```
-
-Unknown cost remains unknown instead of becoming zero.
-
-## Local team Supervisor
-
-Board 13 adds a local-only Supervisor that binds one Manager, Worker and
-Reviewer Agent+Model team. The wizard imports a local JSON file containing
-only synthetic readiness checks; it does not invoke an Adapter or contact a
-service.
+跑一次真实项目前，需要走一次本地 Supervisor 流程来创建并批准运行授权：
 
 ```powershell
 python -m model_council supervisor wizard `
@@ -543,350 +105,137 @@ python -m model_council supervisor wizard `
   --config config.example.json
 python -m model_council supervisor check --config <LOCAL_CONFIG>
 python -m model_council supervisor snapshot --config <LOCAL_CONFIG>
-python -m model_council supervisor request-run <SNAPSHOT_ID> `
-  "分析并设计一个个人知识库应用" --config <LOCAL_CONFIG>
+python -m model_council supervisor request-run <SNAPSHOT_ID> "<你的目标>" `
+  --config <LOCAL_CONFIG>
 python -m model_council supervisor approve <APPROVAL_ID> `
   --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
-python -m model_council run "分析并设计一个个人知识库应用" `
+python -m model_council run "<你的目标>" `
   --start-approval <APPROVAL_ID> --config <LOCAL_CONFIG>
 ```
 
-The older `supervisor request-start` / `supervisor start` commands remain
-separate local synthetic Manager-platform controls. They do not authorize a
-project run.
-
-Before considering any real Agent qualification, validate a local declaration
-with the pure offline preflight. It does not load project configuration,
-initialize runtime state, start a process or contact any endpoint:
+看用量和预算，以及启动仅回环的本地界面：
 
 ```powershell
-python -m model_council supervisor qualification-preflight `
-  --candidate-file <LOCAL_QUALIFICATION_JSON>
+python -m model_council ledger summary --config config.example.json
+python -m model_council web --config config.example.json
 ```
 
-The command requires explicit lifecycle checks, read-only permissions, private
-context exclusions, bounded token/cost/time limits, a single-attempt stop rule,
-the separate approval ladder and runtime-only evidence policy. It always
-returns `execution_authorized: false`; a successful preflight is not a real
-Agent qualification or execution approval.
+**完整的 21 个顶层命令、96 个子命令参考在 [`docs/CLI.md`](docs/CLI.md)。**
+接入真实 Codex 或 OpenAI 兼容 API 的配置在 [`docs/ADAPTERS.md`](docs/ADAPTERS.md)。
 
-For a configured non-mock role, bind the eligible preflight to the Supervisor
-role before creating a team snapshot:
+## 核心概念
 
-```powershell
-python -m model_council supervisor qualification-bind manager `
-  --candidate-file <LOCAL_QUALIFICATION_JSON> --config <LOCAL_CONFIG>
-```
+项目严格区分四种身份，混用会导致错误的判断：
 
-The binding stores only sanitized scope metadata and its digest in local
-ignored runtime state. Role or scope drift invalidates downstream approvals.
+| 概念 | 含义 |
+| --- | --- |
+| **Provider** | 提供模型服务、认证、端点、用量或账单能力的一方 |
+| **Model** | 真正推理的模型，拥有能力、上下文、速度、价格等属性 |
+| **Agent** | 承载模型并提供执行接口的工具，如 CLI、App Server、桌面应用 |
+| **Role** | 本次项目中承担的职责，不是固定的厂商身份 |
 
-```powershell
-python -m model_council supervisor request-start <SNAPSHOT_ID> `
-  --config <LOCAL_CONFIG>
-python -m model_council supervisor approve <APPROVAL_ID> `
-  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
-python -m model_council supervisor start <APPROVAL_ID> --config <LOCAL_CONFIG>
-```
+最低限度需要四个角色：
 
-Readiness covers process, login, Model, permission, version and connection.
-Unavailable machine evidence is `user_confirmation_required`, never ready by
-assumption. A snapshot requires all three roles ready. Configuration or
-readiness evidence drift makes the SHA-256-bound start approval stale. In this
-first local phase, `start` writes only a synthetic local Manager-platform audit
-event; it does not start a real task, process, network connection or model.
-The tracked example deliberately requires an explicit reviewer-connection
-confirmation; copy it to an untracked local file before replacing synthetic
-checks with future local experiments.
+- `manager` —— 理解目标、拆解任务、分派、追问、仲裁和整合；
+- `worker` —— 执行架构、研究、编码、测试、文档或其他专业任务；
+- `reviewer` —— 独立检查结论、代码、证据、风险和遗漏；
+- `integrator` —— 形成最终交付，可以与 manager 相同，也可以单独配置。
 
-## Controlled local experiments
+同一个 Agent＋Model 可以承担多个 Role，但**系统必须记录每个 Role 在本次运行中的实际身份**。
+你也可以要求关键角色必须由不同模型承担。
 
-Board 14.0 adds an offline experiment harness. Board 14.1 prepares a disabled
-Codex Manager plus two fake Worker candidate and stops before invocation.
+## 不可逾越的约束
 
-Start with local copies of:
+这些是系统设计里不打算放松的部分：
 
-```text
-config.board14.example.json
-config.board14.team.example.json
-config.experiment.board14-fake.example.json
-config.experiment.board14-codex.example.json
-```
+- **用户是最终授权者**，管理者模型不是最高权限者；
+- **没有审批就发不出外部调用**。真实外发需要单次、精确、可失效的授权，
+  消费过的审批**不可重放**；
+- **不向所有模型广播完整历史**，只传递完成当前任务所需的最小上下文；
+- **不允许把「清单里有」当成「实际可用」**，也不允许把配置的模型身份
+  当成它服务了请求的证据；
+- **不允许静默替换**你锁定的 Agent 或 Model；
+- **未知值保持 `unavailable`，不能当 0**，估算不能冒充账单；
+- **真实编码 Agent 默认只读**，写权限需要独立的隔离工作区与单独审批；
+- **失败要可见、可定位、可恢复**，不允许用伪成功掩盖不确定性。
 
-After creating and confirming a current Supervisor team snapshot, replace the
-placeholder snapshot ID in an untracked experiment spec:
+## 本机观测现状
 
-```powershell
-python -m model_council experiment prepare `
-  --spec-file <LOCAL_EXPERIMENT_JSON> --config <LOCAL_CONFIG>
-python -m model_council experiment show <EXPERIMENT_ID> `
-  --show-prompt --config <LOCAL_CONFIG>
-```
+项目的目标是"验证每个成员的真实状态"，所以这里如实报告**能验证到什么程度**。
 
-Board 14.0 can be exactly approved, armed and simulated locally:
+七个资质事实的实测结果（2026-10-14，codex 0.154.0）：
 
-```powershell
-python -m model_council experiment approve <EXPERIMENT_ID> `
-  --scope-sha256 <DISPLAYED_SCOPE_SHA256> --config <LOCAL_CONFIG>
-python -m model_council experiment arm <EXPERIMENT_ID> `
-  --config <LOCAL_CONFIG>
-python -m model_council experiment simulate <EXPERIMENT_ID> `
-  --config <LOCAL_CONFIG>
-```
+| 事实 | 能否观测 | 说明 |
+| --- | --- | --- |
+| `process` | ✅ | 进程起、退出码 |
+| `version` | ✅ | 版本探测直接得到 |
+| `protocol` | ✅ | JSONL 事件流握手 |
+| `connectivity` | ✅ | 合成的 token 精确返回 |
+| `login` | ➖ 不适用 | api key 模式没有交互登录态 |
+| `actual_model` | ❌ **两侧都不可达** | 工具事件流无模型字段；中转站对直接请求返回 Cloudflare 403 |
+| `permission` | ❌ | 工具没有回报它实际使用的沙箱；**请求值不是观测值** |
 
-For `real_codex`, `arm` only revalidates the exact scope. A controlled
-executor may start one turn only after a separately approved, SHA-256-bound
-start approval; it revalidates the team, identities, scope and source
-integrity before process creation. The fake simulator still rejects that mode.
-Each real turn remains single-use and requires its own explicit local
-authorization.
+**结果是四个可观测、两个不可观测、一个不适用。**
 
-Board 14 is complete only for one local-private synthetic Manager execution.
-It does not enable the public candidate, authorize a repeat, or change the
-published `0.2.0rc1` release candidate. See
-`docs/reports/2026-09-01-board-14-11-controlled-success-closeout.md`.
-
-`status` 会同时显示运行、任务、结构化消息和 Artifact 元数据。
-
-运行测试：
-
-```powershell
-python -m unittest discover -s tests -v
-python scripts/privacy_scan.py --history
-python scripts/privacy_scan.py --local-state
-python scripts/release_verify.py
-```
-
-`--local-state` 会检查被 `.gitignore` 排除的 `runtime/` 与 `runtime-*`。默认的
-`--history` 只看 Git 跟踪与非忽略路径，因此那些目录对它完全不可见；两者是不同
-的口径，发布门禁用前者，搬迁工作目录前用后者。
-
-## Real-Agent qualification authorization package
-
-这是"到真实调用之间"的最后一个离线环节：把一次未来真实 Agent 资质的请求做成
-**可审查、可摘要、可失效**的对象。它不启动任何东西。
-
-```powershell
-python -m model_council authorization build --candidate-file <声明.json>
-python -m model_council authorization verify --package-file <包.json>
-python -m model_council supervisor authorization-bind manager --package-file <包.json>
-python -m model_council supervisor authorization-show [--role manager]
-```
-
-`build` 是纯校验，不落盘。`bind` 才会写一条本地记录，并捕获当前团队快照。
-
-三个必须知道的行为：
-
-- **工作目录只以"类别 + 环境变量名"出现**，例如
-  `{"category": "synthetic_workspace", "env_var": "MODEL_COUNCIL_SYNTHETIC_CWD"}`，
-  所以跟踪文件里永远不会出现本机绝对路径；
-- **缺证据时状态是 `user_confirmation_required`**，这是构造性的：七个生命周期
-  事实默认 `unknown`，没有提供观测值就不会变成可审查，
-  也就是说默认产出的是**一个问你的问题**，不是放行；
-- **事实状态绑进了包摘要**，任何观测值变化都会改变 `package_sha256`。
-  重新读取时会重新推导，所以被篡改的包报 `invalid`、事实漂移的报 `stale`、
-  团队快照过期的报 `superseded`。
-
-绑定**不创建启动审批、不启动进程、不授予任何权限**。
-
-### 观测记录：只有探测产出才能给真实 Agent 定资质
-
-一份"观测记录"里如果事实是调用方填的，那它**是一条声称**，不是一次测量。系统现在把两者分开：
+而且观测记录分两种来源，只有一种能用来给真实 Agent 定资质：
 
 | 来源 | 含义 | 能否用于就绪判定 |
-|---|---|---|
-| `probe_run` | 由本系统实际运行的探测产出，事实从捕获的输出推导 | ✅ 可以 |
+| --- | --- | --- |
+| `probe_run` | 由本系统实际运行的探测产出，事实从捕获的输出推导 | ✅ |
 | `operator_authored` | 事实由调用方提供 | ❌ **默认拒绝** |
 
-产生可用的记录只有一条路——跑一次探测：
+这条区分很重要：一个能在 JSON 里打出 `observed` 的操作者，并没有测量任何东西。
+所以记录里必须有来源凭证（命令摘要、输出哈希、探测自己的起止时间），
+而且**测量时间不能由调用方指定**。
 
-```powershell
-python -m model_council supervisor observation-probe `
-  --agent-id codex-architect --model-id codex-configured-default `
-  --provider-id codex-local --executable <TOOL_PATH>
-```
+**诚实边界**：这套机制**不能阻止**一个有权限的操作者事后伪造证据——本机操作者拥有
+进程、磁盘和工具。它改变的是**信任边界**，不是伪造的可能性。
 
-探测是**参数数组、`shell=False`、有超时（30 秒）**，只问工具自己的版本，**不发送任何项目上下文**。
-它的开始与结束时间由探测自己记录，**测量时间不能由调用方指定**。
+## 本项目还有哪些缺陷
 
-记录里带来源凭证：命令摘要、输出哈希、起止时间。而且探测**只报告它能确立的事实**：
+分类的存在原因不同，混为一谈会误判项目进度。
 
-```
-实测结果（2026-10-14，真实 codex）：
-  observed : process, version
-  unknown  : actual_model, connectivity, login, permission, protocol
-```
+### 能力缺口（尚未实现）
 
-`actual_model` **故意保持 unknown**——版本探测确立不了它，而"探测跑过"不是"哪个模型会服务请求"的证据。
-把它填成配置值正是项目第一条原则禁止的事。要确立它需要一次真实回合，那是单独授权的事。
+- **多轮争论与动态重新规划**：管理者只做一次规划、一次综合，失败后不重规划；
+- **worker 之间的交互式问答**：只能通过已存结果和最终上下文传递；
+- **自动价格目录刷新、货币换算与按时间窗口预算**：价格表由操作者声明；
+- **通用上下文摘要**：需要先有经审查的留存与披露政策；
+- **远程节点认证与签名**：A2A 的远端身份只做到端点校验；
+- **Artifact 保留与清除策略**：目前只增不减；
+- **Electron 打包与更广的操作台工作流**。
 
-**诚实边界**：这套机制**不能阻止**一个有权限的操作者事后伪造证据——本机操作者拥有进程、
-磁盘和工具。它改变的是**信任边界**：记录不再建立在自由格式的调用方 JSON 上，
-任何来源凭证的不一致都可被检出。声称"伪造已不可能"是假的。
+### 验证缺口（实现了，但只在假条件下验证过）
 
-### 两种探测，以及本机诚实的上限
+**这是最需要留意的一类：代码在，测试绿，但没碰过真实世界。**
 
-| 探测 | 能确立 | 代价 |
-|---|---|---|
-| **版本探测** | `process`、`version` | 零成本，不发外部请求 |
-| **真实回合** | `process`、`protocol`、`connectivity`（`version` 需另测） | **一次真实模型调用** |
+- **整个协作闭环从未用两个真实模型跑过**；
+- **A2A 与 MCP 的真实第三方端点**：只对假服务器跑通过；
+- **Codex App Server**：真实运行次数少，样本薄。
 
-真实回合由服务自己构造参数：prompt 是模块内固定的合成 token 任务，**调用方不能替换**；
-并且强制 `--sandbox read-only`、`--ephemeral`、跳过仓库检查、关闭附加子系统。响应文本
-**只用于分类，从不留存**。
+### 观测缺口（本机结构上测不到）
 
-两者可以合并成一份记录（`combine_probe_records`），合并后取**最旧**的测量时间——
-更早测到的事实不能靠后一次探测变新。合并**只接受探测产出**，因为把收据和声称混在一起
-就毁了整份记录。
+- **`actual_model`** 与 **`permission`**，原因见上一节。系统把它们记为 `unknown`，
+  而不是用配置值顶替；
+- **当前还没有"不可观测事实的例外政策"**——就绪门禁要求全部七个事实，
+  因此非 mock 角色目前无法在本机走到就绪。
 
-**本机实测结果（2026-10-14，真实 codex 0.154.0）**：
+### 接口缺口（能力在，但没有生产入口）
 
-```
-observed : process(exit_code=0)  version(0.154.0)  protocol(jsonl_events=3)
-           connectivity(synthetic_token_returned)
-unknown  : actual_model   permission
-n/a      : login
-prompt_tokens: 16046
-```
+- `RepairService.run_local_until_terminal()` 与 `WorkspaceService.invoke_cli()`：
+  只被测试使用，是**明确标注**的本地回调与假 CLI 演练，不是遗漏的接线。
 
-两个事实**有意保持 unknown**：
+### 已评估并决定不做
 
-- **`actual_model`** —— Codex 的事件流里**没有模型字段**，而配置的中转站端点
-  对直接请求返回 Cloudflare 403，所以服务端侧的模型身份也拿不到。**本机无法从任一侧观测它。**
-  填成配置值正是项目第一条原则禁止的事。
-- **`permission`** —— 运行请求的是只读，但**工具没有回报实际沙箱**。
-  把请求值记成观测值是对工具下的断言，不是测量。
+这一条不是缺陷，是决策记录，写在这里为了可追溯：
 
-这就是本机诚实的上限：**七个事实里四个可观测，两个不可观测，一个不适用。**
+- **本地传输可靠性加固**：只观察到一次不可复现的 Windows 回环中断。除非先拿到可复现的
+  失败测试，否则不启动——盲修一个复现不了的故障只会引入新风险。
 
-## Agent 版本与发现目录
+### 一句话总结
 
-发现目录是**配置数据**，不是代码。加一个工具不需要改模块：
-
-```json
-"discovery_targets": [
-  {"key": "myagent", "display_name": "My Agent",
-   "command_candidates": ["myagent.cmd", "myagent"],
-   "version_arguments": ["--version"],
-   "extra_path_patterns": ["C:/Programs/MyAgent/*.exe"]}
-],
-"gui_only_targets": [
-  {"key": "some-desktop-app", "display_name": "Some Desktop App",
-   "command_candidates": [], "version_arguments": [],
-   "interface_kind": "gui_only"}
-]
-```
-
-`interface_kind` 只有两个取值：`cli`（控制面可以自己调用）与 `gui_only`
-（不可以，只登记可见性与手工移交）。声明成 `cli` 却没有任何命令会在**配置加载时
-直接报错**，不会静默通过。
-
-同一 Agent 存在多个安装时，会各自探测版本并按规则推荐：
-
-| 层级 | 规则 |
-| --- | --- |
-| 比较两个版本 | 正式版只胜过**同号**的候选版：`1.35.0` > `1.35.0-rc.1` |
-| 排序候选集 | 只要存在正式版，就不推荐任何候选版：`1.34.9` 胜过 `1.35.0-rc.1` |
-
-排序规则可关闭（退化为纯数字比较）。**推荐永远不是替换**：任何结果都带
-`auto_switch: false`，且显式指定的 `preferred_version` 一定优先于推荐，
-会记为 `user_preference` 并把被压过的版本列进 `alternatives`。
-
-无法比较的版本（例如 `latest` 与 `1.35.0` 混在一起）返回 `undecidable`，
-**不给推荐、不猜**。
-
-版本探测是参数数组、`shell=False`、有超时，只问工具自己的版本，不发送任何项目上下文。
-
-## 接入 Codex
-
-复制 `config.codex.example.json` 后修改。Windows 示例通过 stdin 把完整任务交给
-`codex exec -`，并使用 JSONL 事件流：
-
-```json
-{
-  "type": "cli",
-  "command": [
-    "codex.cmd",
-    "exec",
-    "--ephemeral",
-    "--skip-git-repo-check",
-    "--sandbox",
-    "read-only",
-    "--color",
-    "never",
-    "--json",
-    "-"
-  ],
-  "output_format": "codex_jsonl"
-}
-```
-
-第一轮建议只让一个角色使用真实 Codex，其他角色继续使用 mock。确认运行、权限和输出都稳定后，再逐个替换。
-
-`codex_jsonl` 模式不会把推理事件当作最终答案，只读取最后一个完成的
-`agent_message`。线程 ID、事件类型统计和 usage 会作为任务消息元数据保存。
-
-Codex 默认应保持只读。需要让执行 agent 修改项目时，应给它独立 Git worktree，并在人工确认后才启用工作区写权限。
-
-如果在 Codex Desktop 自身的受限任务环境中调用打包的 `codex.exe` 出现
-Windows“拒绝访问”，请在普通用户 PowerShell 中运行本项目，或改用后续的
-App Server/API Adapter。这是宿主进程权限边界，不代表 CLI Adapter 的参数协议失败。
-
-## 接入 OpenAI-compatible API
-
-不要把密钥写进 JSON。配置环境变量：
-
-```powershell
-$env:MODEL_COUNCIL_API_KEY = "..."
-```
-
-然后使用：
-
-```json
-{
-  "type": "openai_compatible",
-  "base_url": "https://example.com/v1",
-  "api_key_env": "MODEL_COUNCIL_API_KEY",
-  "model": "your-model-id",
-  "api_style": "responses",
-  "max_response_bytes": 16384,
-  "outbound_context": {
-    "source": "synthetic",
-    "allowed_sources": ["synthetic"],
-    "max_files": 0,
-    "max_total_bytes": 4096,
-    "max_artifacts": 0,
-    "max_artifact_bytes": 0
-  },
-  "invoke_enabled": false
-}
-```
-
-可选的 `api_style`：
-
-- `responses`
-- `chat_completions`
-
-并非所有声称兼容 OpenAI API 的服务都完整支持这两种接口，需要按提供商实际行为验证。
-
-**`/models` 端点不可用的 Provider**：有些服务对 `/models` 直接返回拒绝（实测遇到过
-403 + Cloudflare 1010），但完成请求完全正常。这种情况把
-`models_endpoint_available` 设为 `false`，连通性检查就会改用补全端点，而不是报一个
-假的失败：
-
-```json
-{
-  "base_url": "https://provider.example/v1",
-  "model": "model-name",
-  "api_key_env": "PROVIDER_API_KEY",
-  "api_style": "responses",
-  "models_endpoint_available": false
-}
-```
-
-这个模式下的探针**会发一次有界的真实补全请求**，所以它是显式声明而非默认行为。
-好处是它顺带回答"实际服务的是哪个模型"——响应里的 `model` 字段会被记为
-`observed_model`，与 `configured_model` 分开保存。
+真正没验证过的不是这些机制，而是**它们面对真实 Agent 时的行为**。
+控制面和授权链是可信的（有实测），缺的是真实条件下的覆盖广度。
 
 ## 隐私扫描
 
@@ -903,60 +252,36 @@ $env:MODEL_COUNCIL_API_KEY = "..."
 
 扫描只打印 `路径:行号:类别`，**从不回显匹配到的值本身**。
 
-## 本项目还有哪些缺陷
+## 项目地图
 
-这一节如实列出当前的不足。分类存在的原因不同，混为一谈会误判项目进度。
+| 想看什么 | 去哪 |
+| --- | --- |
+| 完整命令参考（21 个顶层命令） | [`docs/CLI.md`](docs/CLI.md) |
+| 接入真实 Codex／OpenAI 兼容 API | [`docs/ADAPTERS.md`](docs/ADAPTERS.md) |
+| 项目要解决的最终问题、不可偏离原则 | [`docs/PROJECT_GOAL.md`](docs/PROJECT_GOAL.md) |
+| 当前实现状态与每个板块的边界 | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) |
+| 每个开发板块的范围与验收报告 | [`docs/DEVELOPMENT_BOARDS.md`](docs/DEVELOPMENT_BOARDS.md)　＋　[`docs/reports/`](docs/reports/) |
+| 架构与不变量 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| 隐私分级政策与登记册 | [`docs/PRIVACY_ISSUES.md`](docs/PRIVACY_ISSUES.md) |
+| 改代码前必读的工作约定 | [`AGENTS.md`](AGENTS.md) |
+| 跨会话接手说明 | [`docs/START_HERE_NEXT_SESSION.md`](docs/START_HERE_NEXT_SESSION.md) |
 
-### 能力缺口（尚未实现）
+## 开发门禁
 
-- **多轮争论与动态重新规划**：管理者只做一次规划、一次综合；worker 失败后不重规划，
-  也没有"发现某个结论站不住就回头重做"的路径；
-- **worker 之间的交互式问答**：只能通过已存结果和最终上下文传递，不能就一个疑点来回追问；
-- **自动价格目录刷新、货币换算与按时间窗口预算**：价格表目前由操作者声明，
-  不刷新就没有新模型的价格；
-- **通用上下文摘要**：需要先有一份经审查的留存与披露政策，否则摘要本身就是新的泄露面；
-- **远程节点认证与签名**：A2A 的远端身份只做到端点校验，没有签名链；
-- **Artifact 保留与清除策略**：目前没有任何清除路径，`runtime/artifacts/` 只增不减；
-- **Electron 打包与更广的操作台工作流**：界面停留在仅回环的本地 Web。
+改代码前后都应运行：
 
-### 验证缺口（实现了，但只在假条件下验证过）
+```powershell
+python -m unittest discover -s tests -v
+python -m compileall -q model_council tests scripts
+python scripts/privacy_scan.py --history
+python scripts/privacy_scan.py --local-state
+python scripts/release_verify.py
+```
 
-这是最需要留意的一类：**代码在，测试绿，但没碰过真实世界。**
+项目按**开发板块**推进。每个板块完成时必须同时交付：实现、自动化测试、
+`docs/reports/` 下的验收报告、路线图与交接文档更新、**恰好一个**可识别的 Git 提交、
+以及一次完整隐私扫描。
 
-- **A2A 与 MCP 的真实第三方端点**：协议客户端与审批链都写完了，
-  但**没有验证过任何真实远端**，只对仓库内的假服务器跑通过；
-- **Codex App Server**：对假服务器完整验证，另有过一次真实只读合成运行——
-  次数少，样本薄；
-- **整个协作闭环从未用两个真实模型跑过**：系统名叫 Model Council，
-  初心是"多个不同模型协作完成真实项目"，而真实调用累计只有少数几次单 Agent 合成任务。
+## 许可
 
-### 观测缺口（本机结构上测不到）
-
-这类不是"没做"，是**在当前环境下拿不到**，而且已经查清了原因。
-
-- **`actual_model`**：Codex 的事件流里没有模型字段；配置的中转站端点对直接请求返回
-  Cloudflare 403。**两侧都不可达**，所以"实际跑的是哪个模型"在本机无法观测。
-  系统把它记为 `unknown`，而不是用配置值顶替。
-- **`permission`**：运行请求的是只读，但工具**没有回报实际沙箱**。
-  请求值不是观测值，所以同样保持 `unknown`。
-
-结果是：七个资质事实里本机只能确立四个。
-**当前还没有"不可观测事实的例外政策"**——就绪门禁要求全部七个，因此非 mock 角色
-目前无法在本机走到就绪。这是下一步要解决的问题。
-
-### 接口缺口（能力在，但没有生产入口）
-
-- `RepairService.run_local_until_terminal()` 与 `WorkspaceService.invoke_cli()`：
-  两条路径只被测试使用，是**明确标注**的本地回调与假 CLI 演练，不是遗漏的接线。
-
-### 已评估并决定不做
-
-这一条不是缺陷，是决策记录，写在这里是为了可追溯：
-
-- **Board 16 本地传输可靠性加固**：只观察到一次不可复现的 Windows 回环中断。
-  除非先拿到可复现的失败测试，否则不启动——盲修一个复现不了的故障只会引入新风险。
-
-### 一句话总结
-
-真正没验证过的不是这些机制，而是**它们面对真实 Agent 时的行为**。
-控制面和授权链是可信的（有实测），缺的是真实条件下的覆盖广度。
+[MIT](LICENSE)
